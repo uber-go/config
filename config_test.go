@@ -325,38 +325,6 @@ ps:
 	require.NoError(t, v.Populate(cfg))
 }
 
-func TestPointerChildTypedField(t *testing.T) {
-	t.Parallel()
-
-	type Port int
-	type childPort struct {
-		Port *Port
-	}
-
-	type portChildStruct struct {
-		Name     string
-		Child    *childPort
-		Children []childPort
-	}
-
-	var ptrChildPort = `
-ps:
-  name: Hello
-  child:
-    port: 123
-  children:
-    - port: 321
-`
-
-	p := NewYAMLProviderFromBytes([]byte(ptrChildPort))
-
-	cfg := &portChildStruct{Name: "xxx"}
-	v := p.Get("ps")
-
-	require.NoError(t, v.Populate(cfg))
-	require.Equal(t, 123, int(*cfg.Child.Port))
-}
-
 func TestRPCPortField(t *testing.T) {
 	t.Parallel()
 
