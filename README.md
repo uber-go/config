@@ -88,7 +88,7 @@ environment-based configuration providers.
 ### Dynamic configuration providers
 
 Dynamic configuration providers frequently need some bootstrap configuration to
-be usefu. Dynamic configuration providers
+be useful. Dynamic configuration providers
 conform to the `Provider` interface, but they're instantiated
 **after** the Static `Provider`s on order to read bootstrap values.
 
