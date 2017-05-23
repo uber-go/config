@@ -1,5 +1,5 @@
 hash: ca25df7c2a2283dbce17355e832e14051a54ac56c32fe81c0684321de31217ff
-updated: 2017-05-23T11:01:34.102390715-07:00
+updated: 2017-05-23T11:22:37.492884021-07:00
 imports:
 - name: github.com/go-validator/validator
   version: 0a9835d809fb647a62611d30cb792e0b5dd65b11
@@ -25,18 +25,7 @@ testImports:
   subpackages:
   - assert
   - require
-- name: go.uber.org/atomic
-  version: 4e336646b2ef9fc6e47be8e21594178f98e5ebcf
 - name: go.uber.org/tools
   version: ce2550dad7144b81ae2f67dc5e55597643f6902b
   subpackages:
   - update-license
-- name: go.uber.org/zap
-  version: fab453050a7a08c35f31fc5fff6f2dbd962285ab
-  subpackages:
-  - buffer
-  - internal/bufferpool
-  - internal/color
-  - internal/exit
-  - internal/multierror
-  - zapcore

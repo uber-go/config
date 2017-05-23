@@ -22,8 +22,6 @@ package config
 
 import (
 	"testing"
-
-	"go.uber.org/zap"
 )
 
 func BenchmarkYAMLCreateSingleFile(b *testing.B) {
@@ -148,23 +146,6 @@ func BenchmarkYAMLPopulateNestedTextUnmarshaler(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		p.Get(Root).Populate(s)
-	}
-}
-
-func BenchmarkZapConfigLoad(b *testing.B) {
-	yaml := []byte(`
-level: info
-encoderConfig:
-  levelEncoder: color
-`)
-	p := NewYAMLProviderFromBytes(yaml)
-	cfg := &zap.Config{}
-	b.ResetTimer()
-
-	for n := 0; n < b.N; n++ {
-		if err := p.Get(Root).Populate(cfg); err != nil {
-			b.Error(err)
-		}
 	}
 }
 
