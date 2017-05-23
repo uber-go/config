@@ -1,4 +1,8 @@
-# Configuration Package
+# Config
+
+[![GoDoc][doc-img]][doc]
+[![Build Status][ci-img]][ci]
+[![Report Card][report-card-img]][report-card]
 
 At a high level, configuration is any data that is used in an application but
 not part of the application itself. Any reasonably complex system needs to
@@ -437,3 +441,15 @@ BenchmarkYAMLPopulateNestedMultipleFiles-8          52 allocs/op
 BenchmarkYAMLPopulateNestedTextUnmarshaler-8       233 allocs/op
 BenchmarkZapConfigLoad-8                           136 allocs/op
 ```
+
+## License
+
+[MIT](LICENSE.txt)
+
+[doc]: https://godoc.org/go.uber.org/config
+[doc-img]: https://godoc.org/go.uber.org/config?status.svg
+[ci]: https://travis-ci.org/uber-go/fx
+[ci-img]: https://travis-ci.org/uber-go/fx.svg?branch=master
+[report-card]: https://goreportcard.com/report/github.com/uber-go/config
+[report-card-img]: https://goreportcard.com/badge/github.com/uber-go/config
+
