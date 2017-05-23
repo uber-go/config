@@ -1,0 +1,14 @@
+language: go
+
+go_import_path: go.uber.org/config
+
+go:
+  - 1.7
+  - 1.8
+  - 1.8.x
+
+install:
+  - make install
+
+script:
+  - make test
