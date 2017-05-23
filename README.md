@@ -4,11 +4,11 @@
 [![Build Status][ci-img]][ci]
 [![Report Card][report-card-img]][report-card]
 
-At a high level, configuration is any data that is used in an application but
+Configuration is any data that is used in an application but
 not part of the application itself. Any reasonably complex system needs to
 have knobs to tune, and not everything can have intelligent defaults.
 
-In UberFx, we try very hard to make configuring UberFx convenient. Users can:
+`package config` allows users to:
 
 * Get components working with minimal configuration
 * Override any field if the default doesn't make sense for their use case
@@ -40,7 +40,7 @@ stuff:
     greeting: Hello There!
 ```
 
-UberFx Config allows direct key access, such as `foo.bar.baz`:
+Config allows direct key access, such as `foo.bar.baz`:
 
 ```go
 cfg := svc.Config()
@@ -88,7 +88,7 @@ environment-based configuration providers.
 ### Dynamic configuration providers
 
 Dynamic configuration providers frequently need some bootstrap configuration to
-be useful, so UberFx treats them specially. Dynamic configuration providers
+be usefu. Dynamic configuration providers
 conform to the `Provider` interface, but they're instantiated
 **after** the Static `Provider`s on order to read bootstrap values.
 
@@ -448,8 +448,8 @@ BenchmarkZapConfigLoad-8                           136 allocs/op
 
 [doc]: https://godoc.org/go.uber.org/config
 [doc-img]: https://godoc.org/go.uber.org/config?status.svg
-[ci]: https://travis-ci.org/uber-go/fx
-[ci-img]: https://travis-ci.org/uber-go/fx.svg?branch=master
+[ci]: https://travis-ci.org/uber-go/config
+[ci-img]: https://travis-ci.org/uber-go/config.svg?branch=master
 [report-card]: https://goreportcard.com/report/github.com/uber-go/config
 [report-card-img]: https://goreportcard.com/badge/github.com/uber-go/config
 
