@@ -26,6 +26,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"sort"
 )
 
 func TestStaticProvider_Name(t *testing.T) {
@@ -270,4 +271,24 @@ func TestPopulateForMapsWithNotAssignableKeyTypes(t *testing.T) {
 	msg := err.Error()
 	assert.Contains(t, msg, `can't convert "1" to "config.secretType"`)
 	assert.Contains(t, msg, "key types conversion")
+}
+
+func TestValue_ChildKeys(t *testing.T) {
+	t.Parallel()
+
+	p := NewStaticProvider(map[string]interface{}{
+		"one": 1,
+		"two": 2,
+		"slice": []int{42, 13},
+	})
+
+	op := func (t *testing.T, key string, expected []string) {
+		keys := p.Get(key).ChildKeys()
+		sort.Strings(keys)
+		assert.Equal(t, expected, keys)
+	}
+
+	t.Run("Map", func(t *testing.T) { op(t, Root, []string{"one", "slice", "two"})})
+	t.Run("Map", func(t *testing.T) { op(t, "slice", []string{"13", "42"})})
+	t.Run("Map", func(t *testing.T) { op(t, "nothing", nil)})
 }
