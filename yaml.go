@@ -30,8 +30,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-yaml/yaml"
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
 )
 
 type yamlConfigProvider struct {

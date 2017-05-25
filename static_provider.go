@@ -22,9 +22,10 @@ package config
 
 import (
 	"bytes"
-	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
+
+	"github.com/go-yaml/yaml"
 )
 
 type staticProvider struct {

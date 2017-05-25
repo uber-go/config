@@ -1,11 +1,13 @@
-package: go.uber.org/fx
+package: go.uber.org/config
 import:
 - package: github.com/go-validator/validator
+  version: v2
 - package: github.com/ogier/pflag
   version: ~0.0.1
 - package: github.com/pkg/errors
   version: ~0.8.0
-- package: gopkg.in/yaml.v2
+- package: github.com/go-yaml/yaml
+  version: v2
 testImport:
 - package: github.com/google/gofuzz
 - package: github.com/stretchr/testify
