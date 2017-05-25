@@ -22,11 +22,11 @@ package config
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"sort"
 )
 
 func TestStaticProvider_Name(t *testing.T) {
@@ -277,18 +277,21 @@ func TestValue_ChildKeys(t *testing.T) {
 	t.Parallel()
 
 	p := NewStaticProvider(map[string]interface{}{
-		"one": 1,
-		"two": 2,
+		"one":   1,
+		"two":   2,
 		"slice": []int{42, 13},
 	})
 
-	op := func (t *testing.T, key string, expected []string) {
+	op := func(t *testing.T, key string, expected []string) {
 		keys := p.Get(key).ChildKeys()
 		sort.Strings(keys)
 		assert.Equal(t, expected, keys)
 	}
 
-	t.Run("Map", func(t *testing.T) { op(t, Root, []string{"one", "slice", "two"})})
-	t.Run("Map", func(t *testing.T) { op(t, "slice", []string{"13", "42"})})
-	t.Run("Map", func(t *testing.T) { op(t, "nothing", nil)})
+	t.Run("Map", func(t *testing.T) { op(t, Root, []string{"one", "slice", "two"}) })
+	t.Run("Slice", func(t *testing.T) { op(t, "slice", []string{"13", "42"}) })
+	t.Run("Empty", func(t *testing.T) { op(t, "nothing", nil) })
+
+	p = NewStaticProvider(map[int]string{3: "three", 5: "five"})
+	t.Run("MapOfInts", func(t *testing.T) { op(t, Root, []string{"3", "5"}) })
 }
