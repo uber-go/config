@@ -152,12 +152,15 @@ func (cv Value) WithDefault(value interface{}) Value {
 func (cv Value) ChildKeys() []string {
 	var res []string
 
-	// intentionally ignoring the error, because we can't do much about it
-	// and simply return an empty slice in that case.
-	cv.Populate(&res)
+	if err := cv.Populate(&res); err != nil {
+		return nil
+	}
 
 	var m map[string]interface{}
-	cv.Populate(&m)
+	if err := cv.Populate(&m); err != nil {
+		return nil
+	}
+
 	for k := range m {
 		res = append(res, k)
 	}
