@@ -27,10 +27,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"sync"
 	"testing"
-
-	"path/filepath"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -575,15 +574,17 @@ func TestParallelLoad(t *testing.T) {
 		assert.Equal(t, "bane", p.Get("vilain").String())
 	}
 
+	count := 100
 	wg := sync.WaitGroup{}
-	wg.Add(2)
+	wg.Add(count)
 	op := func() {
 		withBase(t, f, "vilain: bane")
 		wg.Done()
 	}
 
-	go op()
-	go op()
+	for i := 0; i < count; i++ {
+		go op()
+	}
 
 	wg.Wait()
 }
