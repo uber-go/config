@@ -148,6 +148,7 @@ func (cv Value) WithDefault(value interface{}) Value {
 	return cv2
 }
 
+// ChildKeys returns the child keys
 func (cv Value) ChildKeys() []string {
 	var res []string
 
