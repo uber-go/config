@@ -28,34 +28,28 @@ type providerGroup struct {
 // NewProviderGroup creates a configuration provider from a group of backends.
 // The highest priority provider is the last.
 func NewProviderGroup(name string, providers ...Provider) Provider {
-	l := len(providers)
-	p := providerGroup{
+	return providerGroup{
 		name:      name,
-		providers: make([]Provider, l),
+		providers: providers,
 	}
-
-	for i := 0; i < l; i++ {
-		p.providers[i] = providers[l-i-1]
-	}
-
-	return p
 }
 
 func (p providerGroup) Get(key string) Value {
-	cv := NewValue(p, key, nil, false, GetType(nil), nil)
-
 	// loop through the providers and return the value defined by the highest priority provider
+	var res interface{}
+	found := false
 	for _, provider := range p.providers {
 		if val := provider.Get(key); val.HasValue() && !val.IsDefault() {
-			cv = val
-			break
+			res = mergeMaps(res, val.value)
+			found = true
 		}
 	}
+
+	cv := NewValue(p, key, res, found, GetType(res), nil)
 
 	// here we add a new root, which defines the "scope" at which
 	// Populates will look for values.
 	cv.root = p
-	cv.provider = p
 	return cv
 }
 

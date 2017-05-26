@@ -128,3 +128,17 @@ logging:
 	pg := NewProviderGroup("group", NewYAMLProviderFromBytes(snd), NewYAMLProviderFromBytes(fst))
 	assert.True(t, pg.Get("logging").Get("enabled").AsBool())
 }
+
+func TestProviderGroup_GetChecksAllProviders(t *testing.T) {
+	t.Parallel()
+
+	pg := NewProviderGroup("test-group",
+		NewStaticProvider(map[string]string{"name": "test", "desc": "test"}),
+		NewStaticProvider(map[string]string{"owner": "tst@example.com", "name": "fx"}))
+
+	require.NotNil(t, pg)
+
+	var svc map[string]string
+	require.NoError(t, pg.Get(Root).Populate(&svc))
+	assert.Equal(t, map[string]string{"name": "fx", "owner": "tst@example.com", "desc": "test"}, svc)
+}
