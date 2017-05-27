@@ -289,7 +289,7 @@ func TestValue_ChildKeys(t *testing.T) {
 	}
 
 	t.Run("Map", func(t *testing.T) { op(t, Root, []string{"one", "slice", "two"}) })
-	t.Run("Slice", func(t *testing.T) { op(t, "slice", []string{"13", "42"}) })
+	t.Run("Slice", func(t *testing.T) { op(t, "slice", []string{"0", "1"}) })
 	t.Run("Empty", func(t *testing.T) { op(t, "nothing", nil) })
 
 	p = NewStaticProvider(map[int]string{3: "three", 5: "five"})

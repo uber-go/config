@@ -150,10 +150,14 @@ func (cv Value) WithDefault(value interface{}) Value {
 
 // ChildKeys returns the child keys
 func (cv Value) ChildKeys() []string {
-	var res []string
-
-	if err := cv.Populate(&res); err != nil {
+	var slice []interface{}
+	if err := cv.Populate(&slice); err != nil {
 		return nil
+	}
+
+	var res []string
+	for i := range slice {
+		res = append(res, fmt.Sprint(i))
 	}
 
 	var m map[string]interface{}
