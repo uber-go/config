@@ -693,3 +693,10 @@ func TestLoader_OverrideStaticConfigFiles(t *testing.T) {
 
 	withBase(t, f, "value: base")
 }
+
+func TestDefaultLoaderLoadTwice(t *testing.T) {
+	t.Parallel()
+
+	_ = DefaultLoader.Load()
+	assert.NotPanics(t, func(){DefaultLoader.Load()})
+}
