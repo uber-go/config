@@ -21,16 +21,11 @@
 package config
 
 import (
-	"os"
-
-<<<<<<< HEAD
-=======
-	"github.com/ogier/pflag"
 	"io/ioutil"
->>>>>>> Update loader
+	"os"
 	"strings"
 
-	flag "github.com/ogier/pflag"
+	"github.com/ogier/pflag"
 )
 
 const (
