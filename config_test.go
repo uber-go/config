@@ -22,6 +22,7 @@ package config
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -29,8 +30,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-
-	"errors"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -85,15 +84,6 @@ things:
   - id1: 2
 `)
 
-var yamlConfig2 = []byte(`
-appid: keyvalue
-desc: A simple keyvalue service
-appowner: owner@service.com
-modules:
-  rpc:
-    bind: :28941
-`)
-
 var yamlConfig3 = []byte(`
 float: 1.123
 bool: true
@@ -109,13 +99,7 @@ func TestDefaultConfig(t *testing.T) {
 	t.Parallel()
 
 	withBase(t, func(dir string) {
-		lookup := func(key string) (string, bool) {
-			if key == "CONFIG_DIR" {
-				return dir, true
-			}
-
-			return "", false
-		}
+		lookup := lookUpWithConfig(dir, func(string) (string, bool){return "", false})
 
 		l := Loader{
 			LookUp: lookup,
@@ -125,6 +109,8 @@ func TestDefaultConfig(t *testing.T) {
 
 		f, err := os.Create(filepath.Join(dir, "development.yaml"))
 		require.NoError(t, err)
+		defer func(){assert.NoError(t, os.Remove(f.Name()))}()
+
 		f.WriteString("override: dev")
 		require.NoError(t, f.Close())
 
@@ -137,7 +123,6 @@ func TestDefaultConfig(t *testing.T) {
 
 		val = cfg.Get("override")
 		assert.Equal(t, "dev", val.AsString())
-		require.NoError(t, os.Remove(f.Name()))
 	}, "name: test\noverride: base")
 
 }
@@ -490,6 +475,16 @@ func withBase(t *testing.T, f func(dir string), contents string) {
 	f(dir)
 }
 
+func lookUpWithConfig(dir string, lookUp LookUpFunc) LookUpFunc{
+	return func(key string) (string, bool) {
+		if key == "CONFIG_DIR" {
+			return dir, true
+		}
+
+		return lookUp(key)
+	}
+}
+
 func TestParallelLoad(t *testing.T) {
 	// TODO(alsam) make Load parallel
 	t.Skip()
@@ -501,13 +496,7 @@ func TestParallelLoad(t *testing.T) {
 	wg.Add(count)
 
 	withBase(t, func(dir string) {
-		l.LookUp = func(key string) (string, bool) {
-			if key == "CONFIG_DIR" {
-				return dir, true
-			}
-
-			return DefaultLoader.LookUp(key)
-		}
+		l.LookUp = lookUpWithConfig(dir, l.LookUp)
 		l.Init = NewYAMLProviderFromReader(ioutil.NopCloser(strings.NewReader(fmt.Sprintf(`- path: %s/base.yaml`, dir))))
 
 		for i := 0; i < count; i++ {
@@ -553,13 +542,7 @@ func TestLoaderFailsToFindConfigFile(t *testing.T) {
 
 	withBase(t, func(dir string) {
 		l := TestLoader
-		l.LookUp = func(key string) (string, bool) {
-			if key == "CONFIG_DIR" {
-				return dir, true
-			}
-
-			return TestLoader.LookUp(key)
-		}
+		l.LookUp = lookUpWithConfig(dir, l.LookUp)
 
 		_, err := l.Load()
 		require.Error(t, err)

@@ -73,7 +73,7 @@ type Loader struct {
 	// LookUp is a function to look for interpolated/environment values
 	LookUp LookUpFunc
 
-	// Initial config to aplly fold functions
+	// Initial config to apply fold functions
 	Init Provider
 
 	// Functions to apply on initial provider.
@@ -140,7 +140,7 @@ func loadFilesFromConfig(lookup LookUpFunc, provider Provider) (Provider, error)
 		return nil, err
 	}
 
-	var res Provider
+	var res []Provider
 	for _, f := range list {
 		if _, err := os.Stat(f.Path); os.IsNotExist(err) && f.Optional {
 			continue
@@ -158,8 +158,8 @@ func loadFilesFromConfig(lookup LookUpFunc, provider Provider) (Provider, error)
 			p = NewYAMLProviderFromReader(reader)
 		}
 
-		res = NewProviderGroup(f.Path, res, p)
+		res = append(res, p)
 	}
 
-	return NewProviderGroup("global", res), nil
+	return NewProviderGroup("global", res...), nil
 }
