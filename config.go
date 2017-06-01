@@ -25,7 +25,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ogier/pflag"
+	"github.com/spf13/pflag"
 )
 
 const (
