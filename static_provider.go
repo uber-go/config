@@ -48,13 +48,6 @@ func NewStaticProviderWithExpand(data interface{}, mapping func(string) (string,
 	}
 }
 
-// StaticProvider returns function to create StaticProvider during configuration initialization
-func StaticProvider(data interface{}) ProviderFunc {
-	return func() (Provider, error) {
-		return NewStaticProvider(data), nil
-	}
-}
-
 func (staticProvider) Name() string {
 	return "static"
 }

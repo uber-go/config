@@ -23,6 +23,11 @@ package config
 import (
 	"os"
 
+<<<<<<< HEAD
+=======
+	"github.com/ogier/pflag"
+	"io/ioutil"
+>>>>>>> Update loader
 	"strings"
 
 	flag "github.com/ogier/pflag"
@@ -38,53 +43,62 @@ const (
 
 	// ServiceOwnerKey is the config key for a service owner.
 	ServiceOwnerKey = "owner"
+
+	// _defaultInit is used to load a default set of configuration files.
+	_defaultInit = `
+- path: ${CONFIG_DIR:config}/base.yaml
+  interpolate: true
+- path: ${CONFIG_DIR:config}/${ENVIRONMENT:development}.yaml
+  interpolate: true
+- path: ${CONFIG_DIR:config}/secrets.yaml
+  optional: true
+`
+	// _testInit is used to specify files for the TestLoader.
+	_testInit = `
+- path: ${CONFIG_DIR:config}/base.yaml
+  interpolate: true
+- path: ${CONFIG_DIR:config}/test.yaml
+  interpolate: true
+`
 )
 
 // LookupFunc is a type alias for a function to look for environment variables,
 type LookUpFunc func(string) (string, bool)
 
+// ProviderFold is a collection of functions to fold the configs.
+type ProviderFold []func(LookUpFunc, Provider) (Provider, error)
+
 // Loader is responsible for loading config providers.
 type Loader struct {
+	// LookUp is a function to look for interpolated/environment values
 	LookUp LookUpFunc
-	Init   Provider
-	Apply  []func(LookUpFunc, Provider) (Provider, error)
-}
 
-var defaultInit = `
-- path: config/base.yaml
-  interpolate: true
-- path: config/${ENVIRONMENT:development}.yaml
-  interpolate: true
-- path: config/secrets.yaml
-  interpolate: false
-`
+	// Initial config to aplly fold functions
+	Init Provider
+
+	// Functions to apply on initial provider.
+	Apply ProviderFold
+}
 
 // DefaultLoader is going to be used by a service if config is not specified.
 // First values are going to be looked in dynamic providers, then in command line provider
 // and YAML provider is going to be the last.
 var DefaultLoader = Loader{
 	LookUp: os.LookupEnv,
-	Init:   NewYAMLProviderFromReaderWithExpand(os.LookupEnv, strings.NewReader(defaultInit)),
+	Init:   NewYAMLProviderFromReaderWithExpand(os.LookupEnv, ioutil.NopCloser(strings.NewReader(_defaultInit))),
 	Apply: []func(LookUpFunc, Provider) (Provider, error){
 		loadFilesFromConfig,
 		loadCommandLineProvider,
 	},
 }
 
-// TestLoader reads configuration from base.yaml and test.yaml files.
-var TestLoader = func() (Provider, error) {
-	l := DefaultLoader
-	l.LookUp = func(key string) (string, bool) {
-		if key == "ENVIRONMENT" {
-			return "test", true
-		}
-
-		val, err := DefaultLoader.LookUp(key)
-		return val, err
-	}
-
-	val, err := l.Load()
-	return val, err
+// TestLoader reads configuration from base.yaml and test.yaml files, but skips command line parameters.
+var TestLoader = Loader{
+	LookUp: os.LookupEnv,
+	Init:   NewYAMLProviderFromReaderWithExpand(os.LookupEnv, ioutil.NopCloser(strings.NewReader(_testInit))),
+	Apply: []func(LookUpFunc, Provider) (Provider, error){
+		loadFilesFromConfig,
+	},
 }
 
 // Load creates a Provider for use in a service.
@@ -106,17 +120,19 @@ func (l Loader) Load() (Provider, error) {
 
 func loadCommandLineProvider(lookup LookUpFunc, provider Provider) (Provider, error) {
 	var s StringSlice
-	if flag.CommandLine.Lookup("roles") != nil {
-		flag.CommandLine.Var(&s, "roles", "")
-	}
-
-	return NewCommandLineProvider(flag.CommandLine, os.Args[1:]), nil
+	pflag.CommandLine.Var(&s, "roles", "")
+	return NewProviderGroup("global", provider, NewCommandLineProvider(pflag.CommandLine, os.Args[1:])), nil
 }
 
 func loadFilesFromConfig(lookup LookUpFunc, provider Provider) (Provider, error) {
+	if provider == nil {
+		return provider, nil
+	}
+
 	type cfg struct {
 		Path        string
 		Interpolate bool
+		Optional    bool
 	}
 
 	var list []cfg
@@ -125,8 +141,11 @@ func loadFilesFromConfig(lookup LookUpFunc, provider Provider) (Provider, error)
 	}
 
 	var res Provider
-
 	for _, f := range list {
+		if _, err := os.Stat(f.Path); os.IsNotExist(err) && f.Optional {
+			continue
+		}
+
 		reader, err := os.Open(f.Path)
 		if err != nil {
 			return nil, err
@@ -142,5 +161,5 @@ func loadFilesFromConfig(lookup LookUpFunc, provider Provider) (Provider, error)
 		res = NewProviderGroup(f.Path, res, p)
 	}
 
-	return res, nil
+	return NewProviderGroup("global", res), nil
 }

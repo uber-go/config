@@ -140,7 +140,7 @@ func BenchmarkYAMLPopulateNestedTextUnmarshaler(b *testing.B) {
 		Episodes []protagonist
 	}
 
-	p := NewYAMLProviderFromFiles(true, NewRelativeResolver("./testdata"), "textUnmarshaller.yaml")
+	p := NewYAMLProviderFromFiles("./testdata/textUnmarshaller.yaml")
 	s := &series{}
 	b.ResetTimer()
 
@@ -150,14 +150,12 @@ func BenchmarkYAMLPopulateNestedTextUnmarshaler(b *testing.B) {
 }
 
 func providerOneFile() Provider {
-	return NewYAMLProviderFromFiles(false, NewRelativeResolver("./testdata"), "benchmark1.yaml")
+	return NewYAMLProviderFromFiles("./testdata/benchmark1.yaml")
 }
 
 func providerTwoFiles() Provider {
 	return NewYAMLProviderFromFiles(
-		false,
-		NewRelativeResolver("./testdata"),
-		"benchmark1.yaml",
-		"benchmark2.yaml",
+		"./testdata/benchmark1.yaml",
+		"./testdata/benchmark2.yaml",
 	)
 }

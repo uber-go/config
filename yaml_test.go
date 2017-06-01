@@ -169,7 +169,7 @@ func TestYamlStructChild(t *testing.T) {
 
 func TestExtends(t *testing.T) {
 	t.Parallel()
-	provider := NewYAMLProviderFromFiles(false, NewRelativeResolver("./testdata"), "base.yaml", "dev.yaml", "secrets.yaml")
+	provider := NewYAMLProviderFromFiles("./testdata/base.yaml", "./testdata/dev.yaml", "./testdata/secrets.yaml")
 
 	baseValue := provider.Get("value").AsString()
 	assert.Equal(t, "base_only", baseValue)
@@ -184,7 +184,7 @@ func TestExtends(t *testing.T) {
 func TestAppRoot(t *testing.T) {
 	t.Parallel()
 
-	provider := NewYAMLProviderFromFiles(false, NewRelativeResolver("testdata"), "base.yaml", "dev.yaml", "secrets.yaml")
+	provider := NewYAMLProviderFromFiles("./testdata/base.yaml", "./testdata/dev.yaml", "./testdata/secrets.yaml")
 
 	baseValue := provider.Get("value").AsString()
 	assert.Equal(t, "base_only", baseValue)
@@ -218,7 +218,7 @@ func TestYAMLNode(t *testing.T) {
 
 func TestYamlNodeWithNil(t *testing.T) {
 	t.Parallel()
-	provider := NewYAMLProviderFromFiles(false, nil)
+	provider := NewYAMLProviderFromFiles()
 	assert.NotNil(t, provider)
 	assert.Panics(t, func() {
 		_ = unmarshalYAMLValue(nil, nil)
@@ -227,7 +227,7 @@ func TestYamlNodeWithNil(t *testing.T) {
 
 func TestYamlNode_Callbacks(t *testing.T) {
 	t.Parallel()
-	p := NewYAMLProviderFromFiles(false, nil)
+	p := NewYAMLProviderFromFiles()
 	assert.NoError(t, p.RegisterChangeCallback("test", nil))
 	assert.NoError(t, p.UnregisterChangeCallback("token"))
 }
@@ -846,7 +846,7 @@ func TestFileNameInPanic(t *testing.T) {
 		require.Contains(t, err.Error(), f.Name())
 	}()
 
-	NewYAMLProviderFromFiles(true, NewRelativeResolver(), f.Name())
+	NewYAMLProviderFromFiles(f.Name())
 }
 
 func TestYAMLName(t *testing.T) {
@@ -873,7 +873,7 @@ func TestAbsolutePaths(t *testing.T) {
 	require.NoError(t, file.Close())
 	defer func() { assert.NoError(t, os.Remove(file.Name())) }()
 
-	p := NewYAMLProviderFromFiles(true, nil, file.Name())
+	p := NewYAMLProviderFromFiles(file.Name())
 	require.NotNil(t, p)
 
 	val := p.Get("Imaginary")
