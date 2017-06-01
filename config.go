@@ -60,8 +60,8 @@ const (
 // LookupFunc is a type alias for a function to look for environment variables,
 type LookUpFunc func(string) (string, bool)
 
-// ProviderFold is a collection of functions to fold the configs.
-type ProviderFold []func(LookUpFunc, Provider) (Provider, error)
+// ProviderComposition is a collection of functions to fold the configs.
+type ProviderComposition []func(LookUpFunc, Provider) (Provider, error)
 
 // Loader is responsible for loading config providers.
 type Loader struct {
@@ -72,7 +72,7 @@ type Loader struct {
 	Init Provider
 
 	// Functions to apply on initial provider.
-	Apply ProviderFold
+	Apply ProviderComposition
 }
 
 // DefaultLoader is going to be used by a service if config is not specified.

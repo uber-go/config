@@ -37,7 +37,7 @@ import (
 
 func TestMain(m *testing.M) {
 	// Skip command line parsing
-	DefaultLoader.Apply = ProviderFold{loadFilesFromConfig}
+	DefaultLoader.Apply = ProviderComposition{loadFilesFromConfig}
 	os.Exit(m.Run())
 }
 
@@ -529,7 +529,7 @@ func TestLoaderApplyFunctionsErrors(t *testing.T) {
 
 	alwaysBlue := func(LookUpFunc, Provider) (Provider, error) { return nil, errors.New("Jump!") }
 	l := Loader{
-		Apply: ProviderFold{alwaysBlue},
+		Apply: ProviderComposition{alwaysBlue},
 	}
 
 	_, err := l.Load()
