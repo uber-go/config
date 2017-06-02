@@ -56,11 +56,13 @@ type Loader struct {
 	Apply ProviderComposition
 }
 
-var _defaultFileList = []struct {
+type info struct {
 	Path        string
 	Interpolate bool
 	Optional    bool
-}{
+}
+
+var _defaultFileList = []info{
 	{
 		Path:        "${CONFIG_DIR:config}/base.yaml",
 		Interpolate: true,
@@ -90,11 +92,7 @@ var DefaultLoader = Loader{
 // TestLoader reads configuration from base.yaml and test.yaml files, but skips command line parameters.
 var TestLoader = Loader{
 	LookUp: os.LookupEnv,
-	Init: NewStaticProviderWithExpand([]struct {
-		Path        string
-		Interpolate bool
-		Optional    bool
-	}{
+	Init: NewStaticProviderWithExpand([]info{
 		{
 			Path:        "${CONFIG_DIR:config}/base.yaml",
 			Interpolate: true,
@@ -137,13 +135,7 @@ func loadFilesFromConfig(lookup LookUpFunc, provider Provider) (Provider, error)
 		return provider, nil
 	}
 
-	type cfg struct {
-		Path        string
-		Interpolate bool
-		Optional    bool
-	}
-
-	var list []cfg
+	var list []info
 	if err := provider.Get(Root).Populate(&list); err != nil {
 		return nil, err
 	}
