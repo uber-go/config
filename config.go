@@ -21,9 +21,7 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/spf13/pflag"
 )
@@ -38,23 +36,6 @@ const (
 
 	// ServiceOwnerKey is the config key for a service owner.
 	ServiceOwnerKey = "owner"
-
-	// _defaultInit is used to load a default set of configuration files.
-	_defaultInit = `
-- path: ${CONFIG_DIR:config}/base.yaml
-  interpolate: true
-- path: ${CONFIG_DIR:config}/${ENVIRONMENT:development}.yaml
-  interpolate: true
-- path: ${CONFIG_DIR:config}/secrets.yaml
-  optional: true
-`
-	// _testInit is used to specify files for the TestLoader.
-	_testInit = `
-- path: ${CONFIG_DIR:config}/base.yaml
-  interpolate: true
-- path: ${CONFIG_DIR:config}/test.yaml
-  interpolate: true
-`
 )
 
 // LookupFunc is a type alias for a function to look for environment variables,
@@ -80,7 +61,24 @@ type Loader struct {
 // and YAML provider is going to be the last.
 var DefaultLoader = Loader{
 	LookUp: os.LookupEnv,
-	Init:   NewYAMLProviderFromReaderWithExpand(os.LookupEnv, ioutil.NopCloser(strings.NewReader(_defaultInit))),
+	Init: NewStaticProviderWithExpand([]struct {
+		Path        string
+		Interpolate bool
+		Optional    bool
+	}{
+		{
+			Path:        "${CONFIG_DIR:config}/base.yaml",
+			Interpolate: true,
+		},
+		{
+			Path:        "${CONFIG_DIR:config}/${ENVIRONMENT:development}.yaml",
+			Interpolate: true,
+		},
+		{
+			Path:     "${CONFIG_DIR:config}/secrets.yaml",
+			Optional: true,
+		},
+	}, os.LookupEnv),
 	Apply: []func(LookUpFunc, Provider) (Provider, error){
 		loadFilesFromConfig,
 		loadCommandLineProvider,
@@ -90,7 +88,20 @@ var DefaultLoader = Loader{
 // TestLoader reads configuration from base.yaml and test.yaml files, but skips command line parameters.
 var TestLoader = Loader{
 	LookUp: os.LookupEnv,
-	Init:   NewYAMLProviderFromReaderWithExpand(os.LookupEnv, ioutil.NopCloser(strings.NewReader(_testInit))),
+	Init: NewStaticProviderWithExpand([]struct {
+		Path        string
+		Interpolate bool
+		Optional    bool
+	}{
+		{
+			Path:        "${CONFIG_DIR:config}/base.yaml",
+			Interpolate: true,
+		},
+		{
+			Path:        "path: ${CONFIG_DIR:config}/test.yaml",
+			Interpolate: true,
+		},
+	}, os.LookupEnv),
 	Apply: []func(LookUpFunc, Provider) (Provider, error){
 		loadFilesFromConfig,
 	},

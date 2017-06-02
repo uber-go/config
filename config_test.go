@@ -99,17 +99,34 @@ func TestDefaultConfig(t *testing.T) {
 	t.Parallel()
 
 	withBase(t, func(dir string) {
-		lookup := lookUpWithConfig(dir, func(string) (string, bool){return "", false})
+		lookup := lookUpWithConfig(dir, func(string) (string, bool) { return "", false })
 
 		l := Loader{
 			LookUp: lookup,
-			Init:   NewYAMLProviderFromReaderWithExpand(lookup, ioutil.NopCloser(strings.NewReader(_defaultInit))),
-			Apply:  DefaultLoader.Apply,
+			Init: NewStaticProviderWithExpand([]struct {
+				Path        string
+				Interpolate bool
+				Optional    bool
+			}{
+				{
+					Path:        "${CONFIG_DIR:config}/base.yaml",
+					Interpolate: true,
+				},
+				{
+					Path:        "${CONFIG_DIR:config}/${ENVIRONMENT:development}.yaml",
+					Interpolate: true,
+				},
+				{
+					Path:     "${CONFIG_DIR:config}/secrets.yaml",
+					Optional: true,
+				},
+			}, lookup),
+			Apply: DefaultLoader.Apply,
 		}
 
 		f, err := os.Create(filepath.Join(dir, "development.yaml"))
 		require.NoError(t, err)
-		defer func(){assert.NoError(t, os.Remove(f.Name()))}()
+		defer func() { assert.NoError(t, os.Remove(f.Name())) }()
 
 		f.WriteString("override: dev")
 		require.NoError(t, f.Close())
@@ -475,7 +492,7 @@ func withBase(t *testing.T, f func(dir string), contents string) {
 	f(dir)
 }
 
-func lookUpWithConfig(dir string, lookUp LookUpFunc) LookUpFunc{
+func lookUpWithConfig(dir string, lookUp LookUpFunc) LookUpFunc {
 	return func(key string) (string, bool) {
 		if key == "CONFIG_DIR" {
 			return dir, true
