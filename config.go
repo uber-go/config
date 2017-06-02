@@ -56,29 +56,31 @@ type Loader struct {
 	Apply ProviderComposition
 }
 
+var _defaultFileList = []struct {
+	Path        string
+	Interpolate bool
+	Optional    bool
+}{
+	{
+		Path:        "${CONFIG_DIR:config}/base.yaml",
+		Interpolate: true,
+	},
+	{
+		Path:        "${CONFIG_DIR:config}/${ENVIRONMENT:development}.yaml",
+		Interpolate: true,
+	},
+	{
+		Path:     "${CONFIG_DIR:config}/secrets.yaml",
+		Optional: true,
+	},
+}
+
 // DefaultLoader is going to be used by a service if config is not specified.
 // First values are going to be looked in dynamic providers, then in command line provider
 // and YAML provider is going to be the last.
 var DefaultLoader = Loader{
 	LookUp: os.LookupEnv,
-	Init: NewStaticProviderWithExpand([]struct {
-		Path        string
-		Interpolate bool
-		Optional    bool
-	}{
-		{
-			Path:        "${CONFIG_DIR:config}/base.yaml",
-			Interpolate: true,
-		},
-		{
-			Path:        "${CONFIG_DIR:config}/${ENVIRONMENT:development}.yaml",
-			Interpolate: true,
-		},
-		{
-			Path:     "${CONFIG_DIR:config}/secrets.yaml",
-			Optional: true,
-		},
-	}, os.LookupEnv),
+	Init:   NewStaticProviderWithExpand(_defaultFileList, os.LookupEnv),
 	Apply: []func(LookUpFunc, Provider) (Provider, error){
 		loadFilesFromConfig,
 		loadCommandLineProvider,

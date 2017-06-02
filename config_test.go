@@ -103,25 +103,8 @@ func TestDefaultConfig(t *testing.T) {
 
 		l := Loader{
 			LookUp: lookup,
-			Init: NewStaticProviderWithExpand([]struct {
-				Path        string
-				Interpolate bool
-				Optional    bool
-			}{
-				{
-					Path:        "${CONFIG_DIR:config}/base.yaml",
-					Interpolate: true,
-				},
-				{
-					Path:        "${CONFIG_DIR:config}/${ENVIRONMENT:development}.yaml",
-					Interpolate: true,
-				},
-				{
-					Path:     "${CONFIG_DIR:config}/secrets.yaml",
-					Optional: true,
-				},
-			}, lookup),
-			Apply: DefaultLoader.Apply,
+			Init:   NewStaticProviderWithExpand(_defaultFileList, lookup),
+			Apply:  DefaultLoader.Apply,
 		}
 
 		f, err := os.Create(filepath.Join(dir, "development.yaml"))
