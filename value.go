@@ -148,16 +148,28 @@ func (cv Value) WithDefault(value interface{}) Value {
 	return cv2
 }
 
-// TODO: Support enumerating child keys
-// 1. Add a method on Provider to get the child keys for a given prefix
-// 2. Implement in the various providers
-// 3. Merge the list here
-// 4. Return the set of keys.
-
 // ChildKeys returns the child keys
-// TODO(ai) what is this and do we need to keep it?
 func (cv Value) ChildKeys() []string {
-	return nil
+	var slice []interface{}
+	if err := cv.Populate(&slice); err != nil {
+		return nil
+	}
+
+	var res []string
+	for i := range slice {
+		res = append(res, fmt.Sprint(i))
+	}
+
+	var m map[string]interface{}
+	if err := cv.Populate(&m); err != nil {
+		return nil
+	}
+
+	for k := range m {
+		res = append(res, k)
+	}
+
+	return res
 }
 
 // String prints out underline value in Value with fmt.Sprint.
