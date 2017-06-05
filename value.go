@@ -136,7 +136,7 @@ func (cv Value) LastUpdated() time.Time {
 	return cv.Timestamp
 }
 
-// WithDefault creates sets the default value that can be overridden
+// WithDefault sets the default value that can be overridden
 // by providers with a highger priority.
 func (cv Value) WithDefault(value interface{}) Value {
 	cv.defaultValue = value
