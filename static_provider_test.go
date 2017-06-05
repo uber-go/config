@@ -325,8 +325,10 @@ func TestConfigDefaultsAreOverriddenByHigherPriorityProviders(t *testing.T) {
 		NewStaticProvider(map[string]string{
 			"library.author": "Dreiser",
 			"library.title":  "The Financier"},
-		).Get("library").
-			WithDefault(book{Title: "An American Tragedy", Year: 1925}).Populate(&novel),
+		).Get("library").WithDefault(book{
+			Title: "An American Tragedy",
+			Year:  1925,
+		}).Populate(&novel),
 		"Failed to write a novel.",
 	)
 	assert.Equal(t, book{Title: "The Financier", Author: "Dreiser", Year: 1925}, novel)
