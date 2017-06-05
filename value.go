@@ -136,16 +136,11 @@ func (cv Value) LastUpdated() time.Time {
 	return cv.Timestamp
 }
 
-// WithDefault creates a shallow copy of the current configuration value and
-// sets its default.
+// WithDefault creates sets the default value that can be overridden
+// by providers with a highger priority.
 func (cv Value) WithDefault(value interface{}) Value {
-	// TODO: create a "DefaultProvider" and chain that into the bottom of the current provider:
-	//
-	// provider = NewProviderGroup(defaultProvider, cv.provider)
-	//
-	cv2 := cv
-	cv2.defaultValue = value
-	return cv2
+	cv.root = NewProviderGroup("withDefault", NewStaticProvider(map[string]interface{}{cv.key: value}), cv.provider)
+	return cv
 }
 
 // ChildKeys returns the child keys
