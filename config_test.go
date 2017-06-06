@@ -31,6 +31,8 @@ import (
 	"sync"
 	"testing"
 
+	"path/filepath"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -282,100 +284,6 @@ boolean:
 	assert.Panics(t, func() { provider.Get("id").AsFloat() }, "Can't parse as float")
 }
 
-func TestRegisteredProvidersInitialization(t *testing.T) {
-	t.Parallel()
-
-	l := NewLoader()
-	l.RegisterProviders(StaticProvider(map[string]interface{}{
-		"hello": "world",
-	}))
-
-	l.RegisterDynamicProviders(func(dynamic Provider) (Provider, error) {
-		return NewStaticProvider(map[string]interface{}{
-			"dynamic": "provider",
-		}), nil
-	})
-
-	cfg := l.Load()
-	assert.Equal(t, "global", cfg.Name())
-	assert.Equal(t, "world", cfg.Get("hello").AsString())
-	assert.Equal(t, "provider", cfg.Get("dynamic").AsString())
-	l.UnregisterProviders()
-	assert.Nil(t, l.staticProviderFuncs)
-	assert.Nil(t, l.dynamicProviderFuncs)
-}
-
-func TestNilProvider(t *testing.T) {
-	t.Parallel()
-
-	l := NewLoader()
-	l.RegisterProviders(func() (Provider, error) {
-		return nil, errors.New("error creating Provider")
-	})
-
-	assert.Panics(t, func() { l.Load() }, "Can't initialize with nil provider")
-
-	l.UnregisterProviders()
-	l.RegisterProviders(func() (Provider, error) {
-		return nil, nil
-	})
-
-	// don't panic on Load
-	l.Load()
-
-	l.UnregisterProviders()
-	assert.Nil(t, l.staticProviderFuncs)
-}
-
-func expectedResolvePath(t *testing.T) string {
-	cwd, err := os.Getwd()
-	assert.NoError(t, err)
-	return path.Join(cwd, "testdata")
-}
-
-func TestResolvePath(t *testing.T) {
-	t.Parallel()
-
-	l := NewLoader()
-
-	res, err := l.ResolvePath("testdata")
-	assert.NoError(t, err)
-	assert.Equal(t, expectedResolvePath(t), res)
-}
-
-func TestResolvePathInvalid(t *testing.T) {
-	t.Parallel()
-
-	l := NewLoader()
-	res, err := l.ResolvePath("invalid")
-	assert.Error(t, err)
-	assert.Equal(t, "", res)
-}
-
-func TestResolvePathAbs(t *testing.T) {
-	t.Parallel()
-
-	l := NewLoader()
-	abs := expectedResolvePath(t)
-	res, err := l.ResolvePath(abs)
-	assert.NoError(t, err)
-	assert.Equal(t, abs, res)
-}
-
-func TestNopProvider_Get(t *testing.T) {
-	t.Parallel()
-
-	p := NopProvider{}
-	assert.Equal(t, "NopProvider", p.Name())
-	assert.NoError(t, p.RegisterChangeCallback("key", nil))
-	assert.NoError(t, p.UnregisterChangeCallback("token"))
-
-	v := p.Get("randomKey")
-	assert.Equal(t, "NopProvider", v.Source())
-	assert.True(t, v.HasValue())
-	assert.Nil(t, v.Value())
-}
-
 func TestPointerIntField(t *testing.T) {
 	t.Parallel()
 
@@ -416,38 +324,6 @@ ps:
 	v := p.Get("ps")
 
 	require.NoError(t, v.Populate(cfg))
-}
-
-func TestPointerChildTypedField(t *testing.T) {
-	t.Parallel()
-
-	type Port int
-	type childPort struct {
-		Port *Port
-	}
-
-	type portChildStruct struct {
-		Name     string
-		Child    *childPort
-		Children []childPort
-	}
-
-	var ptrChildPort = `
-ps:
-  name: Hello
-  child:
-    port: 123
-  children:
-    - port: 321
-`
-
-	p := NewYAMLProviderFromBytes([]byte(ptrChildPort))
-
-	cfg := &portChildStruct{Name: "xxx"}
-	v := p.Get("ps")
-
-	require.NoError(t, v.Populate(cfg))
-	require.Equal(t, 123, int(*cfg.Child.Port))
 }
 
 func TestRPCPortField(t *testing.T) {
