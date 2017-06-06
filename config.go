@@ -21,9 +21,11 @@
 package config
 
 import (
+	"errors"
 	"os"
+	"path/filepath"
 
-	"github.com/spf13/pflag"
+	flag "github.com/spf13/pflag"
 )
 
 const (
@@ -41,125 +43,95 @@ const (
 // LookupFunc is a type alias for a function to look for environment variables,
 type LookUpFunc func(string) (string, bool)
 
-// ProviderComposition is a collection of functions to fold the configs.
-type ProviderComposition []func(LookUpFunc, Provider) (Provider, error)
-
-// Loader is responsible for loading config providers.
-type Loader struct {
-	// LookUp is a function to look for interpolated/environment values
-	LookUp LookUpFunc
-
-	// Initial config to apply fold functions
-	Init Provider
-
-	// Functions to apply on initial provider.
-	Apply ProviderComposition
-}
-
-type info struct {
-	Path        string
+// FileInfo represents a file to load.
+type FileInfo struct {
+	Name        string
 	Interpolate bool
-	Optional    bool
 }
 
-var _defaultFileList = []info{
-	{
-		Path:        "${CONFIG_DIR:config}/base.yaml",
-		Interpolate: true,
-	},
-	{
-		Path:        "${CONFIG_DIR:config}/${ENVIRONMENT:development}.yaml",
-		Interpolate: true,
-	},
-	{
-		Path:     "${CONFIG_DIR:config}/secrets.yaml",
-		Optional: true,
-	},
-}
-
-// DefaultLoader is going to be used by a service if config is not specified.
-// First values are going to be looked in dynamic providers, then in command line provider
-// and YAML provider is going to be the last.
-var DefaultLoader = Loader{
-	LookUp: os.LookupEnv,
-	Init:   NewStaticProviderWithExpand(_defaultFileList, os.LookupEnv),
-	Apply: []func(LookUpFunc, Provider) (Provider, error){
-		loadFilesFromConfig,
-		loadCommandLineProvider,
-	},
-}
-
-// TestLoader reads configuration from base.yaml and test.yaml files, but skips command line parameters.
-var TestLoader = Loader{
-	LookUp: os.LookupEnv,
-	Init: NewStaticProviderWithExpand([]info{
-		{
-			Path:        "${CONFIG_DIR:config}/base.yaml",
-			Interpolate: true,
+func LoadDefaults() (Provider, error) {
+	p, err := LoadFromFiles(
+		[]string{"${CONFIG_DIR:config}"},
+		[]FileInfo{
+			{Name: "base.yaml", Interpolate: true},
+			{Name: "${ENVIRONMENT:development}.yaml", Interpolate: true},
+			{Name: "secrets.yaml"},
 		},
-		{
-			Path:        "path: ${CONFIG_DIR:config}/test.yaml",
-			Interpolate: true,
-		},
-	}, os.LookupEnv),
-	Apply: []func(LookUpFunc, Provider) (Provider, error){
-		loadFilesFromConfig,
-	},
-}
+		os.LookupEnv)
 
-// Load creates a Provider for use in a service.
-func (l Loader) Load() (Provider, error) {
-	cfg := l.Init
-	for _, f := range l.Apply {
-		if f == nil {
-			continue
-		}
-
-		var err error
-		if cfg, err = f(l.LookUp, cfg); err != nil {
-			return nil, err
-		}
-	}
-
-	return cfg, nil
-}
-
-func loadCommandLineProvider(lookup LookUpFunc, provider Provider) (Provider, error) {
-	var s StringSlice
-	pflag.CommandLine.Var(&s, "roles", "")
-	return NewProviderGroup("global", provider, NewCommandLineProvider(pflag.CommandLine, os.Args[1:])), nil
-}
-
-func loadFilesFromConfig(lookup LookUpFunc, provider Provider) (Provider, error) {
-	if provider == nil {
-		return provider, nil
-	}
-
-	var list []info
-	if err := provider.Get(Root).Populate(&list); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
-	var res []Provider
-	for _, f := range list {
-		if _, err := os.Stat(f.Path); os.IsNotExist(err) && f.Optional {
-			continue
-		}
-
-		reader, err := os.Open(f.Path)
-		if err != nil {
-			return nil, err
-		}
-
-		var p Provider
-		if f.Interpolate {
-			p = NewYAMLProviderFromReaderWithExpand(lookup, reader)
-		} else {
-			p = NewYAMLProviderFromReader(reader)
-		}
-
-		res = append(res, p)
+	// Load commandLineProvider
+	var s StringSlice
+	f := flag.CommandLine
+	if f.Lookup("roles") == nil {
+		f.Var(&s, "roles", "")
 	}
 
-	return NewProviderGroup("global", res...), nil
+	return NewProviderGroup("global", p, NewCommandLineProvider(f, os.Args[1:])), nil
+}
+
+// LoadTestProvider will read configuration base.yaml and test.yaml from a
+func LoadTestProvider() (Provider, error) {
+	return LoadFromFiles(
+		[]string{"${CONFIG_DIR:config}"},
+		[]FileInfo{
+			{Name: "base.yaml", Interpolate: true},
+			{Name: "test.yaml", Interpolate: true},
+		},
+		os.LookupEnv)
+}
+
+// LoadFromFiles reads configuration `files` from `dirs` using `lookUp` function for interpolation.
+// First both slices are interpolated with the provided `lookUp` function.
+// Then all the files are loaded from the all dirs. For example:
+// ```
+// LoadFromFiles([]string{"dir1", "dir2"},[]FileInfo{{"base.yaml"},{"test.yaml"}}, nil)
+// ```
+// will try to load files in this order:
+// 1. `dir1/base.yaml`
+// 2. `dir2/base.yaml`
+// 3. `dir1/test.yaml`
+// 4. `dir2/test.yaml`
+// The function will return an error, if there are no providers to load.
+func LoadFromFiles(dirs []string, files []FileInfo, lookUp LookUpFunc) (Provider, error) {
+	dirsProvider := NewStaticProviderWithExpand(dirs, lookUp)
+	var dirsToLoad []string
+	if err := dirsProvider.Get(Root).Populate(&dirsToLoad); err != nil {
+		return nil, err
+	}
+
+	filesProvider := NewStaticProviderWithExpand(files, lookUp)
+	var filesToLoad []FileInfo
+	if err := filesProvider.Get(Root).Populate(&filesToLoad); err != nil {
+		return nil, err
+	}
+
+	var providers []Provider
+	for _, info := range filesToLoad {
+		for _, dir := range dirsToLoad {
+			name := filepath.Join(dir, info.Name)
+			f, err := os.Open(name)
+			if os.IsNotExist(err) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			if info.Interpolate {
+				providers = append(providers, NewYAMLProviderFromReaderWithExpand(lookUp, f))
+			} else {
+				providers = append(providers, NewYAMLProviderFromReader(f))
+			}
+		}
+	}
+
+	if len(providers) == 0 {
+		return nil, errors.New("no providers were loaded")
+	}
+
+	return NewProviderGroup("files", providers...), nil
 }

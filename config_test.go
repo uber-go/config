@@ -22,13 +22,10 @@ package config
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,7 +34,6 @@ import (
 
 func TestMain(m *testing.M) {
 	// Skip command line parsing
-	DefaultLoader.Apply = ProviderComposition{loadFilesFromConfig}
 	os.Exit(m.Run())
 }
 
@@ -95,36 +91,90 @@ type arrayOfStructs struct {
 	Things []nested `yaml:"things"`
 }
 
-func TestDefaultConfig(t *testing.T) {
-	t.Parallel()
+func setEnv(key, value string) func() {
+	res := func() { os.Unsetenv(key) }
+	if oldVal, ok := os.LookupEnv(key); ok {
+		res = func() { os.Setenv(key, oldVal) }
+	}
 
+	os.Setenv(key, value)
+	return res
+}
+
+func TestDefaultLoad(t *testing.T) {
 	withBase(t, func(dir string) {
-		lookup := lookUpWithConfig(dir, func(string) (string, bool) { return "", false })
+		defer setEnv("CONFIG_DIR", dir)()
+		defer setEnv("PORT", "80")()
 
-		l := Loader{
-			LookUp: lookup,
-			Init:   NewStaticProviderWithExpand(_defaultFileList, lookup),
-			Apply:  DefaultLoader.Apply,
-		}
-
-		f, err := os.Create(filepath.Join(dir, "development.yaml"))
+		// Setup development.yaml
+		dev, err := os.Create(filepath.Join(dir, "development.yaml"))
 		require.NoError(t, err)
-		defer func() { assert.NoError(t, os.Remove(f.Name())) }()
+		defer func() { assert.NoError(t, os.Remove(dev.Name())) }()
+		fmt.Fprint(dev, "development: loaded")
 
-		f.WriteString("override: dev")
-		require.NoError(t, f.Close())
+		// Setup secrets.yaml
+		sec, err := os.Create(filepath.Join(dir, "secrets.yaml"))
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, os.Remove(sec.Name())) }()
+		fmt.Fprint(sec, "secret: ${password:1111}")
 
-		cfg, err := l.Load()
+		p, err := LoadDefaults()
 		require.NoError(t, err)
 
-		assert.Equal(t, "global", cfg.Name())
-		val := cfg.Get("name")
-		assert.Equal(t, "test", val.AsString())
+		var val map[string]interface{}
+		require.NoError(t, p.Get(Root).Populate(&val))
+		assert.Equal(t, 5, len(val))
+		assert.Equal(t, "base", p.Get("source").AsString())
+		assert.Equal(t, 80, p.Get("interpolated").AsInt())
+		assert.Equal(t, "loaded", p.Get("development").AsString())
+		assert.Equal(t, "${password:1111}", p.Get("secret").AsString())
+		assert.Empty(t, p.Get("roles").Value())
+	}, "source: base\ninterpolated: ${PORT:17}\n")
+}
 
-		val = cfg.Get("override")
-		assert.Equal(t, "dev", val.AsString())
-	}, "name: test\noverride: base")
+func TestDefaultLoadMultipleTimes(t *testing.T) {
+	withBase(t, func(dir string) {
+		defer setEnv("CONFIG_DIR", dir)()
+		defer setEnv("PORT", "80")()
+		p, err := LoadDefaults()
+		require.NoError(t, err)
+		p, err = LoadDefaults()
+		require.NoError(t, err)
 
+		var val map[string]interface{}
+		require.NoError(t, p.Get(Root).Populate(&val))
+		assert.Equal(t, 3, len(val))
+		assert.Equal(t, "base", p.Get("source").AsString())
+		assert.Equal(t, 80, p.Get("interpolated").AsInt())
+		assert.Empty(t, p.Get("roles").Value())
+	}, "source: base\ninterpolated: ${PORT:17}\n")
+}
+
+func TestLoadTestProvider(t *testing.T) {
+	withBase(t, func(dir string) {
+		defer setEnv("CONFIG_DIR", dir)()
+
+		// Setup test.yaml
+		tst, err := os.Create(filepath.Join(dir, "test.yaml"))
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, os.Remove(tst.Name())) }()
+		fmt.Fprint(tst, "dir: ${CONFIG_DIR:test}")
+
+		p, err := LoadTestProvider()
+		require.NoError(t, err)
+		assert.Equal(t, "base", p.Get("source").AsString())
+		assert.Equal(t, dir, p.Get("dir").AsString())
+	}, "source: base\n")
+}
+
+func TestErrorWhenNoFilesLoaded(t *testing.T) {
+	dir, err := ioutil.TempDir("", "TestConfig")
+	require.NoError(t, err)
+	defer func() {assert.NoError(t, os.Remove(dir))}()
+
+	_, err = LoadDefaults()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no providers were loaded")
 }
 
 func TestRootNodeConfig(t *testing.T) {
@@ -292,14 +342,6 @@ boolean:
 	assert.Panics(t, func() { provider.Get("id").AsFloat() }, "Can't parse as float")
 }
 
-func TestNilProvider(t *testing.T) {
-	t.Parallel()
-
-	cfg, err := Loader{}.Load()
-	assert.NoError(t, err)
-	assert.Nil(t, cfg)
-}
-
 func TestNopProvider_Get(t *testing.T) {
 	t.Parallel()
 
@@ -437,30 +479,8 @@ rpc:
 	require.Equal(t, 4324, int(*cfg.Outbounds[0].TChannel.Port))
 }
 
-func TestLoader_Environment(t *testing.T) {
-	t.Parallel()
-
-	l := Loader{
-		LookUp: func(key string) (string, bool) {
-			require.Equal(t, "ENVIRONMENT", key)
-			return "KGBeast", true
-		},
-		Apply: []func(LookUpFunc, Provider) (Provider, error){
-			func(f LookUpFunc, p Provider) (Provider, error) {
-				require.Nil(t, p)
-				return NewStaticProviderWithExpand(map[string]string{"hero": `${ENVIRONMENT:"joker"}`}, f), nil
-			},
-		},
-	}
-
-	cfg, err := l.Load()
-	require.NoError(t, err)
-
-	assert.Equal(t, "KGBeast", cfg.Get("hero").AsString())
-}
-
 func withBase(t *testing.T, f func(dir string), contents string) {
-	dir, err := ioutil.TempDir("", "TestLoader_Dirs")
+	dir, err := ioutil.TempDir("", "TestConfig")
 	require.NoError(t, err)
 
 	defer func() { require.NoError(t, os.Remove(dir)) }()
@@ -483,79 +503,4 @@ func lookUpWithConfig(dir string, lookUp LookUpFunc) LookUpFunc {
 
 		return lookUp(key)
 	}
-}
-
-func TestParallelLoad(t *testing.T) {
-	// TODO(alsam) make Load parallel
-	t.Skip()
-	t.Parallel()
-
-	l := DefaultLoader
-	count := 100
-	wg := sync.WaitGroup{}
-	wg.Add(count)
-
-	withBase(t, func(dir string) {
-		l.LookUp = lookUpWithConfig(dir, l.LookUp)
-		l.Init = NewYAMLProviderFromReader(ioutil.NopCloser(strings.NewReader(fmt.Sprintf(`- path: %s/base.yaml`, dir))))
-
-		for i := 0; i < count; i++ {
-			go func() {
-				p, err := l.Load()
-				assert.NoError(t, err)
-				assert.Equal(t, "bane", p.Get("villain").String())
-				wg.Done()
-			}()
-		}
-
-		wg.Wait()
-	}, "villain: bane")
-
-}
-
-func TestZeroInitializeLoader(t *testing.T) {
-	t.Parallel()
-	var l Loader
-	_, err := l.Load()
-	require.NoError(t, err)
-	l.Apply = []func(LookUpFunc, Provider) (Provider, error){nil}
-
-	_, err = l.Load()
-	require.NoError(t, err)
-}
-
-func TestLoaderApplyFunctionsErrors(t *testing.T) {
-	t.Parallel()
-
-	alwaysBlue := func(LookUpFunc, Provider) (Provider, error) { return nil, errors.New("Jump!") }
-	l := Loader{
-		Apply: ProviderComposition{alwaysBlue},
-	}
-
-	_, err := l.Load()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Jump!")
-}
-
-func TestLoaderFailsToFindConfigFile(t *testing.T) {
-	t.Parallel()
-
-	withBase(t, func(dir string) {
-		l := TestLoader
-		l.LookUp = lookUpWithConfig(dir, l.LookUp)
-
-		_, err := l.Load()
-		require.Error(t, err)
-		assert.True(t, os.IsNotExist(err))
-	}, "")
-}
-
-func TestDefaultLoaderWhenInitIsNil(t *testing.T) {
-	t.Parallel()
-
-	l := DefaultLoader
-	l.Init = nil
-	p, err := l.Load()
-	require.NoError(t, err)
-	assert.Nil(t, p)
 }
