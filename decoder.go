@@ -187,9 +187,12 @@ func convertValueFromStruct(src interface{}, dst *reflect.Value) error {
 		return convertFloats(src, dst)
 
 	case reflect.Bool:
-		if v, err := strconv.ParseBool(fmt.Sprint(src)); err == nil {
-			dst.SetBool(v)
+		v, err := strconv.ParseBool(fmt.Sprint(src))
+		if err != nil {
+			return err
 		}
+
+		dst.SetBool(v)
 
 	case reflect.String:
 		dst.SetString(fmt.Sprint(src))

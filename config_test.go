@@ -273,12 +273,12 @@ func TestInvalidConfigFailures(t *testing.T) {
 	t.Parallel()
 	valueType := []byte(`
 id: xyz
-boolean:
+boolean: hooli
 `)
 	provider := NewYAMLProviderFromBytes(valueType)
-	assert.Panics(t, func() { NewYAMLProviderFromBytes([]byte("bytes: \n\x010")) }, "Can't parse empty boolean")
+	assert.Panics(t, func() { NewYAMLProviderFromBytes([]byte("bytes: \n\x010")) }, "Can't parse invalid YAML")
 	assert.Panics(t, func() { provider.Get("id").AsInt() }, "Can't parse as int")
-	assert.Panics(t, func() { provider.Get("boolean").AsBool() }, "Can't parse empty boolean")
+	assert.Panics(t, func() { provider.Get("boolean").AsBool() }, "Can't parse invalid boolean")
 	assert.Panics(t, func() { provider.Get("id").AsFloat() }, "Can't parse as float")
 }
 
