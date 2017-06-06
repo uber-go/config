@@ -310,4 +310,41 @@ func TestInterpolatedBool(t *testing.T) {
 
 	p := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(strings.NewReader("val: ${interpolate:false}")))
 	assert.True(t, p.Get("val").AsBool())
+
+func TestConfigDefaults(t *testing.T) {
+	t.Parallel()
+
+	type cfg struct{ N int }
+
+	var c cfg
+	require.NoError(
+		t,
+		NewStaticProvider(nil).Get("metrics").WithDefault(cfg{42}).Populate(&c),
+		"Failed to populate config.",
+	)
+	assert.Equal(t, cfg{N: 42}, c)
+}
+
+func TestConfigDefaultsAreOverriddenByHigherPriorityProviders(t *testing.T) {
+	t.Parallel()
+
+	type book struct {
+		Title  string
+		Author string
+		Year   int
+	}
+
+	var novel book
+	require.NoError(
+		t,
+		NewStaticProvider(map[string]string{
+			"library.author": "Dreiser",
+			"library.title":  "The Financier"},
+		).Get("library").WithDefault(book{
+			Title: "An American Tragedy",
+			Year:  1925,
+		}).Populate(&novel),
+		"Failed to write a novel.",
+	)
+	assert.Equal(t, book{Title: "The Financier", Author: "Dreiser", Year: 1925}, novel)
 }
