@@ -32,11 +32,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMain(m *testing.M) {
-	// Skip command line parsing
-	os.Exit(m.Run())
-}
-
 type nested struct {
 	Name string `yaml:"name" default:"default_name"`
 	ID1  int    `yaml:"id1"`
