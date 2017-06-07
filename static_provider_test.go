@@ -310,6 +310,7 @@ func TestInterpolatedBool(t *testing.T) {
 
 	p := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(strings.NewReader("val: ${interpolate:false}")))
 	assert.True(t, p.Get("val").AsBool())
+}
 
 func TestConfigDefaults(t *testing.T) {
 	t.Parallel()
