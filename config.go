@@ -99,6 +99,14 @@ func NewLoader(providers ...ProviderFunc) *Loader {
 var TestConfig = func() Provider {
 	l := NewLoader()
 	l.SetConfigFiles(_baseFile, "test.yaml")
+	l.SetDirs(func() []string {
+		dirs := []string{}
+		root := l.AppRoot()
+		for _, dir := range l.dirs {
+			dirs = append(dirs, fmt.Sprintf("%s/%s", root, dir))
+		}
+		return dirs
+	}()...)
 	return l.Load()
 }()
 
