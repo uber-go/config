@@ -97,77 +97,98 @@ func setEnv(key, value string) func() {
 }
 
 func TestDefaultLoad(t *testing.T) {
-	withBase(t, func(dir string) {
-		defer setEnv("CONFIG_DIR", dir)()
-		defer setEnv("PORT", "80")()
+	assert := assert.New(t)
+	require.NoError(t, os.Mkdir("config", os.ModePerm))
+	defer func() { assert.NoError(os.Remove("config")) }()
 
-		// Setup development.yaml
-		dev, err := os.Create(filepath.Join(dir, "development.yaml"))
-		require.NoError(t, err)
-		defer func() { assert.NoError(t, os.Remove(dev.Name())) }()
-		fmt.Fprint(dev, "development: loaded")
+	base, err := os.Create(filepath.Join("config", "base.yaml"))
+	require.NoError(t, err)
+	defer func() { assert.NoError(os.Remove(base.Name())) }()
 
-		// Setup secrets.yaml
-		sec, err := os.Create(filepath.Join(dir, "secrets.yaml"))
-		require.NoError(t, err)
-		defer func() { assert.NoError(t, os.Remove(sec.Name())) }()
-		fmt.Fprint(sec, "secret: ${password:1111}")
+	defer setEnv("PORT", "80")()
+	base.WriteString("source: base\ninterpolated: ${PORT:17}\n")
+	base.Close()
 
-		p, err := LoadDefaults()
-		require.NoError(t, err)
+	// Setup development.yaml
+	dev, err := os.Create(filepath.Join("config", "development.yaml"))
+	require.NoError(t, err)
+	defer func() { assert.NoError(os.Remove(dev.Name())) }()
+	fmt.Fprint(dev, "development: loaded")
 
-		var val map[string]interface{}
-		require.NoError(t, p.Get(Root).Populate(&val))
-		assert.Equal(t, 5, len(val))
-		assert.Equal(t, "base", p.Get("source").AsString())
-		assert.Equal(t, 80, p.Get("interpolated").AsInt())
-		assert.Equal(t, "loaded", p.Get("development").AsString())
-		assert.Equal(t, "${password:1111}", p.Get("secret").AsString())
-		assert.Empty(t, p.Get("roles").Value())
-	}, "source: base\ninterpolated: ${PORT:17}\n")
+	// Setup secrets.yaml
+	sec, err := os.Create(filepath.Join("config", "secrets.yaml"))
+	require.NoError(t, err)
+	defer func() { assert.NoError(os.Remove(sec.Name())) }()
+	fmt.Fprint(sec, "secret: ${password:1111}")
+
+	p, err := LoadDefaults()
+	require.NoError(t, err)
+
+	var val map[string]interface{}
+	require.NoError(t, p.Get(Root).Populate(&val))
+	assert.Equal(5, len(val))
+	assert.Equal("base", p.Get("source").AsString())
+	assert.Equal(80, p.Get("interpolated").AsInt())
+	assert.Equal("loaded", p.Get("development").AsString())
+	assert.Equal("${password:1111}", p.Get("secret").AsString())
+	assert.Empty(p.Get("roles").Value())
 }
 
 func TestDefaultLoadMultipleTimes(t *testing.T) {
-	withBase(t, func(dir string) {
-		defer setEnv("CONFIG_DIR", dir)()
-		defer setEnv("PORT", "80")()
-		p, err := LoadDefaults()
-		require.NoError(t, err)
-		p, err = LoadDefaults()
-		require.NoError(t, err)
+	assert := assert.New(t)
+	require.NoError(t, os.Mkdir("config", os.ModePerm))
+	defer func() { assert.NoError(os.Remove("config")) }()
 
-		var val map[string]interface{}
-		require.NoError(t, p.Get(Root).Populate(&val))
-		assert.Equal(t, 3, len(val))
-		assert.Equal(t, "base", p.Get("source").AsString())
-		assert.Equal(t, 80, p.Get("interpolated").AsInt())
-		assert.Empty(t, p.Get("roles").Value())
-	}, "source: base\ninterpolated: ${PORT:17}\n")
+	base, err := os.Create(filepath.Join("config", "base.yaml"))
+	require.NoError(t, err)
+	defer func() { assert.NoError(os.Remove(base.Name())) }()
+
+	base.WriteString("source: base\ninterpolated: ${PORT:17}\n")
+	base.Close()
+	defer setEnv("PORT", "80")()
+	p, err := LoadDefaults()
+	require.NoError(t, err)
+	p, err = LoadDefaults()
+	require.NoError(t, err)
+
+	var val map[string]interface{}
+	require.NoError(t, p.Get(Root).Populate(&val))
+	assert.Equal(3, len(val))
+	assert.Equal("base", p.Get("source").AsString())
+	assert.Equal(80, p.Get("interpolated").AsInt())
+	assert.Empty(p.Get("roles").Value())
 }
 
 func TestLoadTestProvider(t *testing.T) {
-	withBase(t, func(dir string) {
-		defer setEnv("CONFIG_DIR", dir)()
+	assert := assert.New(t)
+	require.NoError(t, os.Mkdir("config", os.ModePerm))
+	defer func() { assert.NoError(os.Remove("config")) }()
 
-		// Setup test.yaml
-		tst, err := os.Create(filepath.Join(dir, "test.yaml"))
-		require.NoError(t, err)
-		defer func() { assert.NoError(t, os.Remove(tst.Name())) }()
-		fmt.Fprint(tst, "dir: ${CONFIG_DIR:test}")
+	base, err := os.Create(filepath.Join("config", "base.yaml"))
+	require.NoError(t, err)
+	defer func() { assert.NoError(os.Remove(base.Name())) }()
 
-		p, err := LoadTestProvider()
-		require.NoError(t, err)
-		assert.Equal(t, "base", p.Get("source").AsString())
-		assert.Equal(t, dir, p.Get("dir").AsString())
-	}, "source: base\n")
+	base.WriteString("source: base")
+	base.Close()
+
+	// Setup test.yaml
+	tst, err := os.Create(filepath.Join("config", "test.yaml"))
+	require.NoError(t, err)
+	defer func() { assert.NoError(os.Remove(tst.Name())) }()
+	fmt.Fprint(tst, "dir: ${CONFIG_DIR:test}")
+
+	p, err := LoadTestProvider()
+	require.NoError(t, err)
+	assert.Equal("base", p.Get("source").AsString())
+	assert.Equal("test", p.Get("dir").AsString())
 }
 
 func TestErrorWhenNoFilesLoaded(t *testing.T) {
 	dir, err := ioutil.TempDir("", "TestConfig")
 	require.NoError(t, err)
-	defer func() {assert.NoError(t, os.Remove(dir))}()
+	defer func() { assert.NoError(t, os.Remove(dir)) }()
 
-	_, err = LoadDefaults()
+	_, err = LoadFromFiles(nil, nil, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no providers were loaded")
 }

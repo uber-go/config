@@ -22,6 +22,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -50,11 +51,16 @@ type FileInfo struct {
 }
 
 func LoadDefaults() (Provider, error) {
+	env := "development"
+	if val, ok := os.LookupEnv("ENVIRONMENT"); ok {
+		env = val
+	}
+
 	p, err := LoadFromFiles(
-		[]string{"${CONFIG_DIR:config}"},
+		[]string{"config"},
 		[]FileInfo{
 			{Name: "base.yaml", Interpolate: true},
-			{Name: "${ENVIRONMENT:development}.yaml", Interpolate: true},
+			{Name: fmt.Sprintf("%s.yaml", env), Interpolate: true},
 			{Name: "secrets.yaml"},
 		},
 		os.LookupEnv)
@@ -76,7 +82,7 @@ func LoadDefaults() (Provider, error) {
 // LoadTestProvider will read configuration base.yaml and test.yaml from a
 func LoadTestProvider() (Provider, error) {
 	return LoadFromFiles(
-		[]string{"${CONFIG_DIR:config}"},
+		[]string{"config"},
 		[]FileInfo{
 			{Name: "base.yaml", Interpolate: true},
 			{Name: "test.yaml", Interpolate: true},
@@ -97,21 +103,9 @@ func LoadTestProvider() (Provider, error) {
 // 4. `dir2/test.yaml`
 // The function will return an error, if there are no providers to load.
 func LoadFromFiles(dirs []string, files []FileInfo, lookUp LookUpFunc) (Provider, error) {
-	dirsProvider := NewStaticProviderWithExpand(dirs, lookUp)
-	var dirsToLoad []string
-	if err := dirsProvider.Get(Root).Populate(&dirsToLoad); err != nil {
-		return nil, err
-	}
-
-	filesProvider := NewStaticProviderWithExpand(files, lookUp)
-	var filesToLoad []FileInfo
-	if err := filesProvider.Get(Root).Populate(&filesToLoad); err != nil {
-		return nil, err
-	}
-
 	var providers []Provider
-	for _, info := range filesToLoad {
-		for _, dir := range dirsToLoad {
+	for _, info := range files {
+		for _, dir := range dirs {
 			name := filepath.Join(dir, info.Name)
 			f, err := os.Open(name)
 			if os.IsNotExist(err) {
