@@ -191,11 +191,9 @@ func (cv Value) TryAsInt() (int, bool) {
 
 // TryAsBool attempts to return the configuration value as a bool
 func (cv Value) TryAsBool() (bool, bool) {
-	v := cv.Value()
-	if val, err := convertValue(v, reflect.TypeOf(true)); v != nil && err == nil {
-		return val.(bool), true
-	}
-	return false, false
+	var res bool
+	err := newValueProvider(cv.Value()).Get(Root).Populate(&res)
+	return res, err == nil
 }
 
 // TryAsFloat attempts to return the configuration value as a float

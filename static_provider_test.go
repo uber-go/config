@@ -27,6 +27,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"io/ioutil"
+	"strings"
 )
 
 func TestStaticProvider_Name(t *testing.T) {
@@ -294,6 +296,20 @@ func TestValue_ChildKeys(t *testing.T) {
 
 	p = NewStaticProvider(map[int]string{3: "three", 5: "five"})
 	t.Run("MapOfInts", func(t *testing.T) { op(t, Root, []string{"3", "5"}) })
+}
+
+func TestInterpolatedBool(t *testing.T) {
+	t.Parallel()
+
+	f := func(key string) (string, bool) {
+		if key == "interpolate" {
+			return "true", true
+		}
+		return "", false
+	}
+
+	p := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(strings.NewReader("val: ${interpolate:false}")))
+	assert.True(t, p.Get("val").AsBool())
 }
 
 func TestConfigDefaults(t *testing.T) {
