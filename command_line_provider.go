@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"strings"
 
-	flag "github.com/ogier/pflag"
+	flag "github.com/spf13/pflag"
 )
 
 // StringSlice is an alias to string slice, that is used to read comma separated flag values.
@@ -41,6 +41,10 @@ func (s *StringSlice) String() string {
 func (s *StringSlice) Set(val string) error {
 	*s = StringSlice(strings.Split(val, ","))
 	return nil
+}
+
+func (s *StringSlice) Type() string {
+	return "StringSlice"
 }
 
 type commandLineProvider struct {

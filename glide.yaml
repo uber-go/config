@@ -2,8 +2,7 @@ package: go.uber.org/config
 import:
 - package: github.com/go-validator/validator
   version: v2
-- package: github.com/ogier/pflag
-  version: ~0.0.1
+- package: github.com/spf13/pflag
 - package: github.com/pkg/errors
   version: ~0.8.0
 - package: github.com/go-yaml/yaml

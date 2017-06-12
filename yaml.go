@@ -35,7 +35,7 @@ import (
 )
 
 type yamlConfigProvider struct {
-	root *yamlNode
+	root yamlNode
 }
 
 var (
@@ -63,7 +63,7 @@ func newYAMLProviderCore(files ...io.ReadCloser) *yamlConfigProvider {
 	}
 
 	return &yamlConfigProvider{
-		root: &yamlNode{
+		root: yamlNode{
 			nodeType: getNodeType(root),
 			key:      Root,
 			value:    root,
@@ -120,14 +120,14 @@ func mergeMaps(dst interface{}, src interface{}) interface{} {
 
 // NewYAMLProviderFromFiles creates a configuration provider from a set of YAML file names.
 // All the objects are going to be merged and arrays/values overridden in the order of the files.
-func NewYAMLProviderFromFiles(mustExist bool, resolver FileResolver, files ...string) Provider {
-	return NewCachedProvider(newYAMLProviderCore(filesToReaders(mustExist, resolver, files...)...))
+func NewYAMLProviderFromFiles(files ...string) Provider {
+	return NewCachedProvider(newYAMLProviderCore(filesToReaders(files...)...))
 }
 
 // NewYAMLProviderWithExpand creates a configuration provider from a set of YAML file names with ${var} or $var values
 // replaced based on the mapping function.
-func NewYAMLProviderWithExpand(mustExist bool, resolver FileResolver, mapping func(string) (string, bool), files ...string) Provider {
-	return NewYAMLProviderFromReaderWithExpand(mapping, filesToReaders(mustExist, resolver, files...)...)
+func NewYAMLProviderWithExpand(mapping func(string) (string, bool), files ...string) Provider {
+	return NewYAMLProviderFromReaderWithExpand(mapping, filesToReaders(files...)...)
 }
 
 // NewYAMLProviderFromReader creates a configuration provider from a list of `io.ReadClosers`.
@@ -155,16 +155,12 @@ func NewYAMLProviderFromBytes(yamls ...[]byte) Provider {
 	return NewCachedProvider(newYAMLProviderCore(closers...))
 }
 
-func filesToReaders(mustExist bool, resolver FileResolver, files ...string) []io.ReadCloser {
-	if resolver == nil {
-		resolver = NewRelativeResolver()
-	}
-
+func filesToReaders(files ...string) []io.ReadCloser {
 	// load the files, read their bytes
 	readers := []io.ReadCloser{}
 
 	for _, v := range files {
-		if reader := resolver.Resolve(v); reader == nil && mustExist {
+		if reader, err := os.Open(v); err != nil {
 			panic("Couldn't open " + v)
 		} else if reader != nil {
 			readers = append(readers, reader)
@@ -176,7 +172,7 @@ func filesToReaders(mustExist bool, resolver FileResolver, files ...string) []io
 
 func (y yamlConfigProvider) getNode(key string) *yamlNode {
 	if key == Root {
-		return y.root
+		return &y.root
 	}
 
 	return y.root.Find(key)
@@ -334,7 +330,7 @@ func unmarshalYAMLValue(reader io.ReadCloser, value interface{}) error {
 // will be used
 //
 // TODO: what if someone wanted a literal ${FOO} in config? need a small escape hatch
-func replace(lookUp lookUpFunc) func(in string) string {
+func replace(lookUp LookUpFunc) func(in string) string {
 	return func(in string) string {
 		sep := strings.Index(in, _envSeparator)
 		var key string

@@ -1,14 +1,14 @@
-hash: 702c8f262ffb4e68dbba1f2415c95755e5d97a18d24a5d7399d1a7e58dc69fbf
-updated: 2017-05-25T00:25:55.24131757-07:00
+hash: a89d01a7466ea58f6fa65231986881a9eb773550a1f591272d415b7cb54b5142
+updated: 2017-06-01T16:54:47.612952816-07:00
 imports:
 - name: github.com/go-validator/validator
   version: 07ffaad256c8e957050ad83d6472eb97d785013d
 - name: github.com/go-yaml/yaml
   version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
-- name: github.com/ogier/pflag
-  version: 32a05c62658bd1d7c7e75cbc8195de5d585fde0f
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
+- name: github.com/spf13/pflag
+  version: e57e3eeb33f795204c1ca35f56c44f83227c6e66
 testImports:
 - name: github.com/davecgh/go-spew
   version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9

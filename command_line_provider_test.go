@@ -23,7 +23,7 @@ package config
 import (
 	"testing"
 
-	flag "github.com/ogier/pflag"
+	flag "github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
