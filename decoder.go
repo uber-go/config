@@ -454,16 +454,6 @@ func (d *decoder) pointer(name string, value reflect.Value, def string) error {
 	return d.unmarshal(name, value.Elem(), def)
 }
 
-// Sets value to a channel type.
-func (d *decoder) channel(key string, value reflect.Value, def string) error {
-	return d.textUnmarshaller(key, value, def)
-}
-
-// Sets value to a function type.
-func (d *decoder) function(key string, value reflect.Value, def string) error {
-	return d.textUnmarshaller(key, value, def)
-}
-
 func (d *decoder) textUnmarshaller(key string, value reflect.Value, str string) error {
 	v := d.getGlobalProvider().Get(key)
 	if v.HasValue() {
@@ -472,7 +462,9 @@ func (d *decoder) textUnmarshaller(key string, value reflect.Value, str string) 
 		return nil
 	}
 
-	if value.IsNil() {
+	kind := value.Kind()
+
+	if kind >= reflect.Array && kind <= reflect.Slice && value.IsNil() {
 		value.Set(reflect.New(value.Type()).Elem())
 	}
 
@@ -519,8 +511,15 @@ func (d *decoder) unmarshal(name string, value reflect.Value, def string) error 
 		return errorWithKey(err, name)
 	}
 
+	// Check if a type can be unmarshalled directly.
+	ut := reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+	if value.Addr().Type().Implements(ut){
+		return d.textUnmarshaller(name, value, def)
+	}
+
+	// Try to unmarshal each type separately.
 	switch value.Kind() {
-	case reflect.Invalid:
+	case reflect.Invalid, reflect.Chan, reflect.Func:
 		return fmt.Errorf("invalid value type for key %s", name)
 	case reflect.Ptr:
 		return d.pointer(name, value, def)
@@ -534,10 +533,6 @@ func (d *decoder) unmarshal(name string, value reflect.Value, def string) error 
 		return d.mapping(name, value, def)
 	case reflect.Interface:
 		return d.iface(name, value, def)
-	case reflect.Chan:
-		return d.channel(name, value, def)
-	case reflect.Func:
-		return d.function(name, value, def)
 	default:
 		return d.scalar(name, value, def)
 	}

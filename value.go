@@ -21,7 +21,6 @@
 package config
 
 import (
-	"encoding"
 	"fmt"
 	"reflect"
 	"time"
@@ -286,13 +285,9 @@ func convertValue(value interface{}, targetType reflect.Type) (interface{}, erro
 	switch v := value.(type) {
 	case string:
 		target := reflect.New(targetType).Interface()
-		switch t := target.(type) {
+		switch target.(type) {
 		case *time.Duration:
 			return time.ParseDuration(v)
-		case encoding.TextUnmarshaler:
-			err := t.UnmarshalText([]byte(v))
-			// target should have a pointer receiver to be able to change itself based on text
-			return reflect.ValueOf(target).Elem().Interface(), err
 		}
 	}
 

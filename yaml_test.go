@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -402,6 +403,23 @@ func TestHappyTextUnMarshallerParsing(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, scrooge, ds.Protagonist)
 		assert.Equal(t, launchpadMcQuack, ds.Pilot)
+	})
+}
+
+type atomicDuckTale struct {
+	hero duckTaleCharacter
+}
+
+func (a *atomicDuckTale) UnmarshalText(b []byte) error {
+	return a.hero.UnmarshalText(b)
+}
+
+func TestHappyStructTextUnMarshallerParsing(t *testing.T) {
+	t.Parallel()
+	withYamlBytes([]byte(`hero: LaunchpadMcQuack`), func(provider Provider) {
+		a := &atomicDuckTale{}
+		require.NoError(t, provider.Get("hero").Populate(a))
+		assert.Equal(t, launchpadMcQuack, a.hero)
 	})
 }
 
@@ -1054,5 +1072,30 @@ func TestYAMLEnvInterpolationValueConversion(t *testing.T) {
 	v, ok := p.Get("number").TryAsInt()
 	require.True(t, ok)
 	assert.Equal(t, 3, v)
+}
 
+type cartoon struct {
+	title string
+	year  int
+}
+
+func (c *cartoon) UnmarshalText(b []byte) error {
+	r := regexp.MustCompile("year:([\\d]+) title:([\\w|\\s]+)")
+	s := r.FindAllStringSubmatch(string(b), -1)
+	c.title = s[0][2]
+	c.year = len(s[0][1])
+	return nil
+}
+
+func TestUnmarshalTextOnComplexStruct(t *testing.T) {
+	t.Parallel()
+
+	p := NewYAMLProviderFromBytes([]byte(`cartoon:
+  year: 1994
+  title: Free Willy`))
+
+	c := &cartoon{}
+	require.NoError(t, p.Get("cartoon").Populate(c))
+	assert.Equal(t, 4, c.year)
+	assert.Equal(t, "Free Willy", c.title)
 }
