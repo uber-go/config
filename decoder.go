@@ -23,6 +23,7 @@ package config
 import (
 	"bytes"
 	"encoding"
+	"encoding/json"
 	"fmt"
 	"math"
 	"reflect"
@@ -454,31 +455,35 @@ func (d *decoder) pointer(name string, value reflect.Value, def string) error {
 	return d.unmarshal(name, value.Elem(), def)
 }
 
-func (d *decoder) textUnmarshaller(key string, value reflect.Value, str string) error {
+func (d *decoder) tryUnmarshallers(key string, value reflect.Value, str string) (bool, error) {
 	v := d.getGlobalProvider().Get(key)
-	if v.HasValue() {
-		str = v.String()
-	} else if str == "" {
-		return nil
-	}
 
 	kind := value.Kind()
-
-	if kind >= reflect.Array && kind <= reflect.Slice && value.IsNil() {
+	if kind >= reflect.Chan && kind <= reflect.Slice && value.IsNil() {
 		value.Set(reflect.New(value.Type()).Elem())
 	}
 
-	// Value has to have a pointer receiver to be able to modify itself with TextUnmarshaller
-	if !value.CanAddr() {
-		return errorWithKey(errors.New("can't use TextUnmarshaller because value is not addressable"), key)
-	}
-
 	switch t := value.Addr().Interface().(type) {
+	case json.Unmarshaler:
+		if !v.HasValue() {
+			return true, nil
+		}
+
+		b, err := json.Marshal(v.value)
+		if err != nil {
+			return true, errorWithKey(err, key)
+		}
+
+		return true, errorWithKey(t.UnmarshalJSON(b), key)
 	case encoding.TextUnmarshaler:
-		return errorWithKey(t.UnmarshalText([]byte(str)), key)
+		if v.HasValue() {
+			str = v.String()
+		}
+
+		return true, errorWithKey(t.UnmarshalText([]byte(str)), key)
 	}
 
-	return nil
+	return false, nil
 }
 
 // Check if a value is a pointer and decoder set it before.
@@ -512,9 +517,8 @@ func (d *decoder) unmarshal(name string, value reflect.Value, def string) error 
 	}
 
 	// Check if a type can be unmarshalled directly.
-	ut := reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
-	if value.Addr().Type().Implements(ut){
-		return d.textUnmarshaller(name, value, def)
+	if ok, err := d.tryUnmarshallers(name, value, def); ok {
+		return err
 	}
 
 	// Try to unmarshal each type separately.
