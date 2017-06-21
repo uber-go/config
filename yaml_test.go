@@ -34,6 +34,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"math"
 )
 
 var yamlConfig1 = []byte(`
@@ -1080,10 +1081,13 @@ type cartoon struct {
 }
 
 func (c *cartoon) UnmarshalText(b []byte) error {
-	r := regexp.MustCompile("year:([\\d]+) title:([\\w|\\s]+)")
-	s := r.FindAllStringSubmatch(string(b), -1)
-	c.title = s[0][2]
+	year := regexp.MustCompile("year:([\\d]+)")
+	title := regexp.MustCompile("title:([\\w]+)")
+	s := year.FindAllStringSubmatch(string(b), -1)
 	c.year = len(s[0][1])
+
+	s = title.FindAllStringSubmatch(string(b), -1)
+	c.title = s[0][1]
 	return nil
 }
 
@@ -1092,10 +1096,120 @@ func TestUnmarshalTextOnComplexStruct(t *testing.T) {
 
 	p := NewYAMLProviderFromBytes([]byte(`cartoon:
   year: 1994
-  title: Free Willy`))
+  title: FreeWilly`))
 
 	c := &cartoon{}
 	require.NoError(t, p.Get("cartoon").Populate(c))
 	assert.Equal(t, 4, c.year)
-	assert.Equal(t, "Free Willy", c.title)
+	assert.Equal(t, "FreeWilly", c.title)
+}
+
+type jsonUnmarshaller struct {
+	Size int
+	Name string
+}
+
+func (j *jsonUnmarshaller) UnmarshalJSON(b []byte) error {
+	if string(b) != `{"name":"maxInt","size":2147483647}` {
+		return errors.New("boom")
+	}
+
+	j.Name = "mega"
+	j.Size = 1000000
+	return nil
+}
+
+func (j *jsonUnmarshaller) UnmarshalText(b []byte) error {
+	panic("should never be called")
+}
+
+func TestPopulateOfJSONUnmarshal(t *testing.T) {
+	t.Parallel()
+
+	p := NewStaticProvider(map[string]jsonUnmarshaller{
+		// Test that big integers are not going to be encoded as floats.
+		"pass": {Size: math.MaxInt32, Name: "maxInt"},
+		"fail": {Size: 0, Name: "zero"},
+	})
+
+	j := jsonUnmarshaller{}
+	require.NoError(t, p.Get("pass").Populate(&j))
+	assert.Equal(t, j, jsonUnmarshaller{Size: 1000000, Name: "mega"})
+
+	assert.NoError(t, p.Get("empty").Populate(&j), "Empty value shouldn't cause errors.")
+	assert.Equal(t, j, jsonUnmarshaller{Size: 1000000, Name: "mega"}, "Empty value shouldn't change actual variable")
+
+	err := p.Get("fail").Populate(&j)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "boom")
+}
+
+type jsonMarshalError struct{}
+
+func (j *jsonMarshalError) UnmarshalJSON(b []byte) error {return nil}
+func (j jsonMarshalError) MarshalJSON() ([]byte, error) {return nil, errors.New("never give up")}
+
+func TestPopulateOfFailedJSONMarshal(t *testing.T) {
+	t.Parallel()
+
+	j := jsonMarshalError{}
+	p := newValueProvider(jsonMarshalError{})
+
+	err := p.Get("fail").Populate(&j)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "never give up")
+}
+
+type yamlUnmarshal struct {
+	Size int
+	Name string
+}
+
+func (y *yamlUnmarshal) UnmarshalYAML(unmarshal func(interface{}) error) error{
+	type fakeYAMLUnmarshal struct {
+		Size int
+		Name string
+	}
+
+	var f fakeYAMLUnmarshal
+
+	if err := unmarshal(&f); err == nil {
+		y.Name = f.Name+ "Fake"
+		y.Size = f.Size
+		return nil
+	}
+
+	m := make(map[string]string)
+	if err := unmarshal(&m); err != nil {
+		return err
+	}
+
+	stringToInt := map[string]int {"one":1, "two":2}
+	y.Size = stringToInt[m["size"]]
+	y.Name = m["name"]
+
+	return nil
+}
+
+func TestPopulateOfYAMLUnmarshal(t *testing.T) {
+	t.Parallel()
+
+	p := NewYAMLProviderFromBytes([]byte(`
+pass:
+  name: deci
+  size: 10
+fail:
+  name: first
+  size: one
+`))
+
+	y := yamlUnmarshal{}
+	require.NoError(t, p.Get("pass").Populate(&y))
+	assert.Equal(t, y, yamlUnmarshal{Size: 10, Name: "deciFake"})
+
+	assert.NoError(t, p.Get("empty").Populate(&y), "Empty value shouldn't cause errors.")
+	assert.Equal(t, y, yamlUnmarshal{Size: 10, Name: "deciFake"}, "Empty value shouldn't change actual variable")
+
+	assert.NoError(t, p.Get("fail").Populate(&y))
+	assert.Equal(t, y, yamlUnmarshal{Size: 1, Name: "first"})
 }

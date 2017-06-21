@@ -31,6 +31,7 @@ import (
 
 	"github.com/go-validator/validator"
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 )
 
 type fieldInfo struct {
@@ -455,21 +456,42 @@ func (d *decoder) pointer(name string, value reflect.Value, def string) error {
 	return d.unmarshal(name, value.Elem(), def)
 }
 
-func (d *decoder) tryUnmarshallers(key string, value reflect.Value, str string) (bool, error) {
-	v := d.getGlobalProvider().Get(key)
+func jsonMap(v interface{}) interface{} {
+	if reflect.TypeOf(v).Kind() == reflect.Map {
+		tmp := make(map[string]interface{})
+		rv := reflect.ValueOf(v)
+		for _, key := range rv.MapKeys() {
+			tmp[fmt.Sprint(key.Interface())] = jsonMap(rv.MapIndex(key).Interface())
+		}
 
-	kind := value.Kind()
-	if kind >= reflect.Chan && kind <= reflect.Slice && value.IsNil() {
-		value.Set(reflect.New(value.Type()).Elem())
+		return tmp
 	}
 
+	return v
+}
+
+func (d *decoder) tryUnmarshallers(key string, value reflect.Value, str string) (bool, error) {
+	switch value.Kind() {
+	case reflect.Chan, reflect.Interface, reflect.Func, reflect.Map, reflect.Ptr:
+		// value.IsNil panics if value.Kind() is not equal to one of these constants:
+		if value.IsNil() {
+			value.Set(reflect.New(value.Type()).Elem())
+		}
+
+	//TODO(alsam) Command-line provider implementation is made via maps, so we'll fail to merge slices and maps
+	// TestCommandLineProvider_NestedValues will fail in that case.
+	case reflect.Slice:
+		return false, nil
+	}
+
+	v := d.getGlobalProvider().Get(key)
 	switch t := value.Addr().Interface().(type) {
 	case json.Unmarshaler:
 		if !v.HasValue() {
 			return true, nil
 		}
 
-		b, err := json.Marshal(v.value)
+		b, err := json.Marshal(jsonMap(v.value))
 		if err != nil {
 			return true, errorWithKey(err, key)
 		}
@@ -481,6 +503,18 @@ func (d *decoder) tryUnmarshallers(key string, value reflect.Value, str string) 
 		}
 
 		return true, errorWithKey(t.UnmarshalText([]byte(str)), key)
+	case yaml.Unmarshaler:
+		if !v.HasValue() {
+			return true, nil
+		}
+
+		b, err := yaml.Marshal(v.value)
+		if err != nil {
+			return true, err
+		}
+
+		assign := value.Addr().Interface()
+		return true, errorWithKey(yaml.Unmarshal(b, assign), key)
 	}
 
 	return false, nil
