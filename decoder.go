@@ -456,6 +456,8 @@ func (d *decoder) pointer(name string, value reflect.Value, def string) error {
 	return d.unmarshal(name, value.Elem(), def)
 }
 
+// JSON encoder will fail to serialize maps that don't have strings as keys
+// so we are going to stringify them manually.
 func jsonMap(v interface{}) interface{} {
 	if reflect.TypeOf(v).Kind() == reflect.Map {
 		tmp := make(map[string]interface{})
@@ -470,10 +472,15 @@ func jsonMap(v interface{}) interface{} {
 	return v
 }
 
-func (d *decoder) tryUnmarshallers(key string, value reflect.Value, str string) (bool, error) {
+// tryUnmarshallers checks if the value's type implements either one of standard interfaces in order:
+// 1. `json.Unmarshaler`
+// 2. `encoding.TextUnmarshaler`
+// 3. `yaml.Unmarshaler`
+// and tries it to populate the value.
+func (d *decoder) tryUnmarshalers(key string, value reflect.Value, def string) (bool, error) {
 	switch value.Kind() {
+	// value.IsNil panics if value.Kind() is not equal to one of these constants.
 	case reflect.Chan, reflect.Interface, reflect.Func, reflect.Map, reflect.Ptr:
-		// value.IsNil panics if value.Kind() is not equal to one of these constants:
 		if value.IsNil() {
 			value.Set(reflect.New(value.Type()).Elem())
 		}
@@ -487,34 +494,38 @@ func (d *decoder) tryUnmarshallers(key string, value reflect.Value, str string) 
 	v := d.getGlobalProvider().Get(key)
 	switch t := value.Addr().Interface().(type) {
 	case json.Unmarshaler:
+		// Skip unmarshaling if there is no value.
 		if !v.HasValue() {
 			return true, nil
 		}
 
-		b, err := json.Marshal(jsonMap(v.value))
+		// Marshal the value first.
+		b, err := json.Marshal(jsonMap(v.Value()))
 		if err != nil {
 			return true, errorWithKey(err, key)
 		}
 
+		// Unmarshal corresponding json.
 		return true, errorWithKey(t.UnmarshalJSON(b), key)
 	case encoding.TextUnmarshaler:
+		// check if we need to use custom defaults
 		if v.HasValue() {
-			str = v.String()
+			def = v.String()
 		}
 
-		return true, errorWithKey(t.UnmarshalText([]byte(str)), key)
+		return true, errorWithKey(t.UnmarshalText([]byte(def)), key)
 	case yaml.Unmarshaler:
+		// Skip unmarshaling if there is no value.
 		if !v.HasValue() {
 			return true, nil
 		}
 
-		b, err := yaml.Marshal(v.value)
+		b, err := yaml.Marshal(v.Value())
 		if err != nil {
 			return true, err
 		}
 
-		assign := value.Addr().Interface()
-		return true, errorWithKey(yaml.Unmarshal(b, assign), key)
+		return true, errorWithKey(yaml.Unmarshal(b, value.Addr().Interface()), key)
 	}
 
 	return false, nil
@@ -550,8 +561,8 @@ func (d *decoder) unmarshal(name string, value reflect.Value, def string) error 
 		return errorWithKey(err, name)
 	}
 
-	// Check if a type can be unmarshalled directly.
-	if ok, err := d.tryUnmarshallers(name, value, def); ok {
+	// Check if a type can be unmarshaled directly.
+	if ok, err := d.tryUnmarshalers(name, value, def); ok {
 		return err
 	}
 
