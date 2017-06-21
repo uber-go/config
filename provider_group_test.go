@@ -32,9 +32,6 @@ func TestProviderGroup(t *testing.T) {
 	pg := NewProviderGroup("test-group", NewYAMLProviderFromBytes([]byte(`id: test`)))
 	assert.Equal(t, "test-group", pg.Name())
 	assert.Equal(t, "test", pg.Get("id").AsString())
-	// TODO this should not require a cast GFM-74
-	assert.Empty(t, pg.(providerGroup).RegisterChangeCallback(Root, nil))
-	assert.Nil(t, pg.(providerGroup).UnregisterChangeCallback(Root))
 }
 
 func TestProviderGroupScope(t *testing.T) {
@@ -44,61 +41,10 @@ func TestProviderGroupScope(t *testing.T) {
 	assert.Equal(t, 42, pg.Get("hello").Get("world").AsInt())
 }
 
-func TestCallbacks_WithDynamicProvider(t *testing.T) {
-	t.Parallel()
-	data := map[string]interface{}{"hello.world": 42}
-	mock := NewProviderGroup("with-dynamic", NewStaticProvider(data), NewMockDynamicProvider(data))
-	assert.Equal(t, "with-dynamic", mock.Name())
-
-	require.NoError(t, mock.RegisterChangeCallback("mockcall", nil))
-	assert.EqualError(t,
-		mock.RegisterChangeCallback("mockcall", nil),
-		"callback already registered for the key: mockcall")
-
-	assert.EqualError(t,
-		mock.UnregisterChangeCallback("mock"),
-		"there is no registered callback for token: mock")
-}
-
-func TestCallbacks_WithoutDynamicProvider(t *testing.T) {
-	t.Parallel()
-	data := map[string]interface{}{"hello.world": 42}
-	mock := NewProviderGroup("with-dynamic", NewStaticProvider(data))
-	assert.Equal(t, "with-dynamic", mock.Name())
-	assert.NoError(t, mock.RegisterChangeCallback("mockcall", nil))
-	assert.NoError(t, mock.UnregisterChangeCallback("mock"))
-}
-
-func TestCallbacks_WithScopedProvider(t *testing.T) {
-	t.Parallel()
-	mock := &MockDynamicProvider{}
-	mock.Set("uber.fx", "go-lang")
-	scope := NewScopedProvider("uber", mock)
-
-	callCount := 0
-	cb := func(key string, provider string, configdata interface{}) {
-		callCount++
-	}
-
-	require.NoError(t, scope.RegisterChangeCallback("fx", cb))
-	mock.Set("uber.fx", "register works!")
-
-	val := scope.Get("fx").AsString()
-	require.Equal(t, "register works!", val)
-	assert.Equal(t, 1, callCount)
-
-	require.NoError(t, scope.UnregisterChangeCallback("fx"))
-	mock.Set("uber.fx", "unregister works too!")
-
-	val = scope.Get("fx").AsString()
-	require.Equal(t, "unregister works too!", val)
-	assert.Equal(t, 1, callCount)
-}
 
 func TestScope_WithGetFromValue(t *testing.T) {
 	t.Parallel()
-	mock := &MockDynamicProvider{}
-	mock.Set("uber.fx", "go-lang")
+	mock := NewYAMLProviderFromBytes([]byte(`uber.fx: go-lang`))
 	scope := NewScopedProvider("", mock)
 	require.Equal(t, "go-lang", scope.Get("uber.fx").AsString())
 	require.False(t, scope.Get("uber").HasValue())

@@ -227,13 +227,6 @@ func TestYamlNodeWithNil(t *testing.T) {
 	}, "Expected panic with nil inpout.")
 }
 
-func TestYamlNode_Callbacks(t *testing.T) {
-	t.Parallel()
-	p := NewYAMLProviderFromFiles()
-	assert.NoError(t, p.RegisterChangeCallback("test", nil))
-	assert.NoError(t, p.UnregisterChangeCallback("token"))
-}
-
 func withYamlBytes(yamlBytes []byte, f func(Provider)) {
 	provider := NewProviderGroup("global", NewYAMLProviderFromBytes(yamlBytes))
 	f(provider)
@@ -873,14 +866,6 @@ func TestYAMLName(t *testing.T) {
 
 	p := NewYAMLProviderFromBytes([]byte(``))
 	require.Contains(t, p.Name(), "yaml")
-}
-
-func TestYAMLCallbacks(t *testing.T) {
-	t.Parallel()
-
-	p := newYAMLProviderCore(nil, ioutil.NopCloser(bytes.NewBuffer(nil)))
-	require.Nil(t, p.RegisterChangeCallback("key", nil))
-	require.Nil(t, p.UnregisterChangeCallback("key"))
 }
 
 func TestAbsolutePaths(t *testing.T) {

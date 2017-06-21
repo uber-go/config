@@ -73,30 +73,6 @@ This model respects priority of providers to allow overriding of individual
 values. Read [Loading Configuration](#Loading-Configuration) section for more details
 about the loading process.
 
-## Provider
-
-`Provider` is the interface for anything that can provide values.
-We provide a few reference implementations (environment and YAML), but you are
-free to register your own providers via `RegisterProviders()` and
-`RegisterDynamicProviders()`.
-
-### Static configuration providers
-
-Static configuration providers conform to the `Provider` interface
-and are bootstrapped first. Use these for simple providers such as file-backed or
-environment-based configuration providers.
-
-### Dynamic configuration providers
-
-Dynamic configuration providers frequently need some bootstrap configuration to
-be useful. Dynamic configuration providers
-conform to the `Provider` interface, but they're instantiated
-**after** the Static `Provider`s on order to read bootstrap values.
-
-For example, if you were to implement a ZooKeeper-backed
-`Provider`, you'd likely need to specify (via YAML or environment
-variables) where your ZooKeeper nodes live.
-
 ## Value
 
 `Value` is the return type of every configuration providers'
@@ -213,7 +189,7 @@ it uses the provided 3001 default.
 The command-line provider is a static provider that reads flags passed to a
 program and wraps them in the `Provider` interface. Dots in flag names act
 as separators for nested values (read about dotted notation in the
-[Dynamic configuration providers](Dynamic-configuration-providers) section above).
+[Value](Value) section above).
 Commas indicate to the provider that the flag value is an array of values.
 For example, command `./service --roles=actor,writer` will set roles to a slice
 with two values `[]string{"actor","writer"}`.
@@ -353,17 +329,6 @@ new providers, and amending existing providers.
   changes in all cached values, so you can call `cached.Get("something")`
   without worrying about latency. It is safe for concurrent use by
   multiple goroutines.
-
-* The `MockDynamicProvider` is a mock provider that can be used to test dynamic
-  features. It implements `Provider` interface and lets you set values
-  to trigger change callbacks.
-
-* Sometimes dynamic providers only let you register one callback per key.
-  If you want to have multiple keys per callback, use the
-  `NewMultiCallbackProvider(p Provider)` wrapper. It stores a list of
-  all callbacks for each value and calls them when a value changes.
-  **Caution**: provider is locked during callbacks execution, you should try to
-  make the callbacks as fast as possible.
 
 * `NopProvider` is useful for testing because it can be embedded in any type
   if you are not interested in implementing all Provider methods.

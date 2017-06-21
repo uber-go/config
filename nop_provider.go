@@ -37,13 +37,3 @@ func (p NopProvider) Name() string {
 func (p NopProvider) Get(key string) Value {
 	return NewValue(p, key, nil, true, Invalid, &time.Time{})
 }
-
-// RegisterChangeCallback does nothing and simply returns nil.
-func (p NopProvider) RegisterChangeCallback(key string, callback ChangeCallback) error {
-	return nil
-}
-
-// UnregisterChangeCallback does nothing and simply returns nil.
-func (p NopProvider) UnregisterChangeCallback(token string) error {
-	return nil
-}
