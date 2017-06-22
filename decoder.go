@@ -460,7 +460,7 @@ func (d *decoder) pointer(name string, value reflect.Value, def string) error {
 // so we are going to stringify them manually.
 func jsonMap(v interface{}) interface{} {
 	if reflect.TypeOf(v).Kind() == reflect.Map {
-		tmp := make(map[string]interface{})
+		tmp := make(map[string]interface{}, len(rv.MapKeys()))
 		rv := reflect.ValueOf(v)
 		for _, key := range rv.MapKeys() {
 			tmp[fmt.Sprint(key.Interface())] = jsonMap(rv.MapIndex(key).Interface())

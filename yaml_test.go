@@ -1146,8 +1146,8 @@ func TestPopulateOfJSONUnmarshal(t *testing.T) {
 
 type jsonMarshalError struct{}
 
-func (j *jsonMarshalError) UnmarshalJSON(b []byte) error {return nil}
-func (j jsonMarshalError) MarshalJSON() ([]byte, error) {return nil, errors.New("never give up")}
+func (j *jsonMarshalError) UnmarshalJSON(b []byte) error { return nil }
+func (j jsonMarshalError) MarshalJSON() ([]byte, error)  { return nil, errors.New("never give up") }
 
 func TestPopulateOfFailedJSONMarshal(t *testing.T) {
 	t.Parallel()
@@ -1165,7 +1165,7 @@ type yamlUnmarshal struct {
 	Name string
 }
 
-func (y *yamlUnmarshal) UnmarshalYAML(unmarshal func(interface{}) error) error{
+func (y *yamlUnmarshal) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type fakeYAMLUnmarshal struct {
 		Size int
 		Name string
@@ -1174,7 +1174,7 @@ func (y *yamlUnmarshal) UnmarshalYAML(unmarshal func(interface{}) error) error{
 	var f fakeYAMLUnmarshal
 
 	if err := unmarshal(&f); err == nil {
-		y.Name = f.Name+ "Fake"
+		y.Name = f.Name + "Fake"
 		y.Size = f.Size
 		return nil
 	}
@@ -1184,7 +1184,7 @@ func (y *yamlUnmarshal) UnmarshalYAML(unmarshal func(interface{}) error) error{
 		return err
 	}
 
-	stringToInt := map[string]int {"one":1, "two":2}
+	stringToInt := map[string]int{"one": 1, "two": 2}
 	y.Size = stringToInt[m["size"]]
 	y.Name = m["name"]
 
