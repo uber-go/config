@@ -23,12 +23,14 @@ package config
 import (
 	"bytes"
 	"encoding"
+	"encoding/json"
 	"fmt"
 	"math"
 	"reflect"
 	"strconv"
 
 	"github.com/go-validator/validator"
+	"github.com/go-yaml/yaml"
 	"github.com/pkg/errors"
 )
 
@@ -454,39 +456,79 @@ func (d *decoder) pointer(name string, value reflect.Value, def string) error {
 	return d.unmarshal(name, value.Elem(), def)
 }
 
-// Sets value to a channel type.
-func (d *decoder) channel(key string, value reflect.Value, def string) error {
-	return d.textUnmarshaller(key, value, def)
+// JSON encoder will fail to serialize maps that don't have strings as keys
+// so we are going to stringify them manually.
+func jsonMap(v interface{}) interface{} {
+	if reflect.TypeOf(v).Kind() == reflect.Map {
+		rv := reflect.ValueOf(v)
+		tmp := make(map[string]interface{}, len(rv.MapKeys()))
+		for _, key := range rv.MapKeys() {
+			tmp[fmt.Sprint(key.Interface())] = jsonMap(rv.MapIndex(key).Interface())
+		}
+
+		return tmp
+	}
+
+	return v
 }
 
-// Sets value to a function type.
-func (d *decoder) function(key string, value reflect.Value, def string) error {
-	return d.textUnmarshaller(key, value, def)
-}
+// tryUnmarshallers checks if the value's type implements either one of standard interfaces in order:
+// 1. `json.Unmarshaler`
+// 2. `encoding.TextUnmarshaler`
+// 3. `yaml.Unmarshaler`
+// and tries it to populate the value.
+func (d *decoder) tryUnmarshalers(key string, value reflect.Value, def string) (bool, error) {
+	switch value.Kind() {
+	// value.IsNil panics if value.Kind() is not equal to one of these constants.
+	case reflect.Chan, reflect.Interface, reflect.Func, reflect.Map, reflect.Ptr:
+		if value.IsNil() {
+			value.Set(reflect.New(value.Type()).Elem())
+		}
 
-func (d *decoder) textUnmarshaller(key string, value reflect.Value, str string) error {
+	//TODO(alsam) Command-line provider implementation is made via maps, so we'll fail to merge slices and maps
+	// TestCommandLineProvider_NestedValues will fail in that case.
+	case reflect.Slice:
+		return false, nil
+	}
+
 	v := d.getGlobalProvider().Get(key)
-	if v.HasValue() {
-		str = v.String()
-	} else if str == "" {
-		return nil
-	}
-
-	if value.IsNil() {
-		value.Set(reflect.New(value.Type()).Elem())
-	}
-
-	// Value has to have a pointer receiver to be able to modify itself with TextUnmarshaller
-	if !value.CanAddr() {
-		return errorWithKey(errors.New("can't use TextUnmarshaller because value is not addressable"), key)
-	}
-
 	switch t := value.Addr().Interface().(type) {
+	case json.Unmarshaler:
+		// Skip unmarshaling if there is no value.
+		if !v.HasValue() {
+			return true, nil
+		}
+
+		// Marshal the value first.
+		b, err := json.Marshal(jsonMap(v.Value()))
+		if err != nil {
+			return true, errorWithKey(err, key)
+		}
+
+		// Unmarshal corresponding json.
+		return true, errorWithKey(t.UnmarshalJSON(b), key)
 	case encoding.TextUnmarshaler:
-		return errorWithKey(t.UnmarshalText([]byte(str)), key)
+		// check if we need to use custom defaults
+		if v.HasValue() {
+			def = v.String()
+		}
+
+		return true, errorWithKey(t.UnmarshalText([]byte(def)), key)
+	case yaml.Unmarshaler:
+		// Skip unmarshaling if there is no value.
+		if !v.HasValue() {
+			return true, nil
+		}
+
+		b, err := yaml.Marshal(v.Value())
+		if err != nil {
+			return true, err
+		}
+
+		return true, errorWithKey(yaml.Unmarshal(b, value.Addr().Interface()), key)
 	}
 
-	return nil
+	return false, nil
 }
 
 // Check if a value is a pointer and decoder set it before.
@@ -519,8 +561,14 @@ func (d *decoder) unmarshal(name string, value reflect.Value, def string) error 
 		return errorWithKey(err, name)
 	}
 
+	// Check if a type can be unmarshaled directly.
+	if ok, err := d.tryUnmarshalers(name, value, def); ok {
+		return err
+	}
+
+	// Try to unmarshal each type separately.
 	switch value.Kind() {
-	case reflect.Invalid:
+	case reflect.Invalid, reflect.Chan, reflect.Func:
 		return fmt.Errorf("invalid value type for key %s", name)
 	case reflect.Ptr:
 		return d.pointer(name, value, def)
@@ -534,10 +582,6 @@ func (d *decoder) unmarshal(name string, value reflect.Value, def string) error 
 		return d.mapping(name, value, def)
 	case reflect.Interface:
 		return d.iface(name, value, def)
-	case reflect.Chan:
-		return d.channel(name, value, def)
-	case reflect.Func:
-		return d.function(name, value, def)
 	default:
 		return d.scalar(name, value, def)
 	}
