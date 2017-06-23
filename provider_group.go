@@ -56,21 +56,3 @@ func (p providerGroup) Get(key string) Value {
 func (p providerGroup) Name() string {
 	return p.name
 }
-
-func (p providerGroup) RegisterChangeCallback(key string, callback ChangeCallback) error {
-	for _, provider := range p.providers {
-		if err := provider.RegisterChangeCallback(key, callback); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (p providerGroup) UnregisterChangeCallback(token string) error {
-	for _, provider := range p.providers {
-		if err := provider.UnregisterChangeCallback(token); err != nil {
-			return err
-		}
-	}
-	return nil
-}

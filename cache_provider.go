@@ -51,7 +51,7 @@ func (p *cachedProvider) Name() string {
 	return fmt.Sprintf("cached %q", p.Provider.Name())
 }
 
-// Retrieves a Value, caches it internally and subscribe to changes via RegisterCallback.
+// Retrieves a Value and caches it internally.
 // The value is cached only if it is found.
 func (p *cachedProvider) Get(key string) Value {
 	p.RLock()
@@ -61,15 +61,6 @@ func (p *cachedProvider) Get(key string) Value {
 	}
 
 	p.RUnlock()
-	err := p.Provider.RegisterChangeCallback(key, func(key string, provider string, data interface{}) {
-		p.Lock()
-		p.cache[key] = NewValue(p, key, data, true, GetType(data), nil)
-		p.Unlock()
-	})
-
-	if err != nil {
-		return NewValue(p, key, err, false, GetType(err), nil)
-	}
 
 	v := p.Provider.Get(key)
 	v.provider = p
@@ -78,14 +69,4 @@ func (p *cachedProvider) Get(key string) Value {
 	p.Unlock()
 
 	return v
-}
-
-// No need to register a callback, all the values are fresh.
-func (p *cachedProvider) RegisterChangeCallback(key string, callback ChangeCallback) error {
-	return nil
-}
-
-// No need to unregister a callback, because nothing was registered.
-func (p *cachedProvider) UnregisterChangeCallback(token string) error {
-	return nil
 }

@@ -363,8 +363,6 @@ func TestNopProvider_Get(t *testing.T) {
 
 	p := NopProvider{}
 	assert.Equal(t, "NopProvider", p.Name())
-	assert.NoError(t, p.RegisterChangeCallback("key", nil))
-	assert.NoError(t, p.UnregisterChangeCallback("token"))
 
 	v := p.Get("randomKey")
 	assert.Equal(t, "NopProvider", v.Source())

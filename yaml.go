@@ -193,18 +193,7 @@ func (y yamlConfigProvider) Get(key string) Value {
 	return NewValue(y, key, node.value, true, GetType(node.value), nil)
 }
 
-func (y yamlConfigProvider) RegisterChangeCallback(key string, callback ChangeCallback) error {
-	// Yaml configuration don't receive callback events
-	return nil
-}
-
-func (y yamlConfigProvider) UnregisterChangeCallback(token string) error {
-	// Nothing to Unregister
-	return nil
-}
-
 // Simple YAML reader
-
 type nodeType int
 
 const (

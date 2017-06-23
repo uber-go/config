@@ -74,13 +74,6 @@ func TestStaticProvider_WithGet(t *testing.T) {
 	assert.Equal(t, 42, val.AsInt())
 }
 
-func TestStaticProvider_Callbacks(t *testing.T) {
-	t.Parallel()
-	p := NewStaticProvider(nil)
-	assert.NoError(t, p.RegisterChangeCallback("test", nil))
-	assert.NoError(t, p.UnregisterChangeCallback("token"))
-}
-
 func TestStaticProviderFmtPrintOnValueNoPanic(t *testing.T) {
 	t.Parallel()
 	p := NewStaticProvider(nil)

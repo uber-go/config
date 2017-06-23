@@ -22,6 +22,7 @@ package config
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -31,8 +32,8 @@ import (
 func TestCacheProviderName(t *testing.T) {
 	t.Parallel()
 
-	c := NewCachedProvider(&MockDynamicProvider{})
-	assert.Equal(t, `cached "MockDynamicProvider"`, c.Name())
+	c := NewCachedProvider(NewStaticProvider(nil))
+	assert.Equal(t, `cached "static"`, c.Name())
 }
 
 func TestCachedProvider_ConstructorPanicsOnNil(t *testing.T) {
@@ -41,70 +42,66 @@ func TestCachedProvider_ConstructorPanicsOnNil(t *testing.T) {
 	assert.Panics(t, func() { NewCachedProvider(nil) })
 }
 
+type testCachedProvider struct {
+	NopProvider
+	f func(string) Value
+}
+
+func (t testCachedProvider) Get(key string) Value {
+	return t.f(key)
+}
+
 func TestCachedProvider_GetNewValues(t *testing.T) {
 	t.Parallel()
 
-	m := &MockDynamicProvider{}
+	count := 0
+	m := testCachedProvider{}
+	m.f = func(key string) Value {
+		if count > 0 {
+			t.Fatal("cache was called more than once")
+		}
+		count++
+		return NewValue(m, key, "Simpsons", true, String, nil)
+	}
+
 	p := NewCachedProvider(m)
 
 	v := p.Get("cartoon")
-	assert.False(t, v.HasValue())
 
-	m.Set("cartoon", "Simpsons")
 	v = v.Get(Root)
 	require.True(t, v.HasValue())
 	assert.Equal(t, "Simpsons", v.Value())
 
-	ts := v.LastUpdated()
-	m.Set("cartoon", "Futurama")
-	assert.True(t, ts.Before(v.Get(Root).LastUpdated()))
-
+	v2 := p.Get("cartoon")
+	assert.Equal(t, v, v2)
 	assert.Equal(t, p, v.provider)
-}
-
-func TestCachedProvider_ErrorToSetCallback(t *testing.T) {
-	t.Parallel()
-
-	m := &MockDynamicProvider{}
-	p := NewCachedProvider(m)
-
-	m.RegisterChangeCallback("cartoon", func(key, provider string, data interface{}) {})
-
-	v := p.Get("cartoon")
-	assert.False(t, v.HasValue())
-
-	m.Set("cartoon", "Simpsons")
-	v = v.Get(Root)
-	require.False(t, v.HasValue())
 }
 
 func TestCachedProviderConcurrentUse(t *testing.T) {
 	t.Parallel()
 
-	wg := sync.WaitGroup{}
+	m := testCachedProvider{}
+	var count int32
+	m.f = func(key string) Value {
+		if atomic.LoadInt32(&count) > 0 {
+			t.Fatal("cache was called more than once")
+		}
 
-	m := &MockDynamicProvider{}
+		atomic.AddInt32(&count, 1)
+		return NewValue(m, key, "Simpsons", true, String, nil)
+	}
+
 	p := NewCachedProvider(m)
 
-	v := p.Get("cartoon")
-	assert.False(t, v.HasValue())
-
-	m.Set("cartoon", "Simpsons")
-	wg.Add(4)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 	get := func() {
-		x := v.Get(Root)
+		x := p.Get(Root)
 		require.True(t, x.HasValue())
 		wg.Done()
 	}
 
-	set := func() {
-		m.Set("cartoon", "Jetsons")
-		wg.Done()
-	}
-
-	go set()
 	go get()
-	go set()
 	go get()
 
 	wg.Wait()
