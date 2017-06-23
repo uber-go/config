@@ -1213,3 +1213,33 @@ fail:
 	assert.NoError(t, p.Get("fail").Populate(&y))
 	assert.Equal(t, y, yamlUnmarshal{Size: 1, Name: "first"})
 }
+
+func TestInvalidPopulate(t *testing.T) {
+	t.Parallel()
+
+	p := newValueProvider(nil)
+	var v chan int
+	err := p.Get(Root).Populate(&v)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid value type for key")
+}
+
+type alwaysBlueYAML struct{}
+
+func (a alwaysBlueYAML) MarshalYAML() (interface{}, error) {
+	return nil, errors.New("always blue!")
+}
+
+func (a *alwaysBlueYAML) UnmarshalYAML(func(interface{}) error) error {
+	return nil
+}
+
+func TestYAMLMarshallerErrors(t *testing.T) {
+	t.Parallel()
+
+	p := newValueProvider(alwaysBlueYAML{})
+	var v alwaysBlueYAML
+	err := p.Get(Root).Populate(&v)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "always blue!")
+}
