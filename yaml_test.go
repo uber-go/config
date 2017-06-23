@@ -1131,8 +1131,8 @@ func TestPopulateOfJSONUnmarshal(t *testing.T) {
 
 type jsonMarshalError struct{}
 
-func (j *jsonMarshalError) UnmarshalJSON(b []byte) error {return nil}
-func (j jsonMarshalError) MarshalJSON() ([]byte, error) {return nil, errors.New("never give up")}
+func (j *jsonMarshalError) UnmarshalJSON(b []byte) error { return nil }
+func (j jsonMarshalError) MarshalJSON() ([]byte, error)  { return nil, errors.New("never give up") }
 
 func TestPopulateOfFailedJSONMarshal(t *testing.T) {
 	t.Parallel()
@@ -1150,7 +1150,7 @@ type yamlUnmarshal struct {
 	Name string
 }
 
-func (y *yamlUnmarshal) UnmarshalYAML(unmarshal func(interface{}) error) error{
+func (y *yamlUnmarshal) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type fakeYAMLUnmarshal struct {
 		Size int
 		Name string
@@ -1159,7 +1159,7 @@ func (y *yamlUnmarshal) UnmarshalYAML(unmarshal func(interface{}) error) error{
 	var f fakeYAMLUnmarshal
 
 	if err := unmarshal(&f); err == nil {
-		y.Name = f.Name+ "Fake"
+		y.Name = f.Name + "Fake"
 		y.Size = f.Size
 		return nil
 	}
@@ -1169,11 +1169,64 @@ func (y *yamlUnmarshal) UnmarshalYAML(unmarshal func(interface{}) error) error{
 		return err
 	}
 
-	stringToInt := map[string]int {"one":1, "two":2}
+	stringToInt := map[string]int{"one": 1, "two": 2}
 	y.Size = stringToInt[m["size"]]
 	y.Name = m["name"]
 
 	return nil
+}
+
+func TestPopulateOfYAMLUnmarshal(t *testing.T) {
+	t.Parallel()
+
+	p := NewYAMLProviderFromBytes([]byte(`
+pass:
+  name: deci
+  size: 10
+fail:
+  name: first
+  size: one
+`))
+
+	y := yamlUnmarshal{}
+	require.NoError(t, p.Get("pass").Populate(&y))
+	assert.Equal(t, y, yamlUnmarshal{Size: 10, Name: "deciFake"})
+
+	assert.NoError(t, p.Get("empty").Populate(&y), "Empty value shouldn't cause errors.")
+	assert.Equal(t, y, yamlUnmarshal{Size: 10, Name: "deciFake"}, "Empty value shouldn't change actual variable")
+
+	assert.NoError(t, p.Get("fail").Populate(&y))
+	assert.Equal(t, y, yamlUnmarshal{Size: 1, Name: "first"})
+}
+
+func TestInvalidPopulate(t *testing.T) {
+	t.Parallel()
+
+	p := newValueProvider(nil)
+	var v chan int
+	err := p.Get(Root).Populate(&v)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid value type for key")
+}
+
+type alwaysBlueYAML struct{}
+
+func (a alwaysBlueYAML) MarshalYAML() (interface{}, error) {
+	return nil, errors.New("always blue!")
+}
+
+func (a *alwaysBlueYAML) UnmarshalYAML(func(interface{}) error) error {
+	return nil
+}
+
+func TestYAMLMarshallerErrors(t *testing.T) {
+	t.Parallel()
+
+	p := newValueProvider(alwaysBlueYAML{})
+	var v alwaysBlueYAML
+	err := p.Get(Root).Populate(&v)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "always blue!")
 }
 
 func TestPopulateOfYAMLUnmarshal(t *testing.T) {
