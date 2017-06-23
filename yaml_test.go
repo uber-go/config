@@ -1176,29 +1176,6 @@ func (y *yamlUnmarshal) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-func TestPopulateOfYAMLUnmarshal(t *testing.T) {
-	t.Parallel()
-
-	p := NewYAMLProviderFromBytes([]byte(`
-pass:
-  name: deci
-  size: 10
-fail:
-  name: first
-  size: one
-`))
-
-	y := yamlUnmarshal{}
-	require.NoError(t, p.Get("pass").Populate(&y))
-	assert.Equal(t, y, yamlUnmarshal{Size: 10, Name: "deciFake"})
-
-	assert.NoError(t, p.Get("empty").Populate(&y), "Empty value shouldn't cause errors.")
-	assert.Equal(t, y, yamlUnmarshal{Size: 10, Name: "deciFake"}, "Empty value shouldn't change actual variable")
-
-	assert.NoError(t, p.Get("fail").Populate(&y))
-	assert.Equal(t, y, yamlUnmarshal{Size: 1, Name: "first"})
-}
-
 func TestInvalidPopulate(t *testing.T) {
 	t.Parallel()
 
