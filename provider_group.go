@@ -45,7 +45,7 @@ func (p providerGroup) Get(key string) Value {
 		}
 	}
 
-	cv := NewValue(p, key, res, found, GetType(res), nil)
+	cv := NewValue(p, key, res, found, nil)
 
 	// here we add a new root, which defines the "scope" at which
 	// Populates will look for values.

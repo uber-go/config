@@ -267,7 +267,7 @@ func TestGetAsIntegerValue(t *testing.T) {
 		{int64(2)},
 	}
 	for _, tc := range testCases {
-		cv := NewValue(NewStaticProvider(nil), "key", tc.value, true, Integer, nil)
+		cv := NewValue(NewStaticProvider(nil), "key", tc.value, true, nil)
 		assert.Equal(t, 2, cv.AsInt())
 	}
 }
@@ -284,7 +284,7 @@ func TestGetAsFloatValue(t *testing.T) {
 		{int64(2)},
 	}
 	for _, tc := range testCases {
-		cv := NewValue(NewStaticProvider(nil), "key", tc.value, true, Float, nil)
+		cv := NewValue(NewStaticProvider(nil), "key", tc.value, true, nil)
 		assert.Equal(t, float64(2), cv.AsFloat())
 	}
 }

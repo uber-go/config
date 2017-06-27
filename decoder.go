@@ -262,11 +262,41 @@ func (d *decoder) scalar(childKey string, value reflect.Value, def string) error
 	return convert(childKey, &value, val)
 }
 
+// Collections of objects can be  converted in the following way:
+// Maps can be decoded only to maps and slices with arrays can be
+// decoded one into another.
+func checkCollections(src, dst reflect.Kind) error {
+	err := errors.Errorf("can't convert %q to %q", src, dst)
+	switch dst {
+	case reflect.Map:
+		if src != reflect.Map {
+			return err
+		}
+	case reflect.Array:
+		if src != reflect.Array && src != reflect.Slice {
+			return err
+		}
+	case reflect.Slice:
+		if src != reflect.Array && src != reflect.Slice {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Set value for a sequence type
-// TODO(alsam) We stop populating sequence on a first nil value. Can we do better?
 func (d *decoder) sequence(childKey string, value reflect.Value) error {
-	valueType := value.Type()
 	global := d.getGlobalProvider()
+	slice := global.Get(childKey)
+
+	s := slice.Value()
+	sv := reflect.ValueOf(s)
+	if err := checkCollections(sv.Kind(), value.Kind()); err != nil && slice.Value() != nil {
+		return err
+	}
+
+	valueType := value.Type()
 	destSlice := reflect.MakeSlice(valueType, 0, 4)
 
 	// start looking for child values.
@@ -277,7 +307,11 @@ func (d *decoder) sequence(childKey string, value reflect.Value) error {
 		arrayKey := childKey + strconv.Itoa(ai)
 
 		// Iterate until we find first missing value.
-		if v2 := global.Get(arrayKey); v2.HasValue() {
+		if v2 := global.Get(arrayKey); v2.Value() != nil {
+			if err := checkCollections(reflect.TypeOf(v2.value).Kind(), elementType.Kind()); err != nil {
+				return err
+			}
+
 			val := reflect.New(elementType).Elem()
 
 			// Unmarshal current element.
@@ -292,6 +326,15 @@ func (d *decoder) sequence(childKey string, value reflect.Value) error {
 
 			destSlice.Index(ai).Set(val)
 		} else {
+			// Value in the middle aws overridden, but is missing, set it to zero initialized value.
+			if sv.IsValid() && sv.Len() > ai {
+				if destSlice.Len() <= ai {
+					destSlice = reflect.Append(destSlice, reflect.Zero(elementType))
+				}
+
+				continue
+			}
+
 			break
 		}
 	}
@@ -305,8 +348,15 @@ func (d *decoder) sequence(childKey string, value reflect.Value) error {
 
 // Set value for the array type
 func (d *decoder) array(childKey string, value reflect.Value) error {
-	valueType := value.Type()
 	global := d.getGlobalProvider()
+	ar := global.Get(childKey)
+	a := ar.Value()
+	av := reflect.ValueOf(a)
+	if err := checkCollections(av.Kind(), value.Kind()); err != nil && ar.Value() != nil {
+		return err
+	}
+
+	valueType := value.Type()
 
 	// start looking for child values.
 	elementType := derefType(valueType).Elem()
@@ -316,7 +366,11 @@ func (d *decoder) array(childKey string, value reflect.Value) error {
 		arrayKey := childKey + strconv.Itoa(ai)
 
 		// Iterate until we find first missing value.
-		if v2 := global.Get(arrayKey); v2.HasValue() {
+		if v2 := global.Get(arrayKey); v2.Value() != nil {
+			if err := checkCollections(reflect.TypeOf(v2.value).Kind(), elementType.Kind()); err != nil {
+				return err
+			}
+
 			val := reflect.New(elementType).Elem()
 
 			// Unmarshal current element.
@@ -346,39 +400,39 @@ func (d *decoder) mapping(childKey string, value reflect.Value, def string) erro
 	}
 
 	val := v.Value()
-	destMap := reflect.ValueOf(reflect.MakeMap(valueType).Interface())
-
-	// child yamlNode parsed from yaml file is of type map[interface{}]interface{}
-	// type casting here makes sure that we are iterating over a parsed map.
-	if v, ok := val.(map[interface{}]interface{}); ok {
-		childKey = addSeparator(childKey)
-
-		for key := range v {
-			subKey := fmt.Sprintf("%v", key)
-			if subKey == "" {
-				// We can confuse an empty map key with a root element.
-				return errorWithKey(errors.New("empty map key is ambiguous"), childKey)
-			}
-
-			itemValue := reflect.New(valueType.Elem()).Elem()
-
-			// Try to unmarshal value and save it in the map.
-			if err := d.unmarshal(childKey+subKey, itemValue, def); err != nil {
-				return err
-			}
-
-			//TODO(alsam) do we need non scalar key types?
-			keyVal := reflect.New(value.Type().Key()).Elem()
-			if err := convert(childKey, &keyVal, key); err != nil {
-				return errors.Wrap(err, "key types conversion")
-			}
-
-			destMap.SetMapIndex(keyVal, itemValue)
-		}
-
-		value.Set(destMap)
+	if err := checkCollections(reflect.TypeOf(v.Value()).Kind(), valueType.Kind()); err != nil {
+		return fmt.Errorf("expected map for key %q. actual type: %q", childKey, reflect.TypeOf(val))
 	}
 
+	destMap := reflect.ValueOf(reflect.MakeMap(valueType).Interface())
+
+	childKey = addSeparator(childKey)
+
+	rVal := reflect.ValueOf(val)
+	for _, key := range rVal.MapKeys() {
+		subKey := fmt.Sprintf("%v", key.Interface())
+		if subKey == "" {
+			// We can confuse an empty map key with a root element.
+			return errorWithKey(errors.New("empty map key is ambiguous"), childKey)
+		}
+
+		itemValue := reflect.New(valueType.Elem()).Elem()
+
+		// Try to unmarshal value and save it in the map.
+		if err := d.unmarshal(childKey+subKey, itemValue, def); err != nil {
+			return err
+		}
+
+		//TODO(alsam) do we need non scalar key types?
+		keyVal := reflect.New(value.Type().Key()).Elem()
+		if err := convert(childKey, &keyVal, key.Interface()); err != nil {
+			return errors.Wrap(err, "key types conversion")
+		}
+
+		destMap.SetMapIndex(keyVal, itemValue)
+	}
+
+	value.Set(destMap)
 	return nil
 }
 
@@ -480,15 +534,10 @@ func jsonMap(v interface{}) interface{} {
 func (d *decoder) tryUnmarshalers(key string, value reflect.Value, def string) (bool, error) {
 	switch value.Kind() {
 	// value.IsNil panics if value.Kind() is not equal to one of these constants.
-	case reflect.Chan, reflect.Interface, reflect.Func, reflect.Map, reflect.Ptr:
+	case reflect.Chan, reflect.Interface, reflect.Func, reflect.Map, reflect.Ptr, reflect.Slice:
 		if value.IsNil() {
 			value.Set(reflect.New(value.Type()).Elem())
 		}
-
-	//TODO(alsam) Command-line provider implementation is made via maps, so we'll fail to merge slices and maps
-	// TestCommandLineProvider_NestedValues will fail in that case.
-	case reflect.Slice:
-		return false, nil
 	}
 
 	v := d.getGlobalProvider().Get(key)

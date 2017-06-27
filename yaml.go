@@ -187,10 +187,10 @@ func (y yamlConfigProvider) Name() string {
 func (y yamlConfigProvider) Get(key string) Value {
 	node := y.getNode(key)
 	if node == nil {
-		return NewValue(y, key, nil, false, Invalid, nil)
+		return NewValue(y, key, nil, false, nil)
 	}
 
-	return NewValue(y, key, node.value, true, GetType(node.value), nil)
+	return NewValue(y, key, node.value, true, nil)
 }
 
 // Simple YAML reader

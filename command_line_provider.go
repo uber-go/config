@@ -21,7 +21,6 @@
 package config
 
 import (
-	"fmt"
 	"strings"
 
 	flag "github.com/spf13/pflag"
@@ -61,51 +60,21 @@ func NewCommandLineProvider(flags *flag.FlagSet, args []string) Provider {
 
 	m := make(map[string]interface{})
 	flags.VisitAll(func(f *flag.Flag) {
-		prev, last := traversePath(m, f)
-		assignValues(prev, last, f.Value)
+		if ss, ok := f.Value.(*StringSlice); ok {
+			slice := []string(*ss)
+			tmp := make([]interface{}, len(slice))
+			for i, str := range slice {
+				tmp[i] = str
+			}
+
+			m[f.Name] = tmp
+			return
+		}
+
+		m[f.Name] = f.Value.String()
 	})
 
 	return commandLineProvider{Provider: NewStaticProvider(m)}
-}
-
-// Assign values to a map element based on value type.
-// If value is a StringSlice - create a new map and with keys - indices and values - StringSlice elements.
-// Otherwise just assign it's string value.
-func assignValues(m map[string]interface{}, key string, value flag.Value) {
-	if ss, ok := value.(*StringSlice); ok {
-		slice := []string(*ss)
-		tmp := make(map[string]interface{}, len(slice))
-		m[key] = tmp
-		for i, str := range slice {
-			tmp[fmt.Sprint(i)] = str
-		}
-
-		return
-	}
-
-	m[key] = value.String()
-}
-
-// Traverse map with the flag name used as path.
-func traversePath(m map[string]interface{}, f *flag.Flag) (map[string]interface{}, string) {
-	curr, prev := m, m
-	path := strings.Split(f.Name, _separator)
-	for _, item := range path {
-		if _, ok := curr[item]; !ok {
-			curr[item] = map[string]interface{}{}
-		}
-
-		prev = curr
-		if tmp, ok := curr[item].(map[string]interface{}); ok {
-			curr = tmp
-		} else {
-			// This should never happen, because pflag/flag sort flags before calling a visitor,
-			// but it is better to be safe then sorry.
-			curr = map[string]interface{}{}
-		}
-	}
-
-	return prev, path[len(path)-1]
 }
 
 func (commandLineProvider) Name() string {
