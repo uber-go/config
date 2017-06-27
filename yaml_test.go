@@ -33,8 +33,6 @@ import (
 	"testing"
 	"time"
 
-	"math"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
