@@ -25,14 +25,13 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"reflect"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
-
-	"math"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

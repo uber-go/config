@@ -22,11 +22,10 @@ package config
 
 import (
 	"fmt"
-	"sort"
-	"testing"
-
 	"io/ioutil"
+	"sort"
 	"strings"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

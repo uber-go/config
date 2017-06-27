@@ -272,11 +272,7 @@ func checkCollections(src, dst reflect.Kind) error {
 		if src != reflect.Map {
 			return err
 		}
-	case reflect.Array:
-		if src != reflect.Array && src != reflect.Slice {
-			return err
-		}
-	case reflect.Slice:
+	case reflect.Array, reflect.Slice:
 		if src != reflect.Array && src != reflect.Slice {
 			return err
 		}
@@ -285,7 +281,15 @@ func checkCollections(src, dst reflect.Kind) error {
 	return nil
 }
 
-// Set value for a sequence type
+// Set value for a sequence type. Length of the collection is determined by the length of
+// the underlying collection in a provider. It can be augmented further, by overriding values
+// after the end, e.g.
+// var x []int
+// NewStaticProvider(map[string]interface{}{"a":[]int{0,1}, "a.2":2}.Populate(&x)
+// fmt.Println(x)
+//
+// will print:
+// [0 1 2]
 func (d *decoder) sequence(childKey string, value reflect.Value) error {
 	global := d.getGlobalProvider()
 	slice := global.Get(childKey)
@@ -346,7 +350,8 @@ func (d *decoder) sequence(childKey string, value reflect.Value) error {
 	return nil
 }
 
-// Set value for the array type
+// Set value for the array type. If a value for array item is not found, decoder will use
+// a default one if present, or a zero constructed.
 func (d *decoder) array(childKey string, value reflect.Value) error {
 	global := d.getGlobalProvider()
 	ar := global.Get(childKey)
