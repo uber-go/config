@@ -348,24 +348,24 @@ func TestMissingValuesForTryMethods(t *testing.T) {
 	t.Parallel()
 
 	assert := assert.New(t)
-	p := NewStaticProvider(nil)
+	v := NewStaticProvider(nil).Get("missing")
 	t.Run("int", func(t *testing.T) {
-		_, ok := p.Get("missing").TryAsInt()
+		_, ok := v.TryAsInt()
 		assert.False(ok)
 	})
 
 	t.Run("float", func(t *testing.T) {
-		_, ok := p.Get("missing").TryAsFloat()
+		_, ok := v.TryAsFloat()
 		assert.False(ok)
 	})
 
 	t.Run("string", func(t *testing.T) {
-		_, ok := p.Get("missing").TryAsString()
+		_, ok := v.TryAsString()
 		assert.False(ok)
 	})
 
 	t.Run("bool", func(t *testing.T) {
-		_, ok := p.Get("missing").TryAsBool()
+		_, ok := v.TryAsBool()
 		assert.False(ok)
 	})
 }
