@@ -122,11 +122,9 @@ func (cv Value) String() string {
 
 // TryAsString attempts to return the configuration value as a string
 func (cv Value) TryAsString() (string, bool) {
-	v := cv.Value()
-	if val, err := convertValue(v, reflect.TypeOf("")); cv.HasValue() && v != nil && err == nil {
-		return val.(string), true
-	}
-	return "", false
+	var res string
+	err := newValueProvider(cv.Value()).Get(Root).Populate(&res)
+	return res, cv.HasValue() && err == nil
 }
 
 // TryAsInt attempts to return the configuration value as an int
