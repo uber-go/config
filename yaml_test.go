@@ -33,6 +33,8 @@ import (
 	"testing"
 	"time"
 
+	"math"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1394,7 +1396,6 @@ func TestSliceElementInDifferentPositions(t *testing.T) {
 		assert.Equal(t, []int{0, 0, 2}, s)
 	})
 
-
 	t.Run("default value in the middle", func(t *testing.T) {
 		type Inner struct {
 			Set bool `yaml:"set" default:"true"`
@@ -1408,7 +1409,7 @@ a:
 
 		var a []Inner
 		require.NoError(t, p.Get("a").Populate(&a))
-		assert.Equal(t, []Inner{{Set:true}, {Set:true}, {Set: false}}, a)
+		assert.Equal(t, []Inner{{Set: true}, {Set: true}, {Set: false}}, a)
 	})
 }
 
@@ -1491,6 +1492,6 @@ a.2.set: false`))
 
 		var a [4]Inner
 		require.NoError(t, p.Get("a").Populate(&a))
-		assert.Equal(t, [4]Inner{{Set:true}, {Set: true}, {Set: false}, {Set: false}}, a)
+		assert.Equal(t, [4]Inner{{Set: true}, {Set: true}, {Set: false}, {Set: false}}, a)
 	})
 }
