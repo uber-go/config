@@ -1393,6 +1393,23 @@ func TestSliceElementInDifferentPositions(t *testing.T) {
 		require.NoError(t, p.Get("a").Populate(&s))
 		assert.Equal(t, []int{0, 0, 2}, s)
 	})
+
+
+	t.Run("default value in the middle", func(t *testing.T) {
+		type Inner struct {
+			Set bool `yaml:"set" default:"true"`
+		}
+
+		p := NewYAMLProviderFromBytes([]byte(`
+a:
+- set: true
+- get: something
+- set: false`))
+
+		var a []Inner
+		require.NoError(t, p.Get("a").Populate(&a))
+		assert.Equal(t, []Inner{{Set:true}, {Set:true}, {Set: false}}, a)
+	})
 }
 
 func TestArrayElementInDifferentPositions(t *testing.T) {
@@ -1457,5 +1474,23 @@ a:
 		err := p.Get("a").Populate(&s)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `for key "a.1.Protagonist": Unknown character:`)
+	})
+
+	t.Run("default value in the middle", func(t *testing.T) {
+		type Inner struct {
+			Set bool `yaml:"set" default:"true"`
+		}
+
+		p := NewYAMLProviderFromBytes([]byte(`
+a:
+- set: true
+- get: something
+- get: something
+- set: false
+a.2.set: false`))
+
+		var a [4]Inner
+		require.NoError(t, p.Get("a").Populate(&a))
+		assert.Equal(t, [4]Inner{{Set:true}, {Set: true}, {Set: false}, {Set: false}}, a)
 	})
 }

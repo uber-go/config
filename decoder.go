@@ -324,18 +324,14 @@ func (d *decoder) sequence(childKey string, value reflect.Value) error {
 			}
 
 			// Append element to the slice
-			if destSlice.Len() <= ai {
-				destSlice = reflect.Append(destSlice, reflect.Zero(elementType))
-			}
-
+			destSlice = reflect.Append(destSlice, reflect.Zero(elementType))
 			destSlice.Index(ai).Set(val)
 		} else {
-			// Value in the middle aws overridden, but is missing, set it to zero initialized value.
+			// Value in the middle was overridden, but is missing, set it to the zero initialized value.
 			if sv.IsValid() && sv.Len() > ai {
-				if destSlice.Len() <= ai {
-					destSlice = reflect.Append(destSlice, reflect.Zero(elementType))
-				}
 
+				// Append element to the slice
+				destSlice = reflect.Append(destSlice, reflect.Zero(elementType))
 				continue
 			}
 
