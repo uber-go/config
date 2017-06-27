@@ -123,7 +123,7 @@ func (cv Value) String() string {
 // TryAsString attempts to return the configuration value as a string
 func (cv Value) TryAsString() (string, bool) {
 	v := cv.Value()
-	if val, err := convertValue(v, reflect.TypeOf("")); v != nil && err == nil {
+	if val, err := convertValue(v, reflect.TypeOf("")); cv.HasValue() && v != nil && err == nil {
 		return val.(string), true
 	}
 	return "", false
@@ -133,21 +133,21 @@ func (cv Value) TryAsString() (string, bool) {
 func (cv Value) TryAsInt() (int, bool) {
 	var res int
 	err := newValueProvider(cv.Value()).Get(Root).Populate(&res)
-	return res, err == nil
+	return res, cv.HasValue() && err == nil
 }
 
 // TryAsBool attempts to return the configuration value as a bool
 func (cv Value) TryAsBool() (bool, bool) {
 	var res bool
 	err := newValueProvider(cv.Value()).Get(Root).Populate(&res)
-	return res, err == nil
+	return res, cv.HasValue() && err == nil
 }
 
 // TryAsFloat attempts to return the configuration value as a float
 func (cv Value) TryAsFloat() (float64, bool) {
 	var res float64
 	err := newValueProvider(cv.Value()).Get(Root).Populate(&res)
-	return res, err == nil
+	return res, cv.HasValue() && err == nil
 }
 
 // AsString returns the configuration value as a string, or panics if not
