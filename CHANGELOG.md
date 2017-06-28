@@ -2,7 +2,8 @@
 
 ## v1.0.0-rc2 (unreleased)
 
-- No changes yet.
+- **[Breaking]** `ValueType` and `GetType` functionality is removed in favor of using
+  `reflect.Kind`
 
 ## v1.0.0-rc1 (26 Jun 2017)
 

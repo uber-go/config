@@ -31,7 +31,7 @@ func (m *valueProvider) Get(key string) Value {
 }
 
 func newValueProvider(val interface{}) Provider {
-	p := &valueProvider{Value: Value{found: true, value: val, Type: GetType(val)}}
+	p := &valueProvider{Value: Value{found: true, value: val}}
 	p.Value.root = p
 	return p
 }

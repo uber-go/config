@@ -22,13 +22,13 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
-	"strings"
 )
 
 func TestStaticProvider_Name(t *testing.T) {
@@ -198,7 +198,7 @@ func TestPopulateForNestedMaps(t *testing.T) {
 	p := NewStaticProvider(map[string]map[string]string{
 		"a": {"one": "1", "": ""}})
 
-	var m map[string]map[string]string
+	var m map[string]string
 	err := p.Get("a").Populate(&m)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `empty map key is ambiguous`)
@@ -285,6 +285,7 @@ func TestValue_ChildKeys(t *testing.T) {
 
 	t.Run("Map", func(t *testing.T) { op(t, Root, []string{"one", "slice", "two"}) })
 	t.Run("Slice", func(t *testing.T) { op(t, "slice", []string{"0", "1"}) })
+	t.Run("SingleValue", func(t *testing.T) { op(t, "one", nil) })
 	t.Run("Empty", func(t *testing.T) { op(t, "nothing", nil) })
 
 	p = NewStaticProvider(map[int]string{3: "three", 5: "five"})

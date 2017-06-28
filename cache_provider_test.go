@@ -61,7 +61,7 @@ func TestCachedProvider_GetNewValues(t *testing.T) {
 			t.Fatal("cache was called more than once")
 		}
 		count++
-		return NewValue(m, key, "Simpsons", true, String, nil)
+		return NewValue(m, key, "Simpsons", true, nil)
 	}
 
 	p := NewCachedProvider(m)
@@ -83,21 +83,19 @@ func TestCachedProviderConcurrentUse(t *testing.T) {
 	m := testCachedProvider{}
 	var count int32
 	m.f = func(key string) Value {
-		if atomic.LoadInt32(&count) > 0 {
-			t.Fatal("cache was called more than once")
+		if atomic.LoadInt32(&count) > 1 {
+			t.Fatal("cache was called more than twice")
 		}
 
-		atomic.AddInt32(&count, 1)
-		return NewValue(m, key, "Simpsons", true, String, nil)
+		return NewValue(m, key, "Simpsons", true, nil)
 	}
 
 	p := NewCachedProvider(m)
-
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	get := func() {
 		x := p.Get(Root)
-		require.True(t, x.HasValue())
+		assert.True(t, x.HasValue())
 		wg.Done()
 	}
 

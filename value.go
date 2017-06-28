@@ -26,59 +26,9 @@ import (
 	"time"
 )
 
-// A ValueType is a type-description of a configuration value
-type ValueType int
-
-const (
-	// Invalid represents an unset or invalid config type
-	Invalid ValueType = iota
-	// String is, well, you know what it is
-	String
-	// Integer holds numbers without decimals
-	Integer
-	// Bool is, well... go check Wikipedia. It's complicated.
-	Bool
-	// Float is an easy one. They don't sink in pools.
-	Float
-	// Slice will cut you.
-	Slice
-	// Dictionary contains words and their definitions
-	Dictionary
-	// Zero constants
-	_float64Zero = float64(0)
-
-	_separator = "."
-)
+const _separator = "."
 
 var _typeOfString = reflect.TypeOf("string")
-
-// GetType returns GO type of the provided object
-func GetType(value interface{}) ValueType {
-	if value == nil {
-		return Invalid
-	}
-
-	switch value.(type) {
-	case string:
-		return String
-	case int, int32, int64, byte:
-		return Integer
-	case bool:
-		return Bool
-	case float64, float32:
-		return Float
-	default:
-		rt := reflect.TypeOf(value)
-		switch rt.Kind() {
-		case reflect.Slice:
-			return Slice
-		case reflect.Map:
-			return Dictionary
-		}
-	}
-
-	return Invalid
-}
 
 // A Value holds the value of a configuration
 type Value struct {
@@ -89,7 +39,6 @@ type Value struct {
 	found        bool
 	defaultValue interface{}
 	Timestamp    time.Time
-	Type         ValueType
 }
 
 // NewValue creates a configuration value from a provider and a set
@@ -99,7 +48,6 @@ func NewValue(
 	key string,
 	value interface{},
 	found bool,
-	t ValueType,
 	timestamp *time.Time,
 ) Value {
 	cv := Value{
@@ -107,7 +55,6 @@ func NewValue(
 		key:          key,
 		value:        value,
 		defaultValue: nil,
-		Type:         t,
 		found:        found,
 	}
 
@@ -146,17 +93,18 @@ func (cv Value) WithDefault(value interface{}) Value {
 // ChildKeys returns the child keys
 func (cv Value) ChildKeys() []string {
 	var slice []interface{}
-	if err := cv.Populate(&slice); err != nil {
-		return nil
-	}
-
 	var res []string
-	for i := range slice {
-		res = append(res, fmt.Sprint(i))
+	if err := cv.Populate(&slice); err == nil {
+		for i := range slice {
+			res = append(res, fmt.Sprint(i))
+		}
+
+		return res
 	}
 
 	var m map[string]interface{}
 	if err := cv.Populate(&m); err != nil {
+		// got a scalar value => no child keys
 		return nil
 	}
 

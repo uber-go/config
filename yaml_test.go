@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"reflect"
 	"regexp"
@@ -34,7 +35,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"math"
 )
 
 var yamlConfig1 = []byte(`
@@ -650,7 +650,7 @@ type testProvider struct {
 
 func (s *testProvider) Get(key string) Value {
 	val, found := s.a, true
-	return NewValue(s, key, val, found, GetType(val), nil)
+	return NewValue(s, key, val, found, nil)
 }
 
 func TestLoops(t *testing.T) {
@@ -1206,6 +1206,62 @@ func TestYAMLMarshallerErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "always blue!")
 }
 
+func TestYAMLFailOnMalformedData(t *testing.T) {
+	t.Parallel()
+	cfg := NewYAMLProviderFromBytes([]byte(`foo: ["a", "b", "c"]`))
+	var (
+		intMap           map[int]int
+		intList          []int
+		intArray         [2]int
+		stringListList   [][]string
+		stringArrayArray [2][2]string
+	)
+
+	assert := assert.New(t)
+	err := cfg.Get("foo").Populate(&intMap)
+	require.Error(t, err, "can't convert []string to")
+	assert.Contains(err.Error(), `expected map for key "foo". actual type: "[]interface {}"`)
+
+	err = cfg.Get("foo").Populate(&intList)
+	require.Error(t, err)
+	assert.Contains(err.Error(), `parsing "a": invalid syntax`)
+
+	err = cfg.Get("foo").Populate(&intArray)
+	require.Error(t, err)
+	assert.Contains(err.Error(), `parsing "a": invalid syntax`)
+
+	err = cfg.Get("foo").Populate(&stringListList)
+	require.Error(t, err)
+	assert.Contains(err.Error(), `can't convert "string" to "slice"`)
+
+	err = cfg.Get("foo").Populate(&stringArrayArray)
+	require.Error(t, err)
+	assert.Contains(err.Error(), `can't convert "string" to "array"`)
+}
+
+func TestJSONDecode(t *testing.T) {
+	t.Parallel()
+
+	b := []byte(`- a: b
+- c: d`)
+	var stringListList [][]string
+	cfg := NewYAMLProviderFromBytes(b)
+	err := cfg.Get("").Populate(&stringListList)
+	assert.Error(t, err)
+	assert.Len(t, stringListList, 0)
+}
+
+func TestNilsOnMaps(t *testing.T) {
+	t.Parallel()
+
+	b := []byte(``)
+	var m map[string]string
+	cfg := NewYAMLProviderFromBytes(b)
+	err := cfg.Get("").Populate(&m)
+	assert.NoError(t, err)
+	assert.Nil(t, m)
+}
+
 func TestPopulateOfYAMLUnmarshal(t *testing.T) {
 	t.Parallel()
 
@@ -1227,4 +1283,214 @@ fail:
 
 	assert.NoError(t, p.Get("fail").Populate(&y))
 	assert.Equal(t, y, yamlUnmarshal{Size: 1, Name: "first"})
+}
+
+func TestFailConversionFromMapsToSlices(t *testing.T) {
+	t.Parallel()
+
+	cfg := NewYAMLProviderFromBytes([]byte(`
+foo:
+  0: "a"
+  1: "b"
+`))
+
+	t.Run("map of ints", func(t *testing.T) {
+		var intMap map[int]string
+		err := cfg.Get("foo").Populate(&intMap)
+		require.NoError(t, err)
+		assert.Equal(t, map[int]string{0: "a", 1: "b"}, intMap)
+	})
+
+	t.Run("list of strings", func(t *testing.T) {
+		var stringList []string
+		err := cfg.Get("foo").Populate(&stringList)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `can't convert "map" to "slice"`)
+		require.Len(t, stringList, 0)
+	})
+
+	t.Run("list of strings with first overridden value", func(t *testing.T) {
+		var stringList []string
+		err := NewStaticProvider(map[string]int{"foo.0": 1}).Get("foo").Populate(&stringList)
+		require.NoError(t, err)
+		require.Len(t, stringList, 1)
+	})
+
+	t.Run("array of strings", func(t *testing.T) {
+		var stringArray [2]string
+		err := cfg.Get("foo").Populate(&stringArray)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `can't convert "map" to "array"`)
+		require.Equal(t, stringArray, [2]string{"", ""})
+	})
+
+	t.Run("list of strings", func(t *testing.T) {
+		var stringListList [][]string
+		err := cfg.Get("foo").Populate(&stringListList)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `can't convert "map" to "slice"`)
+		require.Len(t, stringListList, 0)
+	})
+
+	t.Run("nested map of ints of strings failure", func(t *testing.T) {
+		var mapIntMap map[string]map[int]string
+		err := cfg.Get("foo").Populate(&mapIntMap)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `expected map for key "foo`)
+		assert.Contains(t, err.Error(), `actual type: "string"`)
+		assert.Nil(t, mapIntMap)
+	})
+}
+
+func TestSliceElementInDifferentPositions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty slice", func(t *testing.T) {
+		p := NewStaticProvider([]int{})
+		var s []int
+		require.NoError(t, p.Get(Root).Populate(&s))
+		assert.Nil(t, s)
+	})
+
+	t.Run("first element overridden", func(t *testing.T) {
+		p := NewStaticProvider(map[string]interface{}{"a.0": 1})
+		var s []int
+		require.NoError(t, p.Get("a").Populate(&s))
+		assert.Equal(t, []int{1}, s)
+	})
+
+	t.Run("nil slice with first element overridden", func(t *testing.T) {
+		p := NewStaticProvider(map[string]interface{}{"a": nil, "a.0": 1})
+		var s []int
+		require.NoError(t, p.Get("a").Populate(&s))
+		assert.Equal(t, []int{1}, s)
+	})
+
+	t.Run("empty slice with first element overridden", func(t *testing.T) {
+		p := NewStaticProvider(map[string]interface{}{"a": []int{}, "a.0": 1})
+		var s []int
+		require.NoError(t, p.Get("a").Populate(&s))
+		assert.Equal(t, []int{1}, s)
+	})
+
+	t.Run("slice with second element overridden", func(t *testing.T) {
+		p := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.1": 3})
+		var s []int
+		require.NoError(t, p.Get("a").Populate(&s))
+		assert.Equal(t, []int{0, 3, 2}, s)
+	})
+
+	t.Run("slice with an extra element added", func(t *testing.T) {
+		p := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.3": 3})
+		var s []int
+		require.NoError(t, p.Get("a").Populate(&s))
+		assert.Equal(t, []int{0, 1, 2, 3}, s)
+	})
+
+	t.Run("slice with a nil element inside", func(t *testing.T) {
+		p := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.1": nil})
+		var s []int
+		require.NoError(t, p.Get("a").Populate(&s))
+		assert.Equal(t, []int{0, 0, 2}, s)
+	})
+
+
+	t.Run("default value in the middle", func(t *testing.T) {
+		type Inner struct {
+			Set bool `yaml:"set" default:"true"`
+		}
+
+		p := NewYAMLProviderFromBytes([]byte(`
+a:
+- set: true
+- get: something
+- set: false`))
+
+		var a []Inner
+		require.NoError(t, p.Get("a").Populate(&a))
+		assert.Equal(t, []Inner{{Set:true}, {Set:true}, {Set: false}}, a)
+	})
+}
+
+func TestArrayElementInDifferentPositions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty array", func(t *testing.T) {
+		p := NewStaticProvider([]int{})
+		var s [2]int
+		require.NoError(t, p.Get(Root).Populate(&s))
+		assert.Equal(t, [2]int{0, 0}, s)
+	})
+
+	t.Run("first element overridden", func(t *testing.T) {
+		p := NewStaticProvider(map[string]interface{}{"a.0": 1})
+		var s [2]int
+		require.NoError(t, p.Get("a").Populate(&s))
+		assert.Equal(t, [2]int{1, 0}, s)
+	})
+
+	t.Run("nil collection with first element overridden", func(t *testing.T) {
+		p := NewStaticProvider(map[string]interface{}{"a": nil, "a.0": 1})
+		var s [2]int
+		require.NoError(t, p.Get("a").Populate(&s))
+		assert.Equal(t, [2]int{1, 0}, s)
+	})
+
+	t.Run("empty collection with first element overridden", func(t *testing.T) {
+		p := NewStaticProvider(map[string]interface{}{"a": []int{}, "a.0": 1})
+		var s [2]int
+		require.NoError(t, p.Get("a").Populate(&s))
+		assert.Equal(t, [2]int{1, 0}, s)
+	})
+
+	t.Run("collection with second element overridden", func(t *testing.T) {
+		p := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.1": 3})
+		var s [2]int
+		require.NoError(t, p.Get("a").Populate(&s))
+		assert.Equal(t, [2]int{0, 3}, s)
+	})
+
+	t.Run("collection with an extra element added", func(t *testing.T) {
+		p := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.3": 3})
+		var s [4]int
+		require.NoError(t, p.Get("a").Populate(&s))
+		assert.Equal(t, [4]int{0, 1, 2, 3}, s)
+	})
+
+	t.Run("collection with a nil element inside", func(t *testing.T) {
+		p := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.1": nil})
+		var s [3]int
+		require.NoError(t, p.Get("a").Populate(&s))
+		assert.Equal(t, [3]int{0, 0, 2}, s)
+	})
+
+	t.Run("collection error unmarshalable elements", func(t *testing.T) {
+		p := NewYAMLProviderFromBytes([]byte(`
+a:
+- protagonist: Scrooge
+  pilot: LaunchpadMcQuack
+`))
+		var s [2]duckTales
+		err := p.Get("a").Populate(&s)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `for key "a.1.Protagonist": Unknown character:`)
+	})
+
+	t.Run("default value in the middle", func(t *testing.T) {
+		type Inner struct {
+			Set bool `yaml:"set" default:"true"`
+		}
+
+		p := NewYAMLProviderFromBytes([]byte(`
+a:
+- set: true
+- get: something
+- get: something
+- set: false
+a.2.set: false`))
+
+		var a [4]Inner
+		require.NoError(t, p.Get("a").Populate(&a))
+		assert.Equal(t, [4]Inner{{Set:true}, {Set: true}, {Set: false}, {Set: false}}, a)
+	})
 }

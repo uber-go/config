@@ -35,5 +35,5 @@ func (p NopProvider) Name() string {
 
 // Get returns an invalid Value.
 func (p NopProvider) Get(key string) Value {
-	return NewValue(p, key, nil, true, Invalid, &time.Time{})
+	return NewValue(p, key, nil, true, &time.Time{})
 }
