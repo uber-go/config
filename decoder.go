@@ -262,9 +262,9 @@ func (d *decoder) scalar(childKey string, value reflect.Value, def string) error
 	return convert(childKey, &value, val)
 }
 
-// Collections of objects can be  converted in the following way:
-// Maps can be decoded only to maps and slices with arrays can be
-// decoded one into another.
+// Collections of objects can be converted in the following way:
+// 1. Maps can be decoded only to maps
+// 2. Slices with arrays can be decoded one into another.
 func checkCollections(src, dst reflect.Kind) error {
 	err := errors.Errorf("can't convert %q to %q", src, dst)
 	switch dst {
@@ -284,6 +284,7 @@ func checkCollections(src, dst reflect.Kind) error {
 // Set value for a sequence type. Length of the collection is determined by the length of
 // the underlying collection in a provider. It can be augmented further, by overriding values
 // after the end, e.g.
+//
 // var x []int
 // NewStaticProvider(map[string]interface{}{"a":[]int{0,1}, "a.2":2}.Populate(&x)
 // fmt.Println(x)
