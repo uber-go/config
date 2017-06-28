@@ -281,13 +281,13 @@ func checkCollections(src, dst reflect.Kind) error {
 	return nil
 }
 
-// Set value for a sequence type. Length of the collection is determined by the length of
-// the underlying collection in a provider. It can be augmented further, by overriding values
-// after the end, e.g.
+// Set value for a sequence type. Length of the collection is determined by the
+// length of the underlying collection in a provider. It can be augmented
+// further, by overriding values after the end, e.g.
 //
-// var x []int
-// NewStaticProvider(map[string]interface{}{"a":[]int{0,1}, "a.2":2}.Populate(&x)
-// fmt.Println(x)
+// 	var x []int
+// 	NewStaticProvider(map[string]interface{}{"a":[]int{0,1}, "a.2":2}.Populate(&x)
+// 	fmt.Println(x)
 //
 // will print:
 // [0 1 2]
@@ -328,7 +328,8 @@ func (d *decoder) sequence(childKey string, value reflect.Value) error {
 			destSlice = reflect.Append(destSlice, reflect.Zero(elementType))
 			destSlice.Index(ai).Set(val)
 		} else {
-			// Value in the middle was overridden, but is missing, set it to the zero initialized value.
+			// Value in the middle was overridden,
+			// but is missing, set it to the zero initialized value.
 			if sv.IsValid() && sv.Len() > ai {
 
 				// Append element to the slice
@@ -347,8 +348,8 @@ func (d *decoder) sequence(childKey string, value reflect.Value) error {
 	return nil
 }
 
-// Set value for the array type. If a value for array item is not found, decoder will use
-// a default one if present, or a zero constructed.
+// Set value for the array type. If a value for array item is not found,
+// decoder will use a default one if present, or a zero constructed.
 func (d *decoder) array(childKey string, value reflect.Value) error {
 	global := d.getGlobalProvider()
 	ar := global.Get(childKey)
@@ -528,7 +529,8 @@ func jsonMap(v interface{}) interface{} {
 	return v
 }
 
-// tryUnmarshallers checks if the value's type implements either one of standard interfaces in order:
+// tryUnmarshallers checks if the value's type implements either one of standard
+// interfaces in order:
 // 1. `json.Unmarshaler`
 // 2. `encoding.TextUnmarshaler`
 // 3. `yaml.Unmarshaler`
