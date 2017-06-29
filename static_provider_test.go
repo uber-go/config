@@ -343,3 +343,29 @@ func TestConfigDefaultsAreOverriddenByHigherPriorityProviders(t *testing.T) {
 	)
 	assert.Equal(t, book{Title: "The Financier", Author: "Dreiser", Year: 1925}, novel)
 }
+
+func TestMissingValuesForTryMethods(t *testing.T) {
+	t.Parallel()
+
+	assert := assert.New(t)
+	v := NewStaticProvider(nil).Get("missing")
+	t.Run("int", func(t *testing.T) {
+		_, ok := v.TryAsInt()
+		assert.False(ok)
+	})
+
+	t.Run("float", func(t *testing.T) {
+		_, ok := v.TryAsFloat()
+		assert.False(ok)
+	})
+
+	t.Run("string", func(t *testing.T) {
+		_, ok := v.TryAsString()
+		assert.False(ok)
+	})
+
+	t.Run("bool", func(t *testing.T) {
+		_, ok := v.TryAsBool()
+		assert.False(ok)
+	})
+}
