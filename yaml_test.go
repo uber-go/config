@@ -1176,14 +1176,19 @@ func (y *yamlUnmarshal) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-func TestInvalidPopulate(t *testing.T) {
+func TestPopulateNotAppropriateTypes(t *testing.T) {
 	t.Parallel()
 
 	p := newValueProvider(nil)
-	var v chan int
-	err := p.Get(Root).Populate(&v)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid value type for key")
+	t.Run("channel", func(t *testing.T) {
+		v := make(chan int)
+		require.NoError(t, p.Get(Root).Populate(&v))
+	})
+
+	t.Run("func", func(t *testing.T) {
+		var f func()
+		require.NoError(t, p.Get(Root).Populate(&f))
+	})
 }
 
 type alwaysBlueYAML struct{}

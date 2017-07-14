@@ -621,8 +621,10 @@ func (d *decoder) unmarshal(name string, value reflect.Value, def string) error 
 
 	// Try to unmarshal each type separately.
 	switch value.Kind() {
-	case reflect.Invalid, reflect.Chan, reflect.Func:
+	case reflect.Invalid:
 		return fmt.Errorf("invalid value type for key %s", name)
+	case reflect.Chan, reflect.Func:
+		return nil
 	case reflect.Ptr:
 		return d.pointer(name, value, def)
 	case reflect.Struct:
