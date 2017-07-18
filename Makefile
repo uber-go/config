@@ -7,12 +7,12 @@ install:
 
 .PHONY: test
 test:
-	go test -race $(PACKAGES)
+	go test -race $(PACKAGES) -count 2
 
 .PHONY: ci
 ci: SHELL := /bin/bash
 ci:
-	go test -race $(PACKAGES) -coverprofile=coverage.txt -covermode=atomic
+	go test -race $(PACKAGES) -coverprofile=coverage.txt -covermode=atomic -count 2
 	bash <(curl -s https://codecov.io/bash)
 
 .PHONY: license
