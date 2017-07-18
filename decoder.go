@@ -29,9 +29,9 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/go-validator/validator"
-	"github.com/go-yaml/yaml"
 	"github.com/pkg/errors"
+	"gopkg.in/validator.v2"
+	"gopkg.in/yaml.v2"
 )
 
 type fieldInfo struct {
