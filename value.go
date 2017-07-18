@@ -38,7 +38,7 @@ type Value struct {
 	value        interface{}
 	found        bool
 	defaultValue interface{}
-	Timestamp    time.Time
+	timestamp    time.Time
 }
 
 // NewValue creates a configuration value from a provider and a set
@@ -59,9 +59,9 @@ func NewValue(
 	}
 
 	if timestamp == nil {
-		cv.Timestamp = time.Now()
+		cv.timestamp = time.Now()
 	} else {
-		cv.Timestamp = *timestamp
+		cv.timestamp = *timestamp
 	}
 	return cv
 }
@@ -79,7 +79,7 @@ func (cv Value) LastUpdated() time.Time {
 	if !cv.HasValue() {
 		return time.Time{} // zero value if never updated?
 	}
-	return cv.Timestamp
+	return cv.timestamp
 }
 
 // WithDefault sets the default value that can be overridden
