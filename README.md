@@ -1,5 +1,5 @@
 # Config
-
+:fishing_pole_and_fish:
 [![GoDoc][doc-img]][doc]
 [![Build Status][ci-img]][ci]
 [![Coverage Status][cov-img]][cov]
