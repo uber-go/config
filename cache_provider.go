@@ -32,7 +32,7 @@ type cachedProvider struct {
 	Provider
 }
 
-// NewCachedProvider returns a concurrent safe  provider,
+// NewCachedProvider returns a concurrent safe provider,
 // that caches values of the underlying provider.
 func NewCachedProvider(p Provider) Provider {
 	if p == nil {

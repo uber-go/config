@@ -53,7 +53,7 @@ type commandLineProvider struct {
 }
 
 // NewCommandLineProvider returns a Provider that is using command line
-// parameters as config values. In order to address nested elements one
+// arguments as config values. In order to address nested elements one
 // can use dots in flag names which are considered separators.
 // One can use StringSlice type to work with a list of comma separated strings.
 func NewCommandLineProvider(flags *flag.FlagSet, args []string) Provider {

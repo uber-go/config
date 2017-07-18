@@ -35,7 +35,9 @@ func NewProviderGroup(name string, providers ...Provider) Provider {
 }
 
 // Get iterates through the providers and return the value merged from
-// underlying of providers. The merge strategy for two objects
+// underlying of providers.
+//
+// The merge strategy for two objects
 // from the first provider(A) and the last provider(B) is following:
 // * if A and B are maps, A and B will form a new map with keys from
 // A and B and values from B will overwrite values of A. e.g.
