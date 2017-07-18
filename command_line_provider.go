@@ -26,7 +26,8 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
-// StringSlice is an alias to string slice, that is used to read comma separated flag values.
+// StringSlice is an alias to string slice, that is used to read
+// comma separated flag values.
 type StringSlice []string
 
 var _ flag.Value = (*StringSlice)(nil)
@@ -42,6 +43,7 @@ func (s *StringSlice) Set(val string) error {
 	return nil
 }
 
+// Type implements pflag.Value interface.
 func (s *StringSlice) Type() string {
 	return "StringSlice"
 }
@@ -50,8 +52,9 @@ type commandLineProvider struct {
 	Provider
 }
 
-// NewCommandLineProvider returns a Provider that is using command line parameters as config values.
-// In order to address nested elements one can use dots in flag names which are considered separators.
+// NewCommandLineProvider returns a Provider that is using command line
+// parameters as config values. In order to address nested elements one
+// can use dots in flag names which are considered separators.
 // One can use StringSlice type to work with a list of comma separated strings.
 func NewCommandLineProvider(flags *flag.FlagSet, args []string) Provider {
 	if err := flags.Parse(args); err != nil {
@@ -77,6 +80,7 @@ func NewCommandLineProvider(flags *flag.FlagSet, args []string) Provider {
 	return commandLineProvider{Provider: NewStaticProvider(m)}
 }
 
+// Name implements the Provider interface.
 func (commandLineProvider) Name() string {
 	return "cmd"
 }

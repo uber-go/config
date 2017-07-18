@@ -39,7 +39,7 @@ type scopedProvider struct {
 	prefix string
 }
 
-// NewScopedProvider creates a child provider given a prefix
+// NewScopedProvider creates a child provider with a prefix.
 func NewScopedProvider(prefix string, provider Provider) Provider {
 	if prefix == "" {
 		return provider

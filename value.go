@@ -42,7 +42,7 @@ type Value struct {
 }
 
 // NewValue creates a configuration value from a provider and a set
-// of parameters describing the key
+// of parameters describing the key.
 func NewValue(
 	provider Provider,
 	key string,
@@ -66,7 +66,7 @@ func NewValue(
 	return cv
 }
 
-// Source returns a configuration provider's name
+// Source returns a configuration provider's name.
 func (cv Value) Source() string {
 	if cv.provider == nil {
 		return ""
@@ -74,7 +74,7 @@ func (cv Value) Source() string {
 	return cv.provider.Name()
 }
 
-// LastUpdated returns when the configuration value was last updated
+// LastUpdated returns when the configuration value was last updated.
 func (cv Value) LastUpdated() time.Time {
 	if !cv.HasValue() {
 		return time.Time{} // zero value if never updated?
@@ -90,7 +90,7 @@ func (cv Value) WithDefault(value interface{}) Value {
 	return cv
 }
 
-// ChildKeys returns the child keys
+// ChildKeys returns the child keys.
 func (cv Value) ChildKeys() []string {
 	var slice []interface{}
 	var res []string
@@ -120,28 +120,28 @@ func (cv Value) String() string {
 	return fmt.Sprint(cv.Value())
 }
 
-// TryAsString attempts to return the configuration value as a string
+// TryAsString attempts to return the configuration value as a string.
 func (cv Value) TryAsString() (string, bool) {
 	var res string
 	err := newValueProvider(cv.Value()).Get(Root).Populate(&res)
 	return res, cv.HasValue() && err == nil
 }
 
-// TryAsInt attempts to return the configuration value as an int
+// TryAsInt attempts to return the configuration value as an int.
 func (cv Value) TryAsInt() (int, bool) {
 	var res int
 	err := newValueProvider(cv.Value()).Get(Root).Populate(&res)
 	return res, cv.HasValue() && err == nil
 }
 
-// TryAsBool attempts to return the configuration value as a bool
+// TryAsBool attempts to return the configuration value as a bool.
 func (cv Value) TryAsBool() (bool, bool) {
 	var res bool
 	err := newValueProvider(cv.Value()).Get(Root).Populate(&res)
 	return res, cv.HasValue() && err == nil
 }
 
-// TryAsFloat attempts to return the configuration value as a float
+// TryAsFloat attempts to return the configuration value as a float.
 func (cv Value) TryAsFloat() (float64, bool) {
 	var res float64
 	err := newValueProvider(cv.Value()).Get(Root).Populate(&res)
@@ -149,7 +149,7 @@ func (cv Value) TryAsFloat() (float64, bool) {
 }
 
 // AsString returns the configuration value as a string, or panics if not
-// string-able
+// string-able.
 func (cv Value) AsString() string {
 	s, ok := cv.TryAsString()
 	if !ok {
@@ -159,7 +159,7 @@ func (cv Value) AsString() string {
 }
 
 // AsInt returns the configuration value as an int, or panics if not
-// int-able
+// int-able.
 func (cv Value) AsInt() int {
 	s, ok := cv.TryAsInt()
 	if !ok {
@@ -169,7 +169,7 @@ func (cv Value) AsInt() int {
 }
 
 // AsFloat returns the configuration value as an float64, or panics if not
-// float64-able
+// float64-able.
 func (cv Value) AsFloat() float64 {
 	s, ok := cv.TryAsFloat()
 	if !ok {
@@ -179,7 +179,7 @@ func (cv Value) AsFloat() float64 {
 }
 
 // AsBool returns the configuration value as an bool, or panics if not
-// bool-able
+// bool-able.
 func (cv Value) AsBool() bool {
 	s, ok := cv.TryAsBool()
 	if !ok {
@@ -195,12 +195,12 @@ func (cv Value) IsDefault() bool {
 	return !cv.found && cv.defaultValue != nil
 }
 
-// HasValue returns whether the configuration has a value that can be used
+// HasValue returns whether the configuration has a value that can be used.
 func (cv Value) HasValue() bool {
 	return cv.found || cv.IsDefault()
 }
 
-// Value returns the underlying configuration's value
+// Value returns the underlying configuration's value.
 func (cv Value) Value() interface{} {
 	if cv.found {
 		return cv.value
@@ -208,7 +208,7 @@ func (cv Value) Value() interface{} {
 	return cv.defaultValue
 }
 
-// Get returns a value scoped in the current value
+// Get returns a value scoped in the current value.
 func (cv Value) Get(key string) Value {
 	return NewScopedProvider(cv.key, cv.provider).Get(key)
 }
@@ -240,7 +240,7 @@ func convertValue(value interface{}, targetType reflect.Type) (interface{}, erro
 	return nil, fmt.Errorf("can't convert %v to %v", reflect.TypeOf(value).String(), targetType)
 }
 
-// Populate fills in an object from configuration
+// Populate fills in an object from configuration.
 func (cv Value) Populate(target interface{}) error {
 	if reflect.TypeOf(target).Kind() != reflect.Ptr {
 		return fmt.Errorf("can't populate non pointer type %T", target)

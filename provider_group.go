@@ -25,7 +25,7 @@ type providerGroup struct {
 	providers []Provider
 }
 
-// NewProviderGroup creates a configuration provider from a group of backends.
+// NewProviderGroup creates a configuration provider from a group of providers.
 // The highest priority provider is the last.
 func NewProviderGroup(name string, providers ...Provider) Provider {
 	return providerGroup{
@@ -34,8 +34,21 @@ func NewProviderGroup(name string, providers ...Provider) Provider {
 	}
 }
 
+// Get iterates through the providers and return the value merged from
+// underlying of providers. The merge strategy for two objects
+// from the first provider(A) and the last provider(B) is following:
+// * if A and B are maps, A and B will form a new map with keys from
+// A and B and values from B will overwrite values of A. e.g.
+//   A:                B:                 merge(A, B):
+//     keep:A            new:B              keep:A
+//     update:fromA      update:fromB       update:fromB
+//                                          new:B
+//
+// * if A is a map and B is not, this function will panic,
+// e.g. key:value and -slice
+//
+// * in all the remaining cases B will overwrite A.
 func (p providerGroup) Get(key string) Value {
-	// loop through the providers and return the value defined by the highest priority provider
 	var res interface{}
 	found := false
 	for _, provider := range p.providers {
@@ -53,6 +66,7 @@ func (p providerGroup) Get(key string) Value {
 	return cv
 }
 
+// Name returns the name this provider was created with.
 func (p providerGroup) Name() string {
 	return p.name
 }

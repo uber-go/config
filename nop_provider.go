@@ -23,7 +23,6 @@ package config
 import "time"
 
 // NopProvider is an implementation of config provider that does nothing.
-// It should be used for testing purposes only.
 type NopProvider struct{}
 
 var _ Provider = (*NopProvider)(nil)

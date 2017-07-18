@@ -24,6 +24,18 @@ import (
 	"testing"
 )
 
+// Current benchmark data:
+// BenchmarkYAMLCreateSingleFile-8                    117 allocs/op
+// BenchmarkYAMLCreateMultiFile-8                     204 allocs/op
+// BenchmarkYAMLSimpleGetLevel1-8                       0 allocs/op
+// BenchmarkYAMLSimpleGetLevel3-8                       0 allocs/op
+// BenchmarkYAMLSimpleGetLevel7-8                       0 allocs/op
+// BenchmarkYAMLPopulate-8                             18 allocs/op
+// BenchmarkYAMLPopulateNested-8                       42 allocs/op
+// BenchmarkYAMLPopulateNestedMultipleFiles-8          52 allocs/op
+// BenchmarkYAMLPopulateNestedTextUnmarshaler-8       233 allocs/op
+// BenchmarkZapConfigLoad-8                           136 allocs/op
+
 func BenchmarkYAMLCreateSingleFile(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		providerOneFile()
