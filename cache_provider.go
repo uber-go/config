@@ -32,10 +32,8 @@ type cachedProvider struct {
 	Provider
 }
 
-// NewCachedProvider returns a provider, that caches values of the underlying Provider p.
-// It also subscribes for changes for all keys that ever retrieved from the provider.
-// If the underlying provider fails to register callback for a particular value, it will
-// return the underlying error wrapped in Value.
+// NewCachedProvider returns a concurrent safe provider,
+// that caches values of the underlying provider.
 func NewCachedProvider(p Provider) Provider {
 	if p == nil {
 		panic("Received a nil provider")
@@ -47,11 +45,12 @@ func NewCachedProvider(p Provider) Provider {
 	}
 }
 
+// Name returns a name of the underlying provider.
 func (p *cachedProvider) Name() string {
 	return fmt.Sprintf("cached %q", p.Provider.Name())
 }
 
-// Retrieves a Value and caches it internally.
+// Get retrieves a Value and caches it internally.
 // The value is cached only if it is found.
 func (p *cachedProvider) Get(key string) Value {
 	p.RLock()

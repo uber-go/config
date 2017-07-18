@@ -32,22 +32,27 @@ type staticProvider struct {
 	Provider
 }
 
-// NewStaticProvider should only be used in tests to isolate config from your environment
-// It is not race free, because underlying objects can be accessed with Value().
+// NewStaticProvider returns a provider that wraps data and it's fields can be
+// accessed via Get method. It is using the yaml marshaler to encode data first,
+// and is subject to panic if data contains a fixed sized array.
 func NewStaticProvider(data interface{}) Provider {
 	return staticProvider{
 		Provider: NewYAMLProviderFromReader(toReadCloser(data)),
 	}
 }
 
-// NewStaticProviderWithExpand returns a static provider with values replaced by a mapping function.
-func NewStaticProviderWithExpand(data interface{}, mapping func(string) (string, bool)) Provider {
+// NewStaticProviderWithExpand returns a static provider with values replaced
+// by a mapping function.
+func NewStaticProviderWithExpand(
+	data interface{},
+	mapping func(string) (string, bool)) Provider {
 
 	return staticProvider{
 		Provider: NewYAMLProviderFromReaderWithExpand(mapping, toReadCloser(data)),
 	}
 }
 
+// Name implements the Provider interface.
 func (staticProvider) Name() string {
 	return "static"
 }

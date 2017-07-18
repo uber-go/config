@@ -29,27 +29,21 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
-const (
-	// ServiceNameKey is the config key of the service name.
-	ServiceNameKey = "name"
-
-	// ServiceDescriptionKey is the config key of the service
-	// description.
-	ServiceDescriptionKey = "description"
-
-	// ServiceOwnerKey is the config key for a service owner.
-	ServiceOwnerKey = "owner"
-)
-
-// LookupFunc is a type alias for a function to look for environment variables,
+// LookUpFunc is a type alias for a function to look for environment variables,
 type LookUpFunc func(string) (string, bool)
 
-// FileInfo represents a file to load.
+// FileInfo represents a file to load by LoadFromFiles function.
 type FileInfo struct {
-	Name        string
-	Interpolate bool
+	Name        string // Name of the file.
+	Interpolate bool   // Interpolate contents?
 }
 
+// LoadDefaults returns a default set of configuration files:
+//  ./config/base.yaml
+//  ./config/${ENVIRONMENT}.yaml
+//  ./config/secrets.yaml
+// The provider is also amended with a command line provider that reads
+// a roles flag.
 func LoadDefaults() (Provider, error) {
 	env := "development"
 	if val, ok := os.LookupEnv("ENVIRONMENT"); ok {
@@ -90,17 +84,18 @@ func LoadTestProvider() (Provider, error) {
 		os.LookupEnv)
 }
 
-// LoadFromFiles reads configuration `files` from `dirs` using `lookUp` function for interpolation.
-// First both slices are interpolated with the provided `lookUp` function.
-// Then all the files are loaded from the all dirs. For example:
-// ```
-// LoadFromFiles([]string{"dir1", "dir2"},[]FileInfo{{"base.yaml"},{"test.yaml"}}, nil)
-// ```
+// LoadFromFiles reads configuration files from dirs using lookUp function
+// for interpolation. First both slices are interpolated with the provided
+// lookUp function. Then all the files are loaded from the all dirs.
+// For example:
+//
+//   LoadFromFiles([]string{"dir1", "dir2"},[]FileInfo{{"base.yaml"},{"test.yaml"}}, nil)
+//
 // will try to load files in this order:
-// 1. `dir1/base.yaml`
-// 2. `dir2/base.yaml`
-// 3. `dir1/test.yaml`
-// 4. `dir2/test.yaml`
+//  1. dir1/base.yaml
+//  2. dir2/base.yaml
+//  3. dir1/test.yaml
+//  4. dir2/test.yaml
 // The function will return an error, if there are no providers to load.
 func LoadFromFiles(dirs []string, files []FileInfo, lookUp LookUpFunc) (Provider, error) {
 	var providers []Provider

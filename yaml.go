@@ -118,34 +118,39 @@ func mergeMaps(dst interface{}, src interface{}) interface{} {
 	return dst
 }
 
-// NewYAMLProviderFromFiles creates a configuration provider from a set of YAML file names.
-// All the objects are going to be merged and arrays/values overridden in the order of the files.
+// NewYAMLProviderFromFiles creates a configuration provider from a set of YAML
+// file names. All the objects are going to be merged and arrays/values
+// overridden in the order of the files.
 func NewYAMLProviderFromFiles(files ...string) Provider {
 	return NewCachedProvider(newYAMLProviderCore(filesToReaders(files...)...))
 }
 
-// NewYAMLProviderWithExpand creates a configuration provider from a set of YAML file names with ${var} or $var values
-// replaced based on the mapping function.
+// NewYAMLProviderWithExpand creates a configuration provider from a set of YAML
+// file names with ${var} or $var values replaced based on the mapping function.
 func NewYAMLProviderWithExpand(mapping func(string) (string, bool), files ...string) Provider {
 	return NewYAMLProviderFromReaderWithExpand(mapping, filesToReaders(files...)...)
 }
 
-// NewYAMLProviderFromReader creates a configuration provider from a list of `io.ReadClosers`.
+// NewYAMLProviderFromReader creates a configuration provider from a list of io.ReadClosers.
 // As above, all the objects are going to be merged and arrays/values overridden in the order of the files.
 func NewYAMLProviderFromReader(readers ...io.ReadCloser) Provider {
 	return NewCachedProvider(newYAMLProviderCore(readers...))
 }
 
-// NewYAMLProviderFromReaderWithExpand creates a configuration provider from a list of `io.ReadClosers`
-// and uses the mapping function to expand values in the underlying provider.
-func NewYAMLProviderFromReaderWithExpand(mapping func(string) (string, bool), readers ...io.ReadCloser) Provider {
+// NewYAMLProviderFromReaderWithExpand creates a configuration provider from
+// a list of `io.ReadClosers and uses the mapping function to expand values
+// in the underlying provider.
+func NewYAMLProviderFromReaderWithExpand(
+	mapping func(string) (string, bool),
+	readers ...io.ReadCloser) Provider {
 	p := newYAMLProviderCore(readers...)
 	p.root.applyOnAllNodes(replace(mapping))
 	return NewCachedProvider(p)
 }
 
-// NewYAMLProviderFromBytes creates a config provider from a byte-backed YAML blobs.
-// As above, all the objects are going to be merged and arrays/values overridden in the order of the yamls.
+// NewYAMLProviderFromBytes creates a config provider from a byte-backed YAML
+// blobs. As above, all the objects are going to be merged and arrays/values
+// overridden in the order of the yamls.
 func NewYAMLProviderFromBytes(yamls ...[]byte) Provider {
 	closers := make([]io.ReadCloser, len(yamls))
 	for i, yml := range yamls {
