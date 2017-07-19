@@ -106,7 +106,7 @@ func TestDefaultLoad(t *testing.T) {
 	defer func() { assert.NoError(os.Remove(base.Name())) }()
 
 	defer setEnv("PORT", "80")()
-	base.WriteString("source: base\ninterpolated: ${PORT:17}\n")
+	base.WriteString("commandline: false\nsource: base\ninterpolated: ${PORT:17}\n")
 	base.Close()
 
 	// Setup development.yaml
@@ -131,7 +131,7 @@ func TestDefaultLoad(t *testing.T) {
 	assert.Equal(80, p.Get("interpolated").AsInt())
 	assert.Equal("loaded", p.Get("development").AsString())
 	assert.Equal("${password:1111}", p.Get("secret").AsString())
-	assert.Empty(p.Get("roles").Value())
+	assert.False(p.Get("roles").HasValue())
 }
 
 func TestDefaultLoadMultipleTimes(t *testing.T) {
@@ -156,6 +156,7 @@ func TestDefaultLoadMultipleTimes(t *testing.T) {
 	assert.Equal(3, len(val))
 	assert.Equal("base", p.Get("source").AsString())
 	assert.Equal(80, p.Get("interpolated").AsInt())
+	assert.True(p.Get("roles").HasValue())
 	assert.Empty(p.Get("roles").Value())
 }
 

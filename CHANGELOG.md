@@ -6,6 +6,7 @@
   `reflect.Kind`.
 - Skip populating function and value types instead of reporting errors.
 - **[Breaking]** `Value.Timestamp` is private, use Value.LastUpdated instead.
+- Let user to skip loading command line provider via `commandline` parameter.
 
 ## v1.0.0-rc1 (26 Jun 2017)
 
