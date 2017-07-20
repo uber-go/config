@@ -200,18 +200,22 @@ one:
   two: hello
 `)
 
-	cfg := NewYAMLProviderFromBytes(txt).Get(Root).AsString()
-	assert.Equal(t, "map[one:map[two:hello]]", cfg)
+	cfg, err := NewYAMLProviderFromBytes(txt)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	assert.Equal(t, "map[one:map[two:hello]]", cfg.Get(Root).AsString())
 }
 
 func TestDirectAccess(t *testing.T) {
 	t.Parallel()
-	provider := NewProviderGroup(
-		"test",
-		NewYAMLProviderFromBytes(nestedYaml),
-	)
 
-	v := provider.Get("n1.id1").WithDefault("xxx")
+	p, err := NewYAMLProviderFromBytes(nestedYaml)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	provider := NewProviderGroup("test", p)
+
+	v, err := provider.Get("n1.id1").WithDefault("xxx")
+	require.NoError(t, err, "Can't create a default value")
 
 	assert.True(t, v.HasValue())
 	assert.Equal(t, 111, v.Value())
@@ -219,15 +223,17 @@ func TestDirectAccess(t *testing.T) {
 
 func TestScopedAccess(t *testing.T) {
 	t.Parallel()
-	provider := NewProviderGroup(
-		"test",
-		NewYAMLProviderFromBytes(nestedYaml),
-	)
+
+	p, err := NewYAMLProviderFromBytes(nestedYaml)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	provider := NewProviderGroup("test", p)
 
 	p1 := provider.Get("n1")
 
 	v1 := p1.Get("id1")
-	v2 := p1.Get("idx").WithDefault("nope")
+	v2, err := p1.Get("idx").WithDefault("nope")
+	require.NoError(t, err)
 
 	assert.True(t, v1.HasValue())
 	assert.Equal(t, 111, v1.AsInt())
@@ -238,10 +244,11 @@ func TestScopedAccess(t *testing.T) {
 
 func TestSimpleConfigValues(t *testing.T) {
 	t.Parallel()
-	provider := NewProviderGroup(
-		"test",
-		NewYAMLProviderFromBytes(yamlConfig3),
-	)
+
+	p, err := NewYAMLProviderFromBytes(yamlConfig3)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	provider := NewProviderGroup("test", p)
 
 	assert.Equal(t, 123, provider.Get("int").AsInt())
 	assert.Equal(t, "test string", provider.Get("string").AsString())
@@ -257,6 +264,7 @@ func TestSimpleConfigValues(t *testing.T) {
 
 func TestGetAsIntegerValue(t *testing.T) {
 	t.Parallel()
+
 	testCases := []struct {
 		value interface{}
 	}{
@@ -266,14 +274,19 @@ func TestGetAsIntegerValue(t *testing.T) {
 		{int32(2)},
 		{int64(2)},
 	}
+
+	p, err := NewStaticProvider(nil)
+	require.NoError(t, err, "Can't create a static provider")
+
 	for _, tc := range testCases {
-		cv := NewValue(NewStaticProvider(nil), "key", tc.value, true, nil)
+		cv := NewValue(p, "key", tc.value, true, nil)
 		assert.Equal(t, 2, cv.AsInt())
 	}
 }
 
 func TestGetAsFloatValue(t *testing.T) {
 	t.Parallel()
+
 	testCases := []struct {
 		value interface{}
 	}{
@@ -283,8 +296,12 @@ func TestGetAsFloatValue(t *testing.T) {
 		{int32(2)},
 		{int64(2)},
 	}
+
+	p, err := NewStaticProvider(nil)
+	require.NoError(t, err, "Can't create a static provider")
+
 	for _, tc := range testCases {
-		cv := NewValue(NewStaticProvider(nil), "key", tc.value, true, nil)
+		cv := NewValue(p, "key", tc.value, true, nil)
 		assert.Equal(t, float64(2), cv.AsFloat())
 	}
 }
@@ -292,18 +309,17 @@ func TestGetAsFloatValue(t *testing.T) {
 func TestNestedStructs(t *testing.T) {
 	t.Parallel()
 
-	provider := NewProviderGroup(
-		"test",
-		NewYAMLProviderFromBytes(nestedYaml),
-	)
+	p, err := NewYAMLProviderFromBytes(nestedYaml)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	provider := NewProviderGroup("test", p)
 
 	str := &root{}
 
 	v := provider.Get(Root)
 
 	assert.True(t, v.HasValue())
-	err := v.Populate(str)
-	assert.Nil(t, err)
+	require.NoError(t, v.Populate(str), "Can't populate struct")
 
 	assert.Equal(t, 1234, str.ID)
 	assert.Equal(t, 1111, str.NestedPtr.ID1)
@@ -316,10 +332,10 @@ func TestNestedStructs(t *testing.T) {
 func TestArrayOfStructs(t *testing.T) {
 	t.Parallel()
 
-	provider := NewProviderGroup(
-		"test",
-		NewYAMLProviderFromBytes(structArrayYaml),
-	)
+	p, err := NewYAMLProviderFromBytes(structArrayYaml)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	provider := NewProviderGroup("test", p)
 
 	target := &arrayOfStructs{}
 
@@ -334,10 +350,10 @@ func TestArrayOfStructs(t *testing.T) {
 func TestDefault(t *testing.T) {
 	t.Parallel()
 
-	provider := NewProviderGroup(
-		"test",
-		NewYAMLProviderFromBytes(nest1),
-	)
+	p, err := NewYAMLProviderFromBytes(nest1)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	provider := NewProviderGroup("test", p)
 	target := &nested{}
 	v := provider.Get(Root)
 	assert.True(t, v.HasValue())
@@ -347,15 +363,22 @@ func TestDefault(t *testing.T) {
 
 func TestInvalidConfigFailures(t *testing.T) {
 	t.Parallel()
+
 	valueType := []byte(`
 id: xyz
 boolean: hooli
 `)
-	provider := NewYAMLProviderFromBytes(valueType)
-	assert.Panics(t, func() { NewYAMLProviderFromBytes([]byte("bytes: \n\x010")) }, "Can't parse invalid YAML")
-	assert.Panics(t, func() { provider.Get("id").AsInt() }, "Can't parse as int")
-	assert.Panics(t, func() { provider.Get("boolean").AsBool() }, "Can't parse invalid boolean")
-	assert.Panics(t, func() { provider.Get("id").AsFloat() }, "Can't parse as float")
+
+	_, err := NewYAMLProviderFromBytes([]byte("bytes: \n\x010"))
+	require.Error(t, err, "Can't parse invalid YAML")
+	assert.Contains(t, err.Error(), "yaml: control characters are not allowed")
+
+	p, err := NewYAMLProviderFromBytes(valueType)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	assert.Panics(t, func() { p.Get("id").AsInt() }, "Can't parse as int")
+	assert.Panics(t, func() { p.Get("boolean").AsBool() }, "Can't parse invalid boolean")
+	assert.Panics(t, func() { p.Get("id").AsFloat() }, "Can't parse as float")
 }
 
 func TestNopProvider_Get(t *testing.T) {
@@ -383,7 +406,8 @@ ps:
   name: Hello
   value: 123
 `
-	p := NewYAMLProviderFromBytes([]byte(ptrYaml))
+	p, err := NewYAMLProviderFromBytes([]byte(ptrYaml))
+	require.NoError(t, err, "Can't create a YAML provider")
 
 	cfg := &pointerFieldStruct{Name: "xxx"}
 	v := p.Get("ps")
@@ -404,7 +428,8 @@ ps:
   name: Hello
   port: 123
 `
-	p := NewYAMLProviderFromBytes([]byte(ptrPort))
+	p, err := NewYAMLProviderFromBytes([]byte(ptrPort))
+	require.NoError(t, err, "Can't create a YAML provider")
 
 	cfg := &pointerFieldStruct{Name: "xxx"}
 	v := p.Get("ps")
@@ -435,7 +460,8 @@ ps:
     - port: 321
 `
 
-	p := NewYAMLProviderFromBytes([]byte(ptrChildPort))
+	p, err := NewYAMLProviderFromBytes([]byte(ptrChildPort))
+	require.NoError(t, err, "Can't create a YAML provider")
 
 	cfg := &portChildStruct{Name: "xxx"}
 	v := p.Get("ps")
@@ -484,7 +510,11 @@ rpc:
 		return "4324", true
 	}
 
-	p := NewYAMLProviderFromReaderWithExpand(lookup, ioutil.NopCloser(bytes.NewBufferString(rpc)))
+	p, err := NewYAMLProviderFromReaderWithExpand(
+		lookup,
+		ioutil.NopCloser(bytes.NewBufferString(rpc)))
+
+	require.NoError(t, err, "Can't create a YAML provider")
 
 	cfg := &YARPCConfig{}
 	v := p.Get("rpc")

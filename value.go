@@ -84,10 +84,15 @@ func (cv Value) LastUpdated() time.Time {
 
 // WithDefault sets the default value that can be overridden
 // by providers with a highger priority.
-func (cv Value) WithDefault(value interface{}) Value {
+func (cv Value) WithDefault(value interface{}) (Value, error) {
 	cv.defaultValue = value
-	cv.root = NewProviderGroup("withDefault", NewStaticProvider(map[string]interface{}{cv.key: value}), cv.provider)
-	return cv
+	p, err := NewStaticProvider(map[string]interface{}{cv.key: value})
+	if err != nil {
+		return cv, err
+	}
+
+	cv.root = NewProviderGroup("withDefault", p, cv.provider)
+	return cv, nil
 }
 
 // ChildKeys returns the child keys.

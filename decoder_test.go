@@ -273,7 +273,10 @@ func TestIdenticalFuzzing(t *testing.T) {
 	var a, b S
 	for i := 1; i < 1000; i++ {
 		f.Fuzz(&a)
-		p := NewStaticProvider(a)
+
+		p, err := NewStaticProvider(a)
+		require.NoError(t, err, "Can't create a static provider")
+
 		require.NoError(t, p.Get(Root).Populate(&b))
 		require.Equal(t, a, b)
 	}

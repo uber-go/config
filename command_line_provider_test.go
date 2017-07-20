@@ -33,9 +33,12 @@ func TestCommandLineProvider_Roles(t *testing.T) {
 
 	f := flag.NewFlagSet("", flag.PanicOnError)
 	var s StringSlice
+	assert.Equal(t, "StringSlice", s.Type())
 	f.Var(&s, "roles", "")
 
-	c := NewCommandLineProvider(f, []string{`--roles=a,b,c"d"`})
+	c, err := NewCommandLineProvider(f, []string{`--roles=a,b,c"d"`})
+	require.NoError(t, err, "Can't create a command line provider")
+
 	v := c.Get("roles")
 	require.True(t, v.HasValue())
 	var roles []string
@@ -49,7 +52,9 @@ func TestCommandLineProvider_Default(t *testing.T) {
 	f := flag.NewFlagSet("", flag.PanicOnError)
 	f.String("killerFeature", "minesweeper", "Start->Games->Minesweeper")
 
-	c := NewCommandLineProvider(f, nil)
+	c, err := NewCommandLineProvider(f, nil)
+	require.NoError(t, err, "Can't create a command line provider")
+
 	v := c.Get("killerFeature")
 	require.True(t, v.HasValue())
 	assert.Equal(t, "minesweeper", v.AsString())
@@ -61,23 +66,27 @@ func TestCommandLineProvider_Conversion(t *testing.T) {
 	f := flag.NewFlagSet("", flag.PanicOnError)
 	f.String("dozen", "14", " that number of rolls being allowed to the purchaser of a dozen")
 
-	c := NewCommandLineProvider(f, []string{"--dozen=13"})
+	c, err := NewCommandLineProvider(f, []string{"--dozen=13"})
+	require.NoError(t, err, "Can't create a command line provider")
+
 	v := c.Get("dozen")
 	require.True(t, v.HasValue())
 	assert.Equal(t, 13, v.AsInt())
 }
 
-func TestCommandLineProvider_PanicOnUnknownFlags(t *testing.T) {
+func TestCommandLineProvider_ErrorsOnUnknownFlags(t *testing.T) {
 	t.Parallel()
 
-	assert.Panics(t, func() {
-		NewCommandLineProvider(flag.NewFlagSet("", flag.ContinueOnError), []string{"--boom"})
-	})
+	_, err := NewCommandLineProvider(flag.NewFlagSet("", flag.ContinueOnError), []string{"--boom"})
+	require.Error(t, err, "Shouldn't create a command line provider")
+	assert.Contains(t, err.Error(), "unknown flag: --boom")
 }
 
 func TestCommandLineProvider_Name(t *testing.T) {
 	t.Parallel()
-	p := NewCommandLineProvider(flag.NewFlagSet("", flag.PanicOnError), nil)
+
+	p, err := NewCommandLineProvider(flag.NewFlagSet("", flag.PanicOnError), nil)
+	require.NoError(t, err, "Can't create a command line provider")
 	assert.Equal(t, "cmd", p.Name())
 }
 
@@ -87,7 +96,9 @@ func TestCommandLineProvider_RepeatingArguments(t *testing.T) {
 	f := flag.NewFlagSet("", flag.PanicOnError)
 	f.Int("count", 1, "If I had a million dollars")
 
-	c := NewCommandLineProvider(f, []string{"--count=2", "--count=3"})
+	c, err := NewCommandLineProvider(f, []string{"--count=2", "--count=3"})
+	require.NoError(t, err)
+
 	v := c.Get("count")
 	require.True(t, v.HasValue())
 	assert.Equal(t, "3", v.AsString())
@@ -100,7 +111,9 @@ func TestCommandLineProvider_NestedValues(t *testing.T) {
 	f.String("Name.Source", "default", "Data provider source")
 	f.Var(&StringSlice{}, "Name.Array", "Example of a nested array")
 
-	c := NewCommandLineProvider(f, []string{"--Name.Source=chocolateFactory", "--Name.Array=cookie, candy,brandy"})
+	c, err := NewCommandLineProvider(f, []string{"--Name.Source=chocolateFactory", "--Name.Array=cookie, candy,brandy"})
+	require.NoError(t, err)
+
 	type Wonka struct {
 		Source string
 		Array  []string
@@ -110,7 +123,12 @@ func TestCommandLineProvider_NestedValues(t *testing.T) {
 		Name Wonka
 	}
 
-	g := NewProviderGroup("group", NewStaticProvider(Willy{Name: Wonka{Source: "staticFactory"}}), c)
+	s, err := NewStaticProvider(Willy{Name: Wonka{Source: "staticFactory"}})
+	require.NoError(t, err, "Can't create a static provider")
+
+	g := NewProviderGroup("group", s, c)
+	require.NoError(t, err, "Can't group providers")
+
 	var v Willy
 	require.NoError(t, g.Get(Root).Populate(&v))
 	assert.Equal(t, Willy{Name: Wonka{
@@ -126,7 +144,9 @@ func TestCommandLineProvider_OverlappingFlags(t *testing.T) {
 	f.String("Sushi.Tools.1", "Saibashi", "Chopsticks are extremely helpful!")
 	f.Var(&StringSlice{}, "Sushi.Tools", "yolo")
 
-	c := NewCommandLineProvider(f, []string{"--Sushi.Tools.1=Fork", "--Sushi.Tools=Hocho, Hashi"})
+	c, err := NewCommandLineProvider(f, []string{"--Sushi.Tools.1=Fork", "--Sushi.Tools=Hocho, Hashi"})
+	require.NoError(t, err, "Can't create a command line provider")
+
 	type Sushi struct {
 		Tools []string
 	}

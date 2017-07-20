@@ -21,6 +21,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 )
@@ -34,15 +35,15 @@ type cachedProvider struct {
 
 // NewCachedProvider returns a concurrent safe provider,
 // that caches values of the underlying provider.
-func NewCachedProvider(p Provider) Provider {
+func NewCachedProvider(p Provider) (Provider, error) {
 	if p == nil {
-		panic("Received a nil provider")
+		return nil, errors.New("received a nil provider")
 	}
 
 	return &cachedProvider{
 		Provider: p,
 		cache:    make(map[string]Value),
-	}
+	}, nil
 }
 
 // Name returns a name of the underlying provider.

@@ -29,7 +29,7 @@ type emptystruct struct {
 	Slice []string
 }
 
-var emptyyaml = []byte(`
+var _emptyyaml = []byte(`
 emptystruct:
   nonexist: true
 `)
@@ -40,7 +40,7 @@ type pointerStruct struct {
 	MyString    *string `yaml:"myString"`
 }
 
-var pointerYaml = []byte(`
+var _pointerYaml = []byte(`
 pointerStruct:
   myTrueBool: true
   myFalseBool: false
@@ -58,7 +58,7 @@ type mapStruct struct {
 	NestedStruct nestedStruct           `yaml:"nestedStruct"`
 }
 
-var simpleMapYaml = []byte(`
+var _simpleMapYaml = []byte(`
 mapStruct:
   oneTrueMap:
     one: 1
@@ -81,29 +81,30 @@ type durationStruct struct {
 	UnparsableDuration time.Duration `yaml:"unparsableDuration"`
 }
 
-var durationYaml = []byte(`
+type intKeyMapStruct struct {
+	IntKeyMap map[int]string `yaml:"intKeyMap"`
+}
+
+var (
+	_durationYaml = []byte(`
 durationStruct:
   seconds: 10s
   minutes: 20m
   hours: 30h
 `)
 
-var unparsableDurationYaml = []byte(`
+	_unparsableDurationYaml = []byte(`
 durationStruct:
   unparsableDuration: 25thhour
 `)
 
-type intKeyMapStruct struct {
-	IntKeyMap map[int]string `yaml:"intKeyMap"`
-}
-
-var intKeyMapYaml = []byte(`
+	_intKeyMapYaml = []byte(`
 intKeyMapStruct:
   intKeyMap:
     123: onetwothree
 `)
 
-var complexMapYaml = []byte(`
+	_complexMapYaml = []byte(`
 mapStruct:
   oneTrueMap:
     name: heiku
@@ -118,7 +119,7 @@ mapStruct:
     additionalData: nesteddata
 `)
 
-var complexMapYamlV2 = []byte(`
+	_complexMapYamlV2 = []byte(`
 mapStruct:
   oneTrueMap:
     name: poem
@@ -128,6 +129,7 @@ mapStruct:
   nestedStruct:
     additionalData:
 `)
+)
 
 type userDefinedTypeInt nestedTypeInt
 type nestedTypeInt int64
@@ -180,7 +182,8 @@ type typeStructStruct struct {
 	TypeStruct typeStruct `yaml:"typeStruct"`
 }
 
-var typeStructYaml = []byte(`
+var (
+	_typeStructYaml = []byte(`
 typeStruct:
   testInt: 123
   testUInt: 456
@@ -193,16 +196,17 @@ typeStruct:
     hours: 30h
 `)
 
-var happyTextUnmarshallerYaml = []byte(`
+	_happyTextUnmarshallerYaml = []byte(`
 duckTales:
   protagonist: Scrooge
   pilot: LaunchpadMcQuack
 `)
 
-var grumpyTextUnmarshallerYaml = []byte(`
+	_grumpyTextUnmarshallerYaml = []byte(`
 darkwingDuck:
   protagonist: DarkwingDuck
 `)
+)
 
 type duckTaleCharacter int
 
@@ -248,25 +252,26 @@ type secondLevelMerge struct {
 	Overwrite firstLevelMerge
 }
 
-var baseFirstLevel = firstLevelMerge{
-	Map:       map[string]string{"keep": "ok", "override": "updated"},
-	Slice:     []string{"Wonder Woman", "Batman"},
-	Base:      "MSDOS",
-	Overwrite: "Windows 10",
-}
+var (
+	_baseFirstLevel = firstLevelMerge{
+		Map:       map[string]string{"keep": "ok", "override": "updated"},
+		Slice:     []string{"Wonder Woman", "Batman"},
+		Base:      "MSDOS",
+		Overwrite: "Windows 10",
+	}
 
-var overwriteFirstLevel = firstLevelMerge{
-	Map:       map[string]string{"keep": "ok", "override": "updated"},
-	Slice:     []string{"Wonder Woman", "Batman"},
-	Base:      "UNIX",
-	Overwrite: "FreeBSD",
-}
+	_overwriteFirstLevel = firstLevelMerge{
+		Map:       map[string]string{"keep": "ok", "override": "updated"},
+		Slice:     []string{"Wonder Woman", "Batman"},
+		Base:      "UNIX",
+		Overwrite: "FreeBSD",
+	}
 
-var mergeTest = []mergeTestData{
+	_mergeTest = []mergeTestData{
 
-	{
-		"First level maps",
-		[][]byte{[]byte(`
+		{
+			"First level maps",
+			[][]byte{[]byte(`
 slice:
 - DuckTales
 - Darkwingduck
@@ -277,7 +282,7 @@ base: UNIX
 overwrite: Linux
 
 `),
-			[]byte(`
+				[]byte(`
 slice:
 - Wonder Woman
 - Batman
@@ -285,13 +290,13 @@ map:
   override: updated
 overwrite: FreeBSD
 `)},
-		map[string]interface{}{
-			"": overwriteFirstLevel,
+			map[string]interface{}{
+				"": _overwriteFirstLevel,
+			},
 		},
-	},
-	{
-		"Second level structs",
-		[][]byte{[]byte(`
+		{
+			"Second level structs",
+			[][]byte{[]byte(`
 slice:
 - slice:
   - DuckTales
@@ -316,7 +321,7 @@ overwrite:
     override: oldValue
   overwrite: Linux
 `),
-			[]byte(`
+				[]byte(`
 slice:
 - slice:
   - Wonder Woman
@@ -340,27 +345,28 @@ overwrite:
   base: UNIX
   overwrite: FreeBSD
 `)},
-		map[string]interface{}{
-			"": secondLevelMerge{
-				Base:      baseFirstLevel,
-				Overwrite: overwriteFirstLevel,
-				Slice:     []firstLevelMerge{overwriteFirstLevel}},
-			"Base":      baseFirstLevel,
-			"Overwrite": overwriteFirstLevel,
+			map[string]interface{}{
+				"": secondLevelMerge{
+					Base:      _baseFirstLevel,
+					Overwrite: _overwriteFirstLevel,
+					Slice:     []firstLevelMerge{_overwriteFirstLevel}},
+				"Base":      _baseFirstLevel,
+				"Overwrite": _overwriteFirstLevel,
+			},
 		},
-	},
-	{
-		"Empty yamls",
-		[][]byte{[]byte(``), []byte(``)},
-		map[string]interface{}{
-			"": struct{ Field string }{},
+		{
+			"Empty yamls",
+			[][]byte{[]byte(``), []byte(``)},
+			map[string]interface{}{
+				"": struct{ Field string }{},
+			},
 		},
-	},
-	{
-		"No overwrite for empty yamls",
-		[][]byte{[]byte(`Keep: true`), []byte(``)},
-		map[string]interface{}{
-			"": struct{ Keep bool }{true},
+		{
+			"No overwrite for empty yamls",
+			[][]byte{[]byte(`Keep: true`), []byte(``)},
+			map[string]interface{}{
+				"": struct{ Keep bool }{true},
+			},
 		},
-	},
-}
+	}
+)
