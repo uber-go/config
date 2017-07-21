@@ -222,10 +222,6 @@ func (cv Value) Get(key string) Value {
 // a couple of cases and complains if it finds one it doesn't like.
 // needs a bunch more cases.
 func convertValue(value interface{}, targetType reflect.Type) (interface{}, error) {
-	if value == nil {
-		return reflect.Zero(targetType).Interface(), nil
-	}
-
 	valueType := reflect.TypeOf(value)
 	if valueType.AssignableTo(targetType) {
 		return value, nil

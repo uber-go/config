@@ -445,14 +445,21 @@ func TestStaticProviderConstructorErrors(t *testing.T) {
 	t.Parallel()
 
 	var a grumpyMarshalYAML
-	t.Run("Regular static provider", func(t *testing.T) {
+	t.Run("Regular static provider closer error", func(t *testing.T) {
 		_, err := NewStaticProvider(a)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "grumpy")
 	})
-	t.Run("Static provider with expand", func(t *testing.T) {
+
+	t.Run("Static provider with expand closer error", func(t *testing.T) {
 		_, err := NewStaticProviderWithExpand(a, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "grumpy")
+	})
+
+	t.Run("Static provider with expand error", func(t *testing.T) {
+		_, err := NewStaticProviderWithExpand(`val: ${Email}`, func(string) (string, bool) { return "", false })
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `default is empty for "Email"`)
 	})
 }

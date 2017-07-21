@@ -523,6 +523,21 @@ rpc:
 	require.Equal(t, 4324, int(*cfg.Outbounds[0].TChannel.Port))
 }
 
+func TestLoadFromFiles(t *testing.T) {
+	t.Parallel()
+
+	withBase(t, func(dir string) {
+		_, err := LoadFromFiles(
+			[]string{dir},
+			[]FileInfo{{Name: "base.yaml", Interpolate: true}},
+			func(string) (string, bool) { return "", false },
+		)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `default is empty for "Email"`)
+	}, "${Email}")
+}
+
 func withBase(t *testing.T, f func(dir string), contents string) {
 	dir, err := ioutil.TempDir("", "TestConfig")
 	require.NoError(t, err)
@@ -537,14 +552,4 @@ func withBase(t *testing.T, f func(dir string), contents string) {
 	base.Close()
 
 	f(dir)
-}
-
-func lookUpWithConfig(dir string, lookUp LookUpFunc) LookUpFunc {
-	return func(key string) (string, bool) {
-		if key == "CONFIG_DIR" {
-			return dir, true
-		}
-
-		return lookUp(key)
-	}
 }

@@ -47,10 +47,6 @@ var (
 func newYAMLProviderCore(files ...io.ReadCloser) (*yamlConfigProvider, error) {
 	var root interface{}
 	for _, v := range files {
-		if v == nil {
-			continue
-		}
-
 		var curr interface{}
 		if err := unmarshalYAMLValue(v, &curr); err != nil {
 			if file, ok := v.(*os.File); ok {
@@ -59,6 +55,7 @@ func newYAMLProviderCore(files ...io.ReadCloser) (*yamlConfigProvider, error) {
 
 			return nil, err
 		}
+
 		tmp, err := mergeMaps(root, curr)
 		if err != nil {
 			return nil, err
@@ -256,10 +253,6 @@ type yamlNode struct {
 	children []*yamlNode
 }
 
-func (n yamlNode) Key() string {
-	return n.key
-}
-
 func (n yamlNode) String() string {
 	return fmt.Sprintf("%v", n.value)
 }
@@ -328,13 +321,10 @@ func (n *yamlNode) Children() []*yamlNode {
 }
 
 func (n *yamlNode) applyOnAllNodes(expand func(string) string) (err error) {
-	if n == nil {
-		return nil
-	}
-
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
+				fmt.Println(r)
 				panic(r)
 			}
 
