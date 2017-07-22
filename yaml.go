@@ -324,7 +324,6 @@ func (n *yamlNode) applyOnAllNodes(expand func(string) string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
-				fmt.Println(r)
 				panic(r)
 			}
 
