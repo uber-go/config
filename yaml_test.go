@@ -1745,3 +1745,69 @@ func TestMergeErrorsFromReaders(t *testing.T) {
 		assert.Contains(t, err.Error(), "can't merge map")
 	})
 }
+
+func TestMergeErrorsFromFiles(t *testing.T) {
+	t.Parallel()
+
+	base, err := ioutil.TempFile(".", "test")
+	require.NoError(t, err, "Can't create a temp base file")
+	fmt.Fprint(base, `a:
+  - b`)
+	require.NoError(t, base.Close(), "Close error for base")
+	defer func() { assert.NoError(t, os.Remove(base.Name())) }()
+
+	dev, err := ioutil.TempFile(".", "test")
+	require.NoError(t, err, "Can't create a temp dev file")
+	fmt.Fprint(dev, `a:
+  b: c`)
+	require.NoError(t, dev.Close(), "Close error for dev")
+	defer func() { assert.NoError(t, os.Remove(dev.Name())) }()
+
+	t.Run("regular files", func(t *testing.T) {
+		_, err := NewYAMLProviderFromFiles(base.Name(), dev.Name())
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't merge map")
+	})
+
+	t.Run("regular readers", func(t *testing.T) {
+		b, err := ioutil.ReadFile(base.Name())
+		require.NoError(t, err, "Can't read base file")
+
+		d, err := ioutil.ReadFile(dev.Name())
+		require.NoError(t, err, "Can't read dev file")
+
+		_, err = NewYAMLProviderFromReader(
+			ioutil.NopCloser(bytes.NewBuffer(b)),
+			ioutil.NopCloser(bytes.NewBuffer(d)))
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't merge map")
+	})
+
+	t.Run("from files with expand", func(t *testing.T) {
+		expand := func(string) (string, bool) { return "", false }
+
+		_, err := NewYAMLProviderWithExpand(expand, base.Name(), dev.Name())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't merge map")
+	})
+
+	t.Run("reader with expand", func(t *testing.T) {
+		b, err := ioutil.ReadFile(base.Name())
+		require.NoError(t, err, "Can't read base file")
+
+		d, err := ioutil.ReadFile(dev.Name())
+		require.NoError(t, err, "Can't read dev file")
+
+		expand := func(string) (string, bool) { return "", false }
+
+		_, err = NewYAMLProviderFromReaderWithExpand(
+			expand,
+			ioutil.NopCloser(bytes.NewBuffer(b)),
+			ioutil.NopCloser(bytes.NewBuffer(d)))
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't merge map")
+	})
+}

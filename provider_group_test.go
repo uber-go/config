@@ -107,3 +107,16 @@ func TestProviderGroup_GetChecksAllProviders(t *testing.T) {
 	require.NoError(t, pg.Get(Root).Populate(&svc))
 	assert.Equal(t, map[string]string{"name": "fx", "owner": "tst@example.com", "desc": "test"}, svc)
 }
+
+func TestProviderGroupMergeFail(t *testing.T) {
+	t.Parallel()
+
+	m, err := NewStaticProvider(map[string]interface{}{"a": map[string]string{"b": "c"}})
+	require.NoError(t, err)
+	s, err := NewStaticProvider(map[string]interface{}{"a": []string{"b"}})
+	require.NoError(t, err)
+
+	g := NewProviderGroup("group", s, m)
+	v := g.Get("a")
+	assert.False(t, v.HasValue())
+}
