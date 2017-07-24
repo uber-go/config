@@ -1717,3 +1717,31 @@ func TestNewYamlProviderWithExpand(t *testing.T) {
 	baseValue := p.Get("value").AsString()
 	assert.Equal(t, "base_only", baseValue)
 }
+
+func TestMergeErrorsFromReaders(t *testing.T) {
+	t.Parallel()
+
+	t.Run("regular", func(t *testing.T) {
+		base := ioutil.NopCloser(strings.NewReader(`a:
+  - b`))
+		dev := ioutil.NopCloser(strings.NewReader(`a:
+  b: c`))
+
+		_, err := NewYAMLProviderFromReader(base, dev)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't merge map")
+	})
+
+	t.Run("expand", func(t *testing.T) {
+		expand := func(string) (string, bool) { return "", false }
+
+		base := ioutil.NopCloser(strings.NewReader(`a:
+  - b`))
+		dev := ioutil.NopCloser(strings.NewReader(`a:
+  b: c`))
+
+		_, err := NewYAMLProviderFromReaderWithExpand(expand, base, dev)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't merge map")
+	})
+}
