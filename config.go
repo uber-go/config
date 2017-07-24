@@ -43,7 +43,10 @@ type FileInfo struct {
 //  ./config/${ENVIRONMENT}.yaml
 //  ./config/secrets.yaml
 // The provider is also amended with a command line provider that reads
-// a roles flag. It can be skipped by seting commandline value to false.
+// a roles flag. It can be skipped by seting commandline value to false
+// at the root level of config file:
+//
+//  commandline: false
 func LoadDefaults() (Provider, error) {
 	env := "development"
 	if val, ok := os.LookupEnv("ENVIRONMENT"); ok {
