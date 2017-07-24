@@ -69,7 +69,8 @@ func LoadDefaults() (Provider, error) {
 		return nil, err
 	}
 
-	if !p.Get("commandLine").WithDefault(true).AsBool() {
+	ok, err := p.Get("commandLine").WithDefault(true)
+	if err != nil || !ok.AsBool() {
 		return p, nil
 	}
 
