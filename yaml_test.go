@@ -1811,3 +1811,19 @@ func TestMergeErrorsFromFiles(t *testing.T) {
 		assert.Contains(t, err.Error(), "can't merge map")
 	})
 }
+
+func TestYAMLProviderWithGarbledPath(t *testing.T) {
+	t.Parallel()
+
+	t.Run("regular", func(t *testing.T) {
+		_, err := NewYAMLProviderFromFiles("/some/nonexisting/config")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no such file or directory")
+	})
+
+	t.Run("expand", func(t *testing.T) {
+		_, err := NewYAMLProviderWithExpand(nil, "/some/nonexisting/config")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no such file or directory")
+	})
+}
