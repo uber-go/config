@@ -7,6 +7,7 @@
 - Skip populating function and value types instead of reporting errors.
 - **[Breaking]** `Value.Timestamp` is private, use Value.LastUpdated instead.
 - **[Breaking]** Use semantic version paths for yaml and validator packages.
+- Let user to skip loading command line provider via `commandLine` parameter.
 - **[Breaking]** Most of the `Provider` constructors return an error instead of panics.
 - **[Breaking]** `Value.WithDefault` returns an error when a default can't be used.
 
