@@ -38,13 +38,16 @@ type FileInfo struct {
 	Interpolate bool   // Interpolate contents?
 }
 
-// LoadDefaults returns a default set of configuration files:
+// LoadDefaults returns a default provider from a set of configuration
+// files:
 //  ./config/base.yaml
 //  ./config/${ENVIRONMENT}.yaml
 //  ./config/secrets.yaml
-// The provider is also amended with a command line provider that reads
-// a roles flag. It can be skipped by seting commandLine value to false
-// at the root level of config file:
+//
+// The result configuration is merged with a command line provider that
+// reads a roles flag. If it is not a desired behavior, the command line
+// provider can be skipped by seting commandLine value to false
+// at the root level of any of the config files:
 //
 //  commandLine: false
 func LoadDefaults() (Provider, error) {
