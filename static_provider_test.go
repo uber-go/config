@@ -21,6 +21,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"sort"
@@ -33,13 +34,18 @@ import (
 
 func TestStaticProvider_Name(t *testing.T) {
 	t.Parallel()
-	p := NewStaticProvider(nil)
+
+	p, err := NewStaticProvider(nil)
+	require.NoError(t, err, "Can't create a static provider")
+
 	assert.Equal(t, "static", p.Name())
 }
 
 func TestNewStaticProvider_NilData(t *testing.T) {
 	t.Parallel()
-	p := NewStaticProvider(nil)
+
+	p, err := NewStaticProvider(nil)
+	require.NoError(t, err, "Can't create a static provider")
 
 	val := p.Get("something")
 	assert.False(t, val.HasValue())
@@ -47,10 +53,13 @@ func TestNewStaticProvider_NilData(t *testing.T) {
 
 func TestStaticProvider_WithData(t *testing.T) {
 	t.Parallel()
+
 	data := map[string]interface{}{
 		"hello": "world",
 	}
-	p := NewStaticProvider(data)
+
+	p, err := NewStaticProvider(data)
+	require.NoError(t, err, "Can't create a static provider")
 
 	val := p.Get("hello")
 	assert.True(t, val.HasValue())
@@ -60,10 +69,13 @@ func TestStaticProvider_WithData(t *testing.T) {
 
 func TestStaticProvider_WithGet(t *testing.T) {
 	t.Parallel()
+
 	data := map[string]interface{}{
 		"hello": map[string]int{"world": 42},
 	}
-	p := NewStaticProvider(data)
+
+	p, err := NewStaticProvider(data)
+	require.NoError(t, err, "can't create a static provider")
 
 	val := p.Get("hello")
 	assert.True(t, val.HasValue())
@@ -76,7 +88,10 @@ func TestStaticProvider_WithGet(t *testing.T) {
 
 func TestStaticProviderFmtPrintOnValueNoPanic(t *testing.T) {
 	t.Parallel()
-	p := NewStaticProvider(nil)
+
+	p, err := NewStaticProvider(nil)
+	require.NoError(t, err, "Can't create a static provider")
+
 	val := p.Get("something")
 
 	f := func() {
@@ -87,6 +102,7 @@ func TestStaticProviderFmtPrintOnValueNoPanic(t *testing.T) {
 
 func TestNilStaticProviderSetDefaultTagValue(t *testing.T) {
 	t.Parallel()
+
 	type Inner struct {
 		Set bool `yaml:"set" default:"true"`
 	}
@@ -101,7 +117,8 @@ func TestNilStaticProviderSetDefaultTagValue(t *testing.T) {
 		ID7 [7]*Inner       `yaml:"id7"`
 	}{}
 
-	p := NewStaticProvider(nil)
+	p, err := NewStaticProvider(nil)
+	require.NoError(t, err, "Can't create a static provider")
 	require.NoError(t, p.Get("hello").Populate(&data))
 
 	assert.Equal(t, 10, data.ID0)
@@ -116,7 +133,9 @@ func TestNilStaticProviderSetDefaultTagValue(t *testing.T) {
 
 func TestPopulateForSimpleMap(t *testing.T) {
 	t.Parallel()
-	p := NewStaticProvider(map[string]int{"one": 1, "b": -1})
+
+	p, err := NewStaticProvider(map[string]int{"one": 1, "b": -1})
+	require.NoError(t, err, "Can't create a static provider")
 
 	var m map[string]interface{}
 	require.NoError(t, p.Get(Root).Populate(&m))
@@ -125,9 +144,12 @@ func TestPopulateForSimpleMap(t *testing.T) {
 
 func TestPopulateForNestedMap(t *testing.T) {
 	t.Parallel()
-	p := NewStaticProvider(map[string]interface{}{
+
+	p, err := NewStaticProvider(map[string]interface{}{
 		"top":    map[string]int{"one": 1, "": -1},
 		"bottom": "value"})
+
+	require.NoError(t, err, "Can't create a static provider")
 
 	var m map[string]interface{}
 	require.NoError(t, p.Get(Root).Populate(&m))
@@ -138,7 +160,9 @@ func TestPopulateForNestedMap(t *testing.T) {
 
 func TestPopulateForSimpleSlice(t *testing.T) {
 	t.Parallel()
-	p := NewStaticProvider([]string{"Eeny", "meeny", "miny", "moe"})
+
+	p, err := NewStaticProvider([]string{"Eeny", "meeny", "miny", "moe"})
+	require.NoError(t, err, "Can't create a static provider")
 
 	var s []string
 	require.NoError(t, p.Get(Root).Populate(&s))
@@ -152,7 +176,8 @@ func TestPopulateForSimpleSlice(t *testing.T) {
 
 func TestPopulateForNestedSlices(t *testing.T) {
 	t.Parallel()
-	p := NewStaticProvider([][]string{{}, {"Catch", "a", "tiger", "by", "the", "toe"}, nil, {""}})
+	p, err := NewStaticProvider([][]string{{}, {"Catch", "a", "tiger", "by", "the", "toe"}, nil, {""}})
+	require.NoError(t, err, "can't create a static provider")
 
 	var s [][]string
 	require.NoError(t, p.Get(Root).Populate(&s))
@@ -163,29 +188,38 @@ func TestPopulateForNestedSlices(t *testing.T) {
 
 func TestPopulateForBuiltins(t *testing.T) {
 	t.Parallel()
+
 	t.Run("int", func(t *testing.T) {
-		p := NewStaticProvider(1)
+		p, err := NewStaticProvider(1)
+		require.NoError(t, err, "Can't create a static provider")
+
 		var i int
 		require.NoError(t, p.Get(Root).Populate(&i))
 		assert.Equal(t, 1, i)
 		assert.Equal(t, 1, p.Get(Root).AsInt())
 	})
 	t.Run("float", func(t *testing.T) {
-		p := NewStaticProvider(1.23)
+		p, err := NewStaticProvider(1.23)
+		require.NoError(t, err, "Can't create a static provider")
+
 		var f float64
 		require.NoError(t, p.Get(Root).Populate(&f))
 		assert.Equal(t, 1.23, f)
 		assert.Equal(t, 1.23, p.Get(Root).AsFloat())
 	})
 	t.Run("string", func(t *testing.T) {
-		p := NewStaticProvider("pie")
+		p, err := NewStaticProvider("pie")
+		require.NoError(t, err, "Can't create a static provider")
+
 		var s string
 		require.NoError(t, p.Get(Root).Populate(&s))
 		assert.Equal(t, "pie", s)
 		assert.Equal(t, "pie", p.Get(Root).String())
 	})
 	t.Run("bool", func(t *testing.T) {
-		p := NewStaticProvider(true)
+		p, err := NewStaticProvider(true)
+		require.NoError(t, err, "Can't create a static provider")
+
 		var b bool
 		require.NoError(t, p.Get(Root).Populate(&b))
 		assert.True(t, b)
@@ -195,12 +229,15 @@ func TestPopulateForBuiltins(t *testing.T) {
 
 func TestPopulateForNestedMaps(t *testing.T) {
 	t.Parallel()
-	p := NewStaticProvider(map[string]map[string]string{
+
+	p, err := NewStaticProvider(map[string]map[string]string{
 		"a": {"one": "1", "": ""}})
 
+	require.NoError(t, err, "Can't create a static provider")
+
 	var m map[string]string
-	err := p.Get("a").Populate(&m)
-	require.Error(t, err)
+	err = p.Get("a").Populate(&m)
+	require.Error(t, err, "Shouldn't be able to populate")
 	assert.Contains(t, err.Error(), `empty map key is ambiguous`)
 	assert.Contains(t, err.Error(), `a.`)
 }
@@ -208,9 +245,11 @@ func TestPopulateForNestedMaps(t *testing.T) {
 func TestPopulateNonPointerType(t *testing.T) {
 	t.Parallel()
 
-	p := NewStaticProvider(42)
+	p, err := NewStaticProvider(42)
+	require.NoError(t, err, "Can't create a static provider")
+
 	x := 13
-	err := p.Get(Root).Populate(x)
+	err = p.Get(Root).Populate(x)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "can't populate non pointer type")
 }
@@ -218,7 +257,7 @@ func TestPopulateNonPointerType(t *testing.T) {
 func TestStaticProviderWithExpand(t *testing.T) {
 	t.Parallel()
 
-	p := NewStaticProviderWithExpand(map[string]interface{}{
+	p, err := NewStaticProviderWithExpand(map[string]interface{}{
 		"slice": []interface{}{"one", "${iTwo:2}"},
 		"value": `${iValue:""}`,
 		"map": map[string]interface{}{
@@ -238,6 +277,8 @@ func TestStaticProviderWithExpand(t *testing.T) {
 		return "", false
 	})
 
+	require.NoError(t, err, "can't create a static provider")
+
 	assert.Equal(t, "one", p.Get("slice.0").AsString())
 	assert.Equal(t, "3", p.Get("slice.1").AsString())
 	assert.Equal(t, "null", p.Get("value").Value())
@@ -249,7 +290,9 @@ func TestStaticProviderWithExpand(t *testing.T) {
 func TestPopulateForMapOfDifferentKeyTypes(t *testing.T) {
 	t.Parallel()
 
-	p := NewStaticProvider(map[int]string{1: "a"})
+	p, err := NewStaticProvider(map[int]string{1: "a"})
+	require.NoError(t, err, "Can't create a static provider")
+
 	var m map[string]string
 	require.NoError(t, p.Get(Root).Populate(&m))
 	assert.Equal(t, "a", m["1"])
@@ -258,10 +301,12 @@ func TestPopulateForMapOfDifferentKeyTypes(t *testing.T) {
 func TestPopulateForMapsWithNotAssignableKeyTypes(t *testing.T) {
 	t.Parallel()
 
-	p := NewStaticProvider(map[int]string{1: "a"})
+	p, err := NewStaticProvider(map[int]string{1: "a"})
+	require.NoError(t, err, "Can't create a static provider")
+
 	type secretType struct{ password string }
 	var m map[secretType]string
-	err := p.Get(Root).Populate(&m)
+	err = p.Get(Root).Populate(&m)
 	require.Error(t, err)
 	msg := err.Error()
 	assert.Contains(t, msg, `can't convert "1" to "config.secretType"`)
@@ -271,11 +316,13 @@ func TestPopulateForMapsWithNotAssignableKeyTypes(t *testing.T) {
 func TestValue_ChildKeys(t *testing.T) {
 	t.Parallel()
 
-	p := NewStaticProvider(map[string]interface{}{
+	p, err := NewStaticProvider(map[string]interface{}{
 		"one":   1,
 		"two":   2,
 		"slice": []int{42, 13},
 	})
+
+	require.NoError(t, err, "Can't create a static provider")
 
 	op := func(t *testing.T, key string, expected []string) {
 		keys := p.Get(key).ChildKeys()
@@ -288,7 +335,9 @@ func TestValue_ChildKeys(t *testing.T) {
 	t.Run("SingleValue", func(t *testing.T) { op(t, "one", nil) })
 	t.Run("Empty", func(t *testing.T) { op(t, "nothing", nil) })
 
-	p = NewStaticProvider(map[int]string{3: "three", 5: "five"})
+	p, err = NewStaticProvider(map[int]string{3: "three", 5: "five"})
+	require.NoError(t, err, "can't create a static provider")
+
 	t.Run("MapOfInts", func(t *testing.T) { op(t, Root, []string{"3", "5"}) })
 }
 
@@ -302,7 +351,12 @@ func TestInterpolatedBool(t *testing.T) {
 		return "", false
 	}
 
-	p := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(strings.NewReader("val: ${interpolate:false}")))
+	p, err := NewYAMLProviderFromReaderWithExpand(
+		f,
+		ioutil.NopCloser(strings.NewReader("val: ${interpolate:false}")))
+
+	require.NoError(t, err, "Can't create a static provider")
+
 	assert.True(t, p.Get("val").AsBool())
 }
 
@@ -312,11 +366,14 @@ func TestConfigDefaults(t *testing.T) {
 	type cfg struct{ N int }
 
 	var c cfg
-	require.NoError(
-		t,
-		NewStaticProvider(nil).Get("metrics").WithDefault(cfg{42}).Populate(&c),
-		"Failed to populate config.",
-	)
+	p, err := NewStaticProvider(nil)
+	require.NoError(t, err, "Can't create a static provider")
+
+	v, err := p.Get("metrics").WithDefault(cfg{42})
+	require.NoError(t, err, "Can't set a default value")
+
+	require.NoError(t, v.Populate(&c), "Failed to populate config.")
+
 	assert.Equal(t, cfg{N: 42}, c)
 }
 
@@ -329,18 +386,23 @@ func TestConfigDefaultsAreOverriddenByHigherPriorityProviders(t *testing.T) {
 		Year   int
 	}
 
-	var novel book
-	require.NoError(
-		t,
-		NewStaticProvider(map[string]string{
-			"library.author": "Dreiser",
-			"library.title":  "The Financier"},
-		).Get("library").WithDefault(book{
-			Title: "An American Tragedy",
-			Year:  1925,
-		}).Populate(&novel),
-		"Failed to write a novel.",
+	p, err := NewStaticProvider(map[string]string{
+		"library.author": "Dreiser",
+		"library.title":  "The Financier"},
 	)
+
+	require.NoError(t, err, "Can't create a static provider")
+
+	v, err := p.Get("library").WithDefault(book{
+		Title: "An American Tragedy",
+		Year:  1925,
+	})
+
+	require.NoError(t, err, "Can't setup a default value")
+
+	var novel book
+	require.NoError(t, v.Populate(&novel), "Failed to write a novel.")
+
 	assert.Equal(t, book{Title: "The Financier", Author: "Dreiser", Year: 1925}, novel)
 }
 
@@ -348,7 +410,10 @@ func TestMissingValuesForTryMethods(t *testing.T) {
 	t.Parallel()
 
 	assert := assert.New(t)
-	v := NewStaticProvider(nil).Get("missing")
+	p, err := NewStaticProvider(nil)
+	require.NoError(t, err, "Can't create a static provider")
+
+	v := p.Get("missing")
 	t.Run("int", func(t *testing.T) {
 		_, ok := v.TryAsInt()
 		assert.False(ok)
@@ -367,5 +432,34 @@ func TestMissingValuesForTryMethods(t *testing.T) {
 	t.Run("bool", func(t *testing.T) {
 		_, ok := v.TryAsBool()
 		assert.False(ok)
+	})
+}
+
+type grumpyMarshalYAML struct{}
+
+func (grumpyMarshalYAML) MarshalYAML() (interface{}, error) {
+	return nil, errors.New("grumpy")
+}
+
+func TestStaticProviderConstructorErrors(t *testing.T) {
+	t.Parallel()
+
+	var a grumpyMarshalYAML
+	t.Run("Regular static provider closer error", func(t *testing.T) {
+		_, err := NewStaticProvider(a)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "grumpy")
+	})
+
+	t.Run("Static provider with expand closer error", func(t *testing.T) {
+		_, err := NewStaticProviderWithExpand(a, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "grumpy")
+	})
+
+	t.Run("Static provider with expand error", func(t *testing.T) {
+		_, err := NewStaticProviderWithExpand(`val: ${Email}`, func(string) (string, bool) { return "", false })
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `default is empty for "Email"`)
 	})
 }

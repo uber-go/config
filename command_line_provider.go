@@ -56,9 +56,9 @@ type commandLineProvider struct {
 // arguments as config values. In order to address nested elements one
 // can use dots in flag names which are considered separators.
 // One can use StringSlice type to work with a list of comma separated strings.
-func NewCommandLineProvider(flags *flag.FlagSet, args []string) Provider {
+func NewCommandLineProvider(flags *flag.FlagSet, args []string) (Provider, error) {
 	if err := flags.Parse(args); err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	m := make(map[string]interface{})
@@ -77,7 +77,12 @@ func NewCommandLineProvider(flags *flag.FlagSet, args []string) Provider {
 		m[f.Name] = f.Value.String()
 	})
 
-	return commandLineProvider{Provider: NewStaticProvider(m)}
+	p, err := NewStaticProvider(m)
+	if err != nil {
+		return nil, err
+	}
+
+	return commandLineProvider{Provider: p}, nil
 }
 
 // Name implements the Provider interface.

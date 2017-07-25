@@ -22,6 +22,8 @@ package config
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // Current benchmark data:
@@ -38,18 +40,20 @@ import (
 
 func BenchmarkYAMLCreateSingleFile(b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		providerOneFile()
+		providerOneFile(b)
 	}
 }
 
 func BenchmarkYAMLCreateMultiFile(b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		providerTwoFiles()
+		providerTwoFiles(b)
 	}
 }
 
 func BenchmarkYAMLSimpleGetLevel1(b *testing.B) {
-	provider := NewYAMLProviderFromBytes([]byte(`foo: 1`))
+	provider, err := NewYAMLProviderFromBytes([]byte(`foo: 1`))
+	require.NoError(b, err, "Can't create a YAML provider")
+
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		provider.Get("foo")
@@ -57,11 +61,14 @@ func BenchmarkYAMLSimpleGetLevel1(b *testing.B) {
 }
 
 func BenchmarkYAMLSimpleGetLevel3(b *testing.B) {
-	provider := NewYAMLProviderFromBytes([]byte(`
+	provider, err := NewYAMLProviderFromBytes([]byte(`
 foo:
   bar:
     baz: 1
 `))
+
+	require.NoError(b, err, "Can't create a YAML provider")
+
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		provider.Get("foo.bar.baz")
@@ -69,7 +76,7 @@ foo:
 }
 
 func BenchmarkYAMLSimpleGetLevel7(b *testing.B) {
-	provider := NewYAMLProviderFromBytes([]byte(`
+	provider, err := NewYAMLProviderFromBytes([]byte(`
 foo:
   bar:
     baz:
@@ -78,6 +85,9 @@ foo:
           charlie:
             foxtrot: 1
 `))
+
+	require.NoError(b, err, "Can't create a YAML provider")
+
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		provider.Get("foo.bar.baz.alpha.bravo.charlie.foxtrot")
@@ -90,7 +100,7 @@ func BenchmarkYAMLPopulate(b *testing.B) {
 		Password string
 	}
 
-	p := providerOneFile()
+	p := providerOneFile(b)
 	c := &creds{}
 	b.ResetTimer()
 
@@ -111,7 +121,7 @@ func BenchmarkYAMLPopulateNested(b *testing.B) {
 		Credentials creds
 	}
 
-	p := providerOneFile()
+	p := providerOneFile(b)
 	s := &api{}
 	b.ResetTimer()
 
@@ -134,7 +144,7 @@ func BenchmarkYAMLPopulateNestedMultipleFiles(b *testing.B) {
 		Contact     string
 	}
 
-	p := providerTwoFiles()
+	p := providerTwoFiles(b)
 	s := &api{}
 	b.ResetTimer()
 
@@ -152,7 +162,9 @@ func BenchmarkYAMLPopulateNestedTextUnmarshaler(b *testing.B) {
 		Episodes []protagonist
 	}
 
-	p := NewYAMLProviderFromFiles("./testdata/textUnmarshaller.yaml")
+	p, err := NewYAMLProviderFromFiles("./testdata/textUnmarshaller.yaml")
+	require.NoError(b, err, "Can't create a YAML provider")
+
 	s := &series{}
 	b.ResetTimer()
 
@@ -161,13 +173,20 @@ func BenchmarkYAMLPopulateNestedTextUnmarshaler(b *testing.B) {
 	}
 }
 
-func providerOneFile() Provider {
-	return NewYAMLProviderFromFiles("./testdata/benchmark1.yaml")
+func providerOneFile(b *testing.B) Provider {
+	p, err := NewYAMLProviderFromFiles("./testdata/benchmark1.yaml")
+	require.NoError(b, err, "Can't create a yaml provider")
+
+	return p
 }
 
-func providerTwoFiles() Provider {
-	return NewYAMLProviderFromFiles(
+func providerTwoFiles(b *testing.B) Provider {
+	p, err := NewYAMLProviderFromFiles(
 		"./testdata/benchmark1.yaml",
 		"./testdata/benchmark2.yaml",
 	)
+
+	require.NoError(b, err, "Can't create a YAML provider")
+
+	return p
 }

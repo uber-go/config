@@ -29,22 +29,31 @@ import (
 
 func TestProviderGroup(t *testing.T) {
 	t.Parallel()
-	pg := NewProviderGroup("test-group", NewYAMLProviderFromBytes([]byte(`id: test`)))
+
+	p, err := NewYAMLProviderFromBytes([]byte(`id: test`))
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	pg := NewProviderGroup("test-group", p)
 	assert.Equal(t, "test-group", pg.Name())
 	assert.Equal(t, "test", pg.Get("id").AsString())
 }
 
 func TestProviderGroupScope(t *testing.T) {
 	t.Parallel()
-	data := map[string]interface{}{"hello": map[string]int{"world": 42}}
-	pg := NewProviderGroup("test-group", NewStaticProvider(data))
+
+	p, err := NewStaticProvider(map[string]interface{}{"hello": map[string]int{"world": 42}})
+	require.NoError(t, err, "Can't create a static provider")
+
+	pg := NewProviderGroup("test-group", p)
 	assert.Equal(t, 42, pg.Get("hello").Get("world").AsInt())
 }
 
-
 func TestScope_WithGetFromValue(t *testing.T) {
 	t.Parallel()
-	mock := NewYAMLProviderFromBytes([]byte(`uber.fx: go-lang`))
+
+	mock, err := NewYAMLProviderFromBytes([]byte(`uber.fx: go-lang`))
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	scope := NewScopedProvider("", mock)
 	require.Equal(t, "go-lang", scope.Get("uber.fx").AsString())
 	require.False(t, scope.Get("uber").HasValue())
@@ -71,20 +80,43 @@ logging:`)
 logging:
   enabled: true
 `)
-	pg := NewProviderGroup("group", NewYAMLProviderFromBytes(snd), NewYAMLProviderFromBytes(fst))
+
+	s, err := NewYAMLProviderFromBytes(snd)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	f, err := NewYAMLProviderFromBytes(fst)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	pg := NewProviderGroup("group", s, f)
 	assert.True(t, pg.Get("logging").Get("enabled").AsBool())
 }
 
 func TestProviderGroup_GetChecksAllProviders(t *testing.T) {
 	t.Parallel()
 
-	pg := NewProviderGroup("test-group",
-		NewStaticProvider(map[string]string{"name": "test", "desc": "test"}),
-		NewStaticProvider(map[string]string{"owner": "tst@example.com", "name": "fx"}))
+	f, err := NewStaticProvider(map[string]string{"name": "test", "desc": "test"})
+	require.NoError(t, err, "Can't create the first provider")
 
+	s, err := NewStaticProvider(map[string]string{"owner": "tst@example.com", "name": "fx"})
+	require.NoError(t, err, "Can't create the second provider")
+
+	pg := NewProviderGroup("test-group", f, s)
 	require.NotNil(t, pg)
 
 	var svc map[string]string
 	require.NoError(t, pg.Get(Root).Populate(&svc))
 	assert.Equal(t, map[string]string{"name": "fx", "owner": "tst@example.com", "desc": "test"}, svc)
+}
+
+func TestProviderGroupMergeFail(t *testing.T) {
+	t.Parallel()
+
+	m, err := NewStaticProvider(map[string]interface{}{"a": map[string]string{"b": "c"}})
+	require.NoError(t, err)
+	s, err := NewStaticProvider(map[string]interface{}{"a": []string{"b"}})
+	require.NoError(t, err)
+
+	g := NewProviderGroup("group", s, m)
+	v := g.Get("a")
+	assert.False(t, v.HasValue())
 }

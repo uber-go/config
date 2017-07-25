@@ -69,7 +69,8 @@ func LoadDefaults() (Provider, error) {
 		return nil, err
 	}
 
-	if !p.Get("commandLine").WithDefault(true).AsBool() {
+	ok, err := p.Get("commandLine").WithDefault(true)
+	if err != nil || !ok.AsBool() {
 		return p, nil
 	}
 
@@ -80,7 +81,12 @@ func LoadDefaults() (Provider, error) {
 		f.Var(&s, "roles", "")
 	}
 
-	return NewProviderGroup("global", p, NewCommandLineProvider(f, os.Args[1:])), nil
+	cmd, err := NewCommandLineProvider(f, os.Args[1:])
+	if err != nil {
+		return nil, err
+	}
+
+	return NewProviderGroup("global", p, cmd), nil
 }
 
 // LoadTestProvider will read configuration base.yaml and test.yaml from a
@@ -121,9 +127,19 @@ func LoadFromFiles(dirs []string, files []FileInfo, lookUp LookUpFunc) (Provider
 			}
 
 			if info.Interpolate {
-				providers = append(providers, NewYAMLProviderFromReaderWithExpand(lookUp, f))
+				p, err := NewYAMLProviderFromReaderWithExpand(lookUp, f)
+				if err != nil {
+					return nil, err
+				}
+
+				providers = append(providers, p)
 			} else {
-				providers = append(providers, NewYAMLProviderFromReader(f))
+				p, err := NewYAMLProviderFromReader(f)
+				if err != nil {
+					return nil, err
+				}
+
+				providers = append(providers, p)
 			}
 		}
 	}

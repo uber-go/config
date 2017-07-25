@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -43,23 +44,24 @@ var (
 	_emptyDefault = `""`
 )
 
-func newYAMLProviderCore(files ...io.ReadCloser) *yamlConfigProvider {
+func newYAMLProviderCore(files ...io.ReadCloser) (*yamlConfigProvider, error) {
 	var root interface{}
 	for _, v := range files {
-		if v == nil {
-			continue
-		}
-
 		var curr interface{}
 		if err := unmarshalYAMLValue(v, &curr); err != nil {
 			if file, ok := v.(*os.File); ok {
-				panic(errors.Wrapf(err, "in file: %q", file.Name()))
+				return nil, errors.Wrapf(err, "in file: %q", file.Name())
 			}
 
-			panic(err)
+			return nil, err
 		}
 
-		root = mergeMaps(root, curr)
+		tmp, err := mergeMaps(root, curr)
+		if err != nil {
+			return nil, err
+		}
+
+		root = tmp
 	}
 
 	return &yamlConfigProvider{
@@ -68,7 +70,7 @@ func newYAMLProviderCore(files ...io.ReadCloser) *yamlConfigProvider {
 			key:      Root,
 			value:    root,
 		},
-	}
+	}, nil
 }
 
 // We need to have a custom merge map because yamlV2 doesn't unmarshal `map[interface{}]map[interface{}]interface{}`
@@ -83,24 +85,24 @@ func newYAMLProviderCore(files ...io.ReadCloser) *yamlConfigProvider {
 // * if A is a map and B is not, this function will panic, e.g. key:value and -slice
 //
 // * in all the remaining cases B will overwrite A.
-func mergeMaps(dst interface{}, src interface{}) interface{} {
+func mergeMaps(dst interface{}, src interface{}) (interface{}, error) {
 	if dst == nil {
-		return src
+		return src, nil
 	}
 
 	if src == nil {
-		return dst
+		return dst, nil
 	}
 
 	switch s := src.(type) {
 	case map[interface{}]interface{}:
 		dstMap, ok := dst.(map[interface{}]interface{})
 		if !ok {
-			panic(fmt.Sprintf(
+			return nil, fmt.Errorf(
 				"can't merge map[interface{}]interface{} and %T. Source: %q. Destination: %q",
 				dst,
 				src,
-				dst))
+				dst)
 		}
 
 		for k, v := range s {
@@ -108,33 +110,58 @@ func mergeMaps(dst interface{}, src interface{}) interface{} {
 			if oldVal == nil {
 				dstMap[k] = v
 			} else {
-				dstMap[k] = mergeMaps(oldVal, v)
+				tmp, err := mergeMaps(oldVal, v)
+				if err != nil {
+					return nil, err
+				}
+
+				dstMap[k] = tmp
 			}
 		}
 	default:
 		dst = src
 	}
 
-	return dst
+	return dst, nil
 }
 
 // NewYAMLProviderFromFiles creates a configuration provider from a set of YAML
 // file names. All the objects are going to be merged and arrays/values
 // overridden in the order of the files.
-func NewYAMLProviderFromFiles(files ...string) Provider {
-	return NewCachedProvider(newYAMLProviderCore(filesToReaders(files...)...))
+func NewYAMLProviderFromFiles(files ...string) (Provider, error) {
+	readers, err := filesToReaders(files...)
+	if err != nil {
+		return nil, err
+	}
+
+	p, err := newYAMLProviderCore(readers...)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCachedProvider(p)
 }
 
 // NewYAMLProviderWithExpand creates a configuration provider from a set of YAML
 // file names with ${var} or $var values replaced based on the mapping function.
-func NewYAMLProviderWithExpand(mapping func(string) (string, bool), files ...string) Provider {
-	return NewYAMLProviderFromReaderWithExpand(mapping, filesToReaders(files...)...)
+func NewYAMLProviderWithExpand(mapping func(string) (string, bool), files ...string) (Provider, error) {
+	readers, err := filesToReaders(files...)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewYAMLProviderFromReaderWithExpand(mapping, readers...)
 }
 
 // NewYAMLProviderFromReader creates a configuration provider from a list of io.ReadClosers.
 // As above, all the objects are going to be merged and arrays/values overridden in the order of the files.
-func NewYAMLProviderFromReader(readers ...io.ReadCloser) Provider {
-	return NewCachedProvider(newYAMLProviderCore(readers...))
+func NewYAMLProviderFromReader(readers ...io.ReadCloser) (Provider, error) {
+	p, err := newYAMLProviderCore(readers...)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCachedProvider(p)
 }
 
 // NewYAMLProviderFromReaderWithExpand creates a configuration provider from
@@ -142,37 +169,49 @@ func NewYAMLProviderFromReader(readers ...io.ReadCloser) Provider {
 // in the underlying provider.
 func NewYAMLProviderFromReaderWithExpand(
 	mapping func(string) (string, bool),
-	readers ...io.ReadCloser) Provider {
-	p := newYAMLProviderCore(readers...)
-	p.root.applyOnAllNodes(replace(mapping))
+	readers ...io.ReadCloser) (Provider, error) {
+	p, err := newYAMLProviderCore(readers...)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := p.root.applyOnAllNodes(replace(mapping)); err != nil {
+		return nil, err
+	}
+
 	return NewCachedProvider(p)
 }
 
 // NewYAMLProviderFromBytes creates a config provider from a byte-backed YAML
 // blobs. As above, all the objects are going to be merged and arrays/values
 // overridden in the order of the yamls.
-func NewYAMLProviderFromBytes(yamls ...[]byte) Provider {
+func NewYAMLProviderFromBytes(yamls ...[]byte) (Provider, error) {
 	closers := make([]io.ReadCloser, len(yamls))
 	for i, yml := range yamls {
 		closers[i] = ioutil.NopCloser(bytes.NewReader(yml))
 	}
 
-	return NewCachedProvider(newYAMLProviderCore(closers...))
+	p, err := newYAMLProviderCore(closers...)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCachedProvider(p)
 }
 
-func filesToReaders(files ...string) []io.ReadCloser {
+func filesToReaders(files ...string) ([]io.ReadCloser, error) {
 	// load the files, read their bytes
 	readers := []io.ReadCloser{}
 
 	for _, v := range files {
 		if reader, err := os.Open(v); err != nil {
-			panic("Couldn't open " + v)
+			return nil, err
 		} else if reader != nil {
 			readers = append(readers, reader)
 		}
 	}
 
-	return readers
+	return readers, nil
 }
 
 func (y yamlConfigProvider) getNode(key string) *yamlNode {
@@ -212,10 +251,6 @@ type yamlNode struct {
 	key      string
 	value    interface{}
 	children []*yamlNode
-}
-
-func (n yamlNode) Key() string {
-	return n.key
 }
 
 func (n yamlNode) String() string {
@@ -285,18 +320,29 @@ func (n *yamlNode) Children() []*yamlNode {
 	return nodes
 }
 
-func (n *yamlNode) applyOnAllNodes(expand func(string) string) {
-	if n == nil {
-		return
-	}
+func (n *yamlNode) applyOnAllNodes(expand func(string) string) (err error) {
+
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				panic(r)
+			}
+
+			err = r.(error)
+		}
+	}()
 
 	if n.nodeType == valueNode && n.value != nil {
 		n.value = os.Expand(fmt.Sprint(n.value), expand)
 	}
 
 	for _, c := range n.Children() {
-		c.applyOnAllNodes(expand)
+		if err := c.applyOnAllNodes(expand); err != nil {
+			return err
+		}
 	}
+
+	return
 }
 
 func unmarshalYAMLValue(reader io.ReadCloser, value interface{}) error {
@@ -344,7 +390,7 @@ func replace(lookUp LookUpFunc) func(in string) string {
 		}
 
 		if def == "" {
-			panic(fmt.Sprintf(`default is empty for %q (use "" for empty string)`, key))
+			panic(fmt.Errorf(`default is empty for %q (use "" for empty string)`, key))
 		} else if def == _emptyDefault {
 			return ""
 		}

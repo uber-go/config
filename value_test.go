@@ -21,52 +21,32 @@
 package config
 
 import (
-	"errors"
-	"fmt"
-	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-type cachedProvider struct {
-	sync.RWMutex
-	cache map[string]Value
+func TestWithDefaultError(t *testing.T) {
+	t.Parallel()
 
-	Provider
+	_, err := Value{}.WithDefault(grumpyMarshalYAML{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "grumpy")
 }
 
-// NewCachedProvider returns a concurrent safe provider,
-// that caches values of the underlying provider.
-func NewCachedProvider(p Provider) (Provider, error) {
-	if p == nil {
-		return nil, errors.New("received a nil provider")
-	}
+func TestSource(t *testing.T) {
+	t.Parallel()
 
-	return &cachedProvider{
-		Provider: p,
-		cache:    make(map[string]Value),
-	}, nil
+	assert.Empty(t, Value{}.Source())
+	assert.Equal(t, "NopProvider", Value{provider: NopProvider{}}.Source())
 }
 
-// Name returns a name of the underlying provider.
-func (p *cachedProvider) Name() string {
-	return fmt.Sprintf("cached %q", p.Provider.Name())
-}
+func TestLastUpdated(t *testing.T) {
+	t.Parallel()
 
-// Get retrieves a Value and caches it internally.
-// The value is cached only if it is found.
-func (p *cachedProvider) Get(key string) Value {
-	p.RLock()
-	if v, ok := p.cache[key]; ok {
-		p.RUnlock()
-		return v
-	}
-
-	p.RUnlock()
-
-	v := p.Provider.Get(key)
-	v.provider = p
-	p.Lock()
-	p.cache[key] = v
-	p.Unlock()
-
-	return v
+	assert.Equal(t, time.Time{}, Value{}.LastUpdated())
+	now := time.Time{}.Add(time.Hour)
+	assert.Equal(t, now, Value{found: true, timestamp: now}.LastUpdated())
 }

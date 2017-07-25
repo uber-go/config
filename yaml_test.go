@@ -37,7 +37,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var yamlConfig1 = []byte(`
+var _yamlConfig1 = []byte(`
 appid: keyvalue
 desc: A simple keyvalue service
 appowner: owner@service.com
@@ -48,9 +48,11 @@ modules:
 
 func TestYAMLSimple(t *testing.T) {
 	t.Parallel()
-	provider := NewYAMLProviderFromBytes(yamlConfig1)
 
-	c := provider.Get("modules.rpc.bind")
+	p, err := NewYAMLProviderFromBytes(_yamlConfig1)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	c := p.Get("modules.rpc.bind")
 	assert.True(t, c.HasValue())
 	assert.NotNil(t, c.Value())
 
@@ -74,7 +76,8 @@ module:
   fake:
     number: ${FAKE_NUMBER:321}`)
 
-	p := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	require.NoError(t, err, "Can't create a YAML provider")
 
 	num, ok := p.Get("module.fake.number").TryAsFloat()
 	require.True(t, ok)
@@ -91,10 +94,10 @@ func TestYAMLEnvInterpolationMissing(t *testing.T) {
 name: some name here
 email: ${EMAIL_ADDRESS}`)
 
-	require.Panics(t, func() {
-		f := func(string) (string, bool) { return "", false }
-		NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
-	})
+	f := func(string) (string, bool) { return "", false }
+	_, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `default is empty for "EMAIL_ADDRESS"`)
 }
 
 func TestYAMLEnvInterpolationIncomplete(t *testing.T) {
@@ -104,10 +107,11 @@ func TestYAMLEnvInterpolationIncomplete(t *testing.T) {
 name: some name here
 telephone: ${SUPPORT_TEL:}`)
 
-	require.Panics(t, func() {
-		f := func(string) (string, bool) { return "", false }
-		NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
-	})
+	f := func(string) (string, bool) { return "", false }
+	_, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `default is empty for "SUPPORT_TEL" (use "" for empty string)`)
 }
 
 func TestYAMLEnvInterpolationWithColon(t *testing.T) {
@@ -118,7 +122,9 @@ func TestYAMLEnvInterpolationWithColon(t *testing.T) {
 		return "", false
 	}
 
-	p := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	require.Equal(t, "this:is:my:value", p.Get("fullValue").AsString())
 }
 
@@ -130,7 +136,9 @@ name: ${APP_NAME:my shiny app}
 fullTel: 1-800-LOLZ${TELEPHONE_EXTENSION:""}`)
 
 	f := func(string) (string, bool) { return "", false }
-	p := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	require.Equal(t, "my shiny app", p.Get("name").AsString())
 	require.Equal(t, "1-800-LOLZ", p.Get("fullTel").AsString())
 }
@@ -143,11 +151,12 @@ type configStruct struct {
 
 func TestYamlStructRoot(t *testing.T) {
 	t.Parallel()
-	provider := NewYAMLProviderFromBytes(yamlConfig1)
+
+	p, err := NewYAMLProviderFromBytes(_yamlConfig1)
+	require.NoError(t, err, "Can't create a YAML provider")
 
 	cs := &configStruct{}
-
-	assert.NoError(t, provider.Get(Root).Populate(cs))
+	require.NoError(t, p.Get(Root).Populate(cs))
 
 	assert.Equal(t, "keyvalue", cs.AppID)
 	assert.Equal(t, "owner@service.com", cs.Owner)
@@ -160,48 +169,61 @@ type rpcStruct struct {
 func TestYamlStructChild(t *testing.T) {
 	t.Parallel()
 
-	provider := NewYAMLProviderFromBytes(yamlConfig1)
+	p, err := NewYAMLProviderFromBytes(_yamlConfig1)
+	require.NoError(t, err, "Can't create a YAML provider")
 
 	cs := &rpcStruct{}
-
-	assert.NoError(t, provider.Get("modules.rpc").Populate(cs))
-
+	assert.NoError(t, p.Get("modules.rpc").Populate(cs))
 	assert.Equal(t, ":28941", cs.Bind)
 }
 
 func TestExtends(t *testing.T) {
 	t.Parallel()
-	provider := NewYAMLProviderFromFiles("./testdata/base.yaml", "./testdata/dev.yaml", "./testdata/secrets.yaml")
 
-	baseValue := provider.Get("value").AsString()
+	p, err := NewYAMLProviderFromFiles(
+		"./testdata/base.yaml",
+		"./testdata/dev.yaml",
+		"./testdata/secrets.yaml")
+
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	baseValue := p.Get("value").AsString()
 	assert.Equal(t, "base_only", baseValue)
 
-	devValue := provider.Get("value_override").AsString()
+	devValue := p.Get("value_override").AsString()
 	assert.Equal(t, "dev_setting", devValue)
 
-	secretValue := provider.Get("secret").AsString()
+	secretValue := p.Get("secret").AsString()
 	assert.Equal(t, "my_${secret}", secretValue)
 }
 
 func TestAppRoot(t *testing.T) {
 	t.Parallel()
 
-	provider := NewYAMLProviderFromFiles("./testdata/base.yaml", "./testdata/dev.yaml", "./testdata/secrets.yaml")
+	p, err := NewYAMLProviderFromFiles(
+		"./testdata/base.yaml",
+		"./testdata/dev.yaml",
+		"./testdata/secrets.yaml")
 
-	baseValue := provider.Get("value").AsString()
+	require.NoError(t, err, "Can't create a combined YAML provider")
+
+	baseValue := p.Get("value").AsString()
 	assert.Equal(t, "base_only", baseValue)
 
-	devValue := provider.Get("value_override").AsString()
+	devValue := p.Get("value_override").AsString()
 	assert.Equal(t, "dev_setting", devValue)
 
-	secretValue := provider.Get("secret").AsString()
+	secretValue := p.Get("secret").AsString()
 	assert.Equal(t, "my_${secret}", secretValue)
 }
 
 func TestNewYAMLProviderFromReader(t *testing.T) {
 	t.Parallel()
-	buff := bytes.NewBuffer([]byte(yamlConfig1))
-	provider := NewYAMLProviderFromReader(ioutil.NopCloser(buff))
+
+	buff := bytes.NewBuffer([]byte(_yamlConfig1))
+	provider, err := NewYAMLProviderFromReader(ioutil.NopCloser(buff))
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	cs := &configStruct{}
 	assert.NoError(t, provider.Get(Root).Populate(cs))
 	assert.Equal(t, "keyvalue", cs.AppID)
@@ -210,194 +232,266 @@ func TestNewYAMLProviderFromReader(t *testing.T) {
 
 func TestYAMLNode(t *testing.T) {
 	t.Parallel()
+
 	buff := bytes.NewBuffer([]byte("a: b"))
 	node := &yamlNode{value: make(map[interface{}]interface{})}
-	err := unmarshalYAMLValue(ioutil.NopCloser(buff), &node.value)
-	require.NoError(t, err)
+	require.NoError(t, unmarshalYAMLValue(ioutil.NopCloser(buff), &node.value))
+
 	assert.Equal(t, "map[a:b]", node.String())
 	assert.Equal(t, "map[interface {}]interface {}", node.Type().String())
 }
 
 func TestYamlNodeWithNil(t *testing.T) {
 	t.Parallel()
-	provider := NewYAMLProviderFromFiles()
+
+	provider, err := NewYAMLProviderFromFiles()
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	assert.NotNil(t, provider)
 	assert.Panics(t, func() {
 		_ = unmarshalYAMLValue(nil, nil)
 	}, "Expected panic with nil inpout.")
 }
 
-func withYamlBytes(yamlBytes []byte, f func(Provider)) {
-	provider := NewProviderGroup("global", NewYAMLProviderFromBytes(yamlBytes))
+func withYamlBytes(yamlBytes []byte, f func(Provider), t *testing.T) {
+	y, err := NewYAMLProviderFromBytes(yamlBytes)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	provider := NewProviderGroup("global", y)
 	f(provider)
 }
 
 func TestMatchEmptyStruct(t *testing.T) {
 	t.Parallel()
-	withYamlBytes([]byte(``), func(provider Provider) {
-		es := emptystruct{}
-		provider.Get("emptystruct").Populate(&es)
-		empty := reflect.New(reflect.TypeOf(es)).Elem().Interface()
-		assert.True(t, reflect.DeepEqual(empty, es))
-	})
+
+	withYamlBytes(
+		[]byte(``),
+		func(provider Provider) {
+			es := emptystruct{}
+			provider.Get("emptystruct").Populate(&es)
+			empty := reflect.New(reflect.TypeOf(es)).Elem().Interface()
+			assert.True(t, reflect.DeepEqual(empty, es))
+		},
+		t,
+	)
 }
 
 func TestMatchPopulatedEmptyStruct(t *testing.T) {
 	t.Parallel()
-	withYamlBytes(emptyyaml, func(provider Provider) {
-		es := emptystruct{}
-		provider.Get("emptystruct").Populate(&es)
-		empty := reflect.New(reflect.TypeOf(es)).Elem().Interface()
-		assert.True(t, reflect.DeepEqual(empty, es))
-	})
+
+	withYamlBytes(
+		_emptyyaml,
+		func(provider Provider) {
+			es := emptystruct{}
+			provider.Get("emptystruct").Populate(&es)
+			empty := reflect.New(reflect.TypeOf(es)).Elem().Interface()
+			assert.True(t, reflect.DeepEqual(empty, es))
+		},
+		t,
+	)
 }
 
 func TestPopulateWithPointers(t *testing.T) {
 	t.Parallel()
-	withYamlBytes(pointerYaml, func(provider Provider) {
-		ps := pointerStruct{}
-		provider.Get("pointerStruct").Populate(&ps)
-		assert.True(t, *ps.MyTrueBool)
-		assert.False(t, *ps.MyFalseBool)
-		assert.Equal(t, "hello", *ps.MyString)
-	})
+
+	withYamlBytes(
+		_pointerYaml,
+		func(provider Provider) {
+			ps := pointerStruct{}
+			provider.Get("pointerStruct").Populate(&ps)
+			assert.True(t, *ps.MyTrueBool)
+			assert.False(t, *ps.MyFalseBool)
+			assert.Equal(t, "hello", *ps.MyString)
+		},
+		t,
+	)
 }
 
 func TestNonExistingPopulateWithPointers(t *testing.T) {
 	t.Parallel()
-	withYamlBytes([]byte(``), func(provider Provider) {
-		ps := pointerStruct{}
-		provider.Get("pointerStruct").Populate(&ps)
-		assert.Nil(t, ps.MyTrueBool)
-		assert.Nil(t, ps.MyFalseBool)
-		assert.Nil(t, ps.MyString)
-	})
+
+	withYamlBytes(
+		[]byte(``),
+		func(provider Provider) {
+			ps := pointerStruct{}
+			provider.Get("pointerStruct").Populate(&ps)
+			assert.Nil(t, ps.MyTrueBool)
+			assert.Nil(t, ps.MyFalseBool)
+			assert.Nil(t, ps.MyString)
+		},
+		t,
+	)
 }
 
 func TestMapParsing(t *testing.T) {
 	t.Parallel()
-	withYamlBytes(complexMapYaml, func(provider Provider) {
-		ms := mapStruct{}
-		provider.Get("mapStruct").Populate(&ms)
 
-		assert.NotNil(t, ms.MyMap)
-		assert.NotZero(t, len(ms.MyMap))
+	withYamlBytes(
+		_complexMapYaml,
+		func(provider Provider) {
+			ms := mapStruct{}
+			provider.Get("mapStruct").Populate(&ms)
 
-		p, ok := ms.MyMap["policy"].(map[interface{}]interface{})
-		assert.True(t, ok)
+			assert.NotNil(t, ms.MyMap)
+			assert.NotZero(t, len(ms.MyMap))
 
-		for key, val := range p {
-			assert.Equal(t, "makeway", key)
-			assert.Equal(t, "notanoption", val)
-		}
+			p, ok := ms.MyMap["policy"].(map[interface{}]interface{})
+			assert.True(t, ok)
 
-		assert.Equal(t, "nesteddata", ms.NestedStruct.AdditionalData)
-	})
+			for key, val := range p {
+				assert.Equal(t, "makeway", key)
+				assert.Equal(t, "notanoption", val)
+			}
+
+			assert.Equal(t, "nesteddata", ms.NestedStruct.AdditionalData)
+		},
+		t,
+	)
 }
 
 func TestMapParsingSimpleMap(t *testing.T) {
 	t.Parallel()
-	withYamlBytes(simpleMapYaml, func(provider Provider) {
-		ms := mapStruct{}
-		provider.Get("mapStruct").Populate(&ms)
-		assert.Equal(t, 1, ms.MyMap["one"])
-		assert.Equal(t, 2, ms.MyMap["two"])
-		assert.Equal(t, 3, ms.MyMap["three"])
-		assert.Equal(t, "nesteddata", ms.NestedStruct.AdditionalData)
-	})
+
+	withYamlBytes(
+		_simpleMapYaml,
+		func(provider Provider) {
+			ms := mapStruct{}
+			provider.Get("mapStruct").Populate(&ms)
+			assert.Equal(t, 1, ms.MyMap["one"])
+			assert.Equal(t, 2, ms.MyMap["two"])
+			assert.Equal(t, 3, ms.MyMap["three"])
+			assert.Equal(t, "nesteddata", ms.NestedStruct.AdditionalData)
+		},
+		t,
+	)
 }
 
 func TestMapParsingMapWithNonStringKeys(t *testing.T) {
 	t.Parallel()
-	withYamlBytes(intKeyMapYaml, func(provider Provider) {
-		ik := intKeyMapStruct{}
-		err := provider.Get("intKeyMapStruct").Populate(&ik)
-		assert.NoError(t, err)
-		assert.Equal(t, "onetwothree", ik.IntKeyMap[123])
-	})
+
+	withYamlBytes(
+		_intKeyMapYaml,
+		func(provider Provider) {
+			ik := intKeyMapStruct{}
+			err := provider.Get("intKeyMapStruct").Populate(&ik)
+			assert.NoError(t, err)
+			assert.Equal(t, "onetwothree", ik.IntKeyMap[123])
+		},
+		t,
+	)
 }
 
 func TestDurationParsing(t *testing.T) {
 	t.Parallel()
-	withYamlBytes(durationYaml, func(provider Provider) {
-		ds := durationStruct{}
-		err := provider.Get("durationStruct").Populate(&ds)
-		assert.NoError(t, err)
-		assert.Equal(t, 10*time.Second, ds.Seconds)
-		assert.Equal(t, 20*time.Minute, ds.Minutes)
-		assert.Equal(t, 30*time.Hour, ds.Hours)
-	})
+
+	withYamlBytes(
+		_durationYaml,
+		func(provider Provider) {
+			ds := durationStruct{}
+			err := provider.Get("durationStruct").Populate(&ds)
+			assert.NoError(t, err)
+			assert.Equal(t, 10*time.Second, ds.Seconds)
+			assert.Equal(t, 20*time.Minute, ds.Minutes)
+			assert.Equal(t, 30*time.Hour, ds.Hours)
+		},
+		t,
+	)
 }
 
 func TestParsingUnparsableDuration(t *testing.T) {
 	t.Parallel()
-	withYamlBytes(unparsableDurationYaml, func(provider Provider) {
-		ds := durationStruct{}
-		err := provider.Get("durationStruct").Populate(&ds)
-		assert.Error(t, err)
-	})
+
+	withYamlBytes(
+		_unparsableDurationYaml,
+		func(provider Provider) {
+			ds := durationStruct{}
+			err := provider.Get("durationStruct").Populate(&ds)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "time: unknown unit thhour in duration 25thhour")
+		},
+		t,
+	)
 }
 
 func TestTypeOfTypes(t *testing.T) {
 	t.Parallel()
-	withYamlBytes(typeStructYaml, func(provider Provider) {
-		tts := typeStructStruct{}
-		err := provider.Get(Root).Populate(&tts)
-		assert.NoError(t, err)
-		assert.Equal(t, userDefinedTypeInt(123), tts.TypeStruct.TestInt)
-		assert.Equal(t, userDefinedTypeUInt(456), tts.TypeStruct.TestUInt)
-		assert.Equal(t, userDefinedTypeFloat(123.456), tts.TypeStruct.TestFloat)
-		assert.Equal(t, userDefinedTypeBool(true), tts.TypeStruct.TestBool)
-		assert.Equal(t, userDefinedTypeString("hello"), tts.TypeStruct.TestString)
-		assert.Equal(t, 10*time.Second, tts.TypeStruct.TestDuration.Seconds)
-		assert.Equal(t, 20*time.Minute, tts.TypeStruct.TestDuration.Minutes)
-		assert.Equal(t, 30*time.Hour, tts.TypeStruct.TestDuration.Hours)
-	})
+
+	withYamlBytes(
+		_typeStructYaml,
+		func(provider Provider) {
+			tts := typeStructStruct{}
+			err := provider.Get(Root).Populate(&tts)
+			assert.NoError(t, err)
+			assert.Equal(t, userDefinedTypeInt(123), tts.TypeStruct.TestInt)
+			assert.Equal(t, userDefinedTypeUInt(456), tts.TypeStruct.TestUInt)
+			assert.Equal(t, userDefinedTypeFloat(123.456), tts.TypeStruct.TestFloat)
+			assert.Equal(t, userDefinedTypeBool(true), tts.TypeStruct.TestBool)
+			assert.Equal(t, userDefinedTypeString("hello"), tts.TypeStruct.TestString)
+			assert.Equal(t, 10*time.Second, tts.TypeStruct.TestDuration.Seconds)
+			assert.Equal(t, 20*time.Minute, tts.TypeStruct.TestDuration.Minutes)
+			assert.Equal(t, 30*time.Hour, tts.TypeStruct.TestDuration.Hours)
+		},
+		t,
+	)
 }
 
 func TestTypeOfTypesPtr(t *testing.T) {
 	t.Parallel()
-	withYamlBytes(typeStructYaml, func(provider Provider) {
-		tts := typeStructStructPtr{}
-		err := provider.Get(Root).Populate(&tts)
-		assert.NoError(t, err)
-		assert.Equal(t, userDefinedTypeInt(123), *tts.TypeStruct.TestInt)
-		assert.Equal(t, userDefinedTypeUInt(456), *tts.TypeStruct.TestUInt)
-		assert.Equal(t, userDefinedTypeFloat(123.456), *tts.TypeStruct.TestFloat)
-		assert.Equal(t, userDefinedTypeBool(true), *tts.TypeStruct.TestBool)
-		assert.Equal(t, userDefinedTypeString("hello"), *tts.TypeStruct.TestString)
-		assert.Equal(t, 10*time.Second, tts.TypeStruct.TestDuration.Seconds)
-		assert.Equal(t, 20*time.Minute, tts.TypeStruct.TestDuration.Minutes)
-		assert.Equal(t, 30*time.Hour, tts.TypeStruct.TestDuration.Hours)
-	})
+
+	withYamlBytes(
+		_typeStructYaml,
+		func(provider Provider) {
+			tts := typeStructStructPtr{}
+			err := provider.Get(Root).Populate(&tts)
+			assert.NoError(t, err)
+			assert.Equal(t, userDefinedTypeInt(123), *tts.TypeStruct.TestInt)
+			assert.Equal(t, userDefinedTypeUInt(456), *tts.TypeStruct.TestUInt)
+			assert.Equal(t, userDefinedTypeFloat(123.456), *tts.TypeStruct.TestFloat)
+			assert.Equal(t, userDefinedTypeBool(true), *tts.TypeStruct.TestBool)
+			assert.Equal(t, userDefinedTypeString("hello"), *tts.TypeStruct.TestString)
+			assert.Equal(t, 10*time.Second, tts.TypeStruct.TestDuration.Seconds)
+			assert.Equal(t, 20*time.Minute, tts.TypeStruct.TestDuration.Minutes)
+			assert.Equal(t, 30*time.Hour, tts.TypeStruct.TestDuration.Hours)
+		},
+		t)
 }
 
 func TestTypeOfTypesPtrPtr(t *testing.T) {
 	t.Parallel()
-	withYamlBytes(typeStructYaml, func(provider Provider) {
-		tts := typeStructStructPtrPtr{}
-		err := provider.Get(Root).Populate(&tts)
-		assert.NoError(t, err)
-		assert.Equal(t, userDefinedTypeInt(123), *tts.TypeStruct.TestInt)
-		assert.Equal(t, userDefinedTypeUInt(456), *tts.TypeStruct.TestUInt)
-		assert.Equal(t, userDefinedTypeFloat(123.456), *tts.TypeStruct.TestFloat)
-		assert.Equal(t, userDefinedTypeBool(true), *tts.TypeStruct.TestBool)
-		assert.Equal(t, userDefinedTypeString("hello"), *tts.TypeStruct.TestString)
-		assert.Equal(t, 10*time.Second, tts.TypeStruct.TestDuration.Seconds)
-		assert.Equal(t, 20*time.Minute, tts.TypeStruct.TestDuration.Minutes)
-		assert.Equal(t, 30*time.Hour, tts.TypeStruct.TestDuration.Hours)
-	})
+
+	withYamlBytes(
+		_typeStructYaml,
+		func(provider Provider) {
+			tts := typeStructStructPtrPtr{}
+			err := provider.Get(Root).Populate(&tts)
+			assert.NoError(t, err)
+			assert.Equal(t, userDefinedTypeInt(123), *tts.TypeStruct.TestInt)
+			assert.Equal(t, userDefinedTypeUInt(456), *tts.TypeStruct.TestUInt)
+			assert.Equal(t, userDefinedTypeFloat(123.456), *tts.TypeStruct.TestFloat)
+			assert.Equal(t, userDefinedTypeBool(true), *tts.TypeStruct.TestBool)
+			assert.Equal(t, userDefinedTypeString("hello"), *tts.TypeStruct.TestString)
+			assert.Equal(t, 10*time.Second, tts.TypeStruct.TestDuration.Seconds)
+			assert.Equal(t, 20*time.Minute, tts.TypeStruct.TestDuration.Minutes)
+			assert.Equal(t, 30*time.Hour, tts.TypeStruct.TestDuration.Hours)
+		},
+		t,
+	)
 }
 
 func TestHappyTextUnMarshallerParsing(t *testing.T) {
 	t.Parallel()
-	withYamlBytes(happyTextUnmarshallerYaml, func(provider Provider) {
-		ds := duckTales{}
-		err := provider.Get("duckTales").Populate(&ds)
-		assert.NoError(t, err)
-		assert.Equal(t, scrooge, ds.Protagonist)
-		assert.Equal(t, launchpadMcQuack, ds.Pilot)
-	})
+
+	withYamlBytes(
+		_happyTextUnmarshallerYaml,
+		func(p Provider) {
+			ds := duckTales{}
+
+			require.NoError(t, p.Get("duckTales").Populate(&ds))
+			assert.Equal(t, scrooge, ds.Protagonist)
+			assert.Equal(t, launchpadMcQuack, ds.Pilot)
+		},
+		t,
+	)
 }
 
 type atomicDuckTale struct {
@@ -410,25 +504,38 @@ func (a *atomicDuckTale) UnmarshalText(b []byte) error {
 
 func TestHappyStructTextUnMarshallerParsing(t *testing.T) {
 	t.Parallel()
-	withYamlBytes([]byte(`hero: LaunchpadMcQuack`), func(provider Provider) {
-		a := &atomicDuckTale{}
-		require.NoError(t, provider.Get("hero").Populate(a))
-		assert.Equal(t, launchpadMcQuack, a.hero)
-	})
+
+	withYamlBytes(
+		[]byte(`hero: LaunchpadMcQuack`),
+		func(p Provider) {
+			a := &atomicDuckTale{}
+			require.NoError(t, p.Get("hero").Populate(a))
+			assert.Equal(t, launchpadMcQuack, a.hero)
+		},
+		t,
+	)
 }
 
 func TestGrumpyTextUnMarshallerParsing(t *testing.T) {
 	t.Parallel()
-	withYamlBytes(grumpyTextUnmarshallerYaml, func(provider Provider) {
-		ds := duckTales{}
-		err := provider.Get("darkwingDuck").Populate(&ds)
-		assert.Contains(t, err.Error(), "Unknown character: DarkwingDuck")
-	})
+
+	withYamlBytes(
+		_grumpyTextUnmarshallerYaml,
+		func(p Provider) {
+			ds := duckTales{}
+			err := p.Get("darkwingDuck").Populate(&ds)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "Unknown character: DarkwingDuck")
+		},
+		t,
+	)
 }
 
 func TestMergeUnmarshaller(t *testing.T) {
 	t.Parallel()
-	provider := NewYAMLProviderFromBytes(complexMapYaml, complexMapYamlV2)
+
+	provider, err := NewYAMLProviderFromBytes(_complexMapYaml, _complexMapYamlV2)
+	require.NoError(t, err, "Can't create a YAML provider")
 
 	ms := mapStruct{}
 	assert.NoError(t, provider.Get("mapStruct").Populate(&ms))
@@ -450,20 +557,24 @@ func TestMergeUnmarshaller(t *testing.T) {
 
 func TestMerge(t *testing.T) {
 	t.Parallel()
-	for _, v := range mergeTest {
+
+	for _, v := range _mergeTest {
 		t.Run(v.description, func(t *testing.T) {
-			prov := NewYAMLProviderFromBytes(v.yaml...)
+			p, err := NewYAMLProviderFromBytes(v.yaml...)
+			require.NoError(t, err, "Can't create a YAML provider")
+
 			for path, exp := range v.expected {
 				res := reflect.New(reflect.ValueOf(exp).Type()).Interface()
-				assert.NoError(t, prov.Get(path).Populate(res))
+				assert.NoError(t, p.Get(path).Populate(res))
 				assert.Equal(t, exp, reflect.ValueOf(res).Elem().Interface(), "For path: %s", path)
 			}
 		})
 	}
 }
 
-func TestMergePanics(t *testing.T) {
+func TestMergeError(t *testing.T) {
 	t.Parallel()
+
 	src := []byte(`
 map:
   key: value
@@ -473,21 +584,18 @@ map:
   - array
 `)
 
-	defer func() {
-		if e := recover(); e != nil {
-			assert.Contains(t, e, `can't merge map[interface{}]interface{} and []interface {}. Source: map["key":"value"]. Destination: ["array"]`)
-			return
-		}
-		assert.Fail(t, "expected a panic")
-	}()
-
-	NewYAMLProviderFromBytes(dst, src)
+	_, err := NewYAMLProviderFromBytes(dst, src)
+	require.Error(t, err, "Merge should return an error")
+	assert.Contains(t, err.Error(), `can't merge map[interface{}]interface{} and []interface {}. Source: map["key":"value"]. Destination: ["array"]`)
 }
 
 func TestYamlProviderFmtPrintOnValueNoPanic(t *testing.T) {
 	t.Parallel()
-	provider := NewYAMLProviderFromBytes(yamlConfig1)
-	c := provider.Get("modules.rpc.bind")
+
+	p, err := NewYAMLProviderFromBytes(_yamlConfig1)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	c := p.Get("modules.rpc.bind")
 
 	f := func() {
 		assert.Contains(t, fmt.Sprintf("%v", c), "")
@@ -497,21 +605,25 @@ func TestYamlProviderFmtPrintOnValueNoPanic(t *testing.T) {
 
 func TestArrayTypeNoPanic(t *testing.T) {
 	t.Parallel()
+
 	// This test will panic if we treat array the same as slice.
-	provider := NewYAMLProviderFromBytes(yamlConfig1)
+	p, err := NewYAMLProviderFromBytes(_yamlConfig1)
+	require.NoError(t, err, "Can't create a YAML provider")
 
 	cs := struct {
 		ID [6]int `yaml:"id"`
 	}{}
 
-	assert.NoError(t, provider.Get(Root).Populate(&cs))
+	assert.NoError(t, p.Get(Root).Populate(&cs))
 }
 
 func TestNilYAMLProviderSetDefaultTagValue(t *testing.T) {
 	t.Parallel()
+
 	type Inner struct {
 		Set bool `yaml:"set" default:"true"`
 	}
+
 	data := struct {
 		ID0 int             `yaml:"id0" default:"10"`
 		ID1 string          `yaml:"id1" default:"string"`
@@ -523,7 +635,9 @@ func TestNilYAMLProviderSetDefaultTagValue(t *testing.T) {
 		ID7 [7]*Inner       `yaml:"id7"`
 	}{}
 
-	p := NewYAMLProviderFromBytes(nil)
+	p, err := NewYAMLProviderFromBytes(nil)
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	require.NoError(t, p.Get("hello").Populate(&data))
 
 	assert.Equal(t, 10, data.ID0)
@@ -538,6 +652,7 @@ func TestNilYAMLProviderSetDefaultTagValue(t *testing.T) {
 
 func TestDefaultWithMergeConfig(t *testing.T) {
 	t.Parallel()
+
 	base := []byte(`
 abc:
   str: "base"
@@ -554,7 +669,10 @@ abc:
 		Bool    bool   `yaml:"bool" default:"true"`
 		BoolPtr *bool  `yaml:"bool_ptr"`
 	}{}
-	p := NewYAMLProviderFromBytes(base, prod)
+
+	p, err := NewYAMLProviderFromBytes(base, prod)
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	p.Get("abc").Populate(&cfg)
 
 	assert.Equal(t, "prod", cfg.Str)
@@ -565,6 +683,7 @@ abc:
 
 func TestMapOfStructs(t *testing.T) {
 	t.Parallel()
+
 	type Bag struct {
 		S string
 		I int
@@ -585,7 +704,9 @@ m:
     p: Pointer
 `)
 
-	p := NewYAMLProviderFromBytes(b)
+	p, err := NewYAMLProviderFromBytes(b)
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	var r Map
 	require.NoError(t, p.Get(Root).Populate(&r))
 	assert.Equal(t, Bag{S: "one", I: 1, P: nil}, r.M["first"])
@@ -598,6 +719,7 @@ m:
 
 func TestMapOfSlices(t *testing.T) {
 	t.Parallel()
+
 	type Map struct {
 		S map[string][]time.Duration
 	}
@@ -610,7 +732,9 @@ s:
     - 2m
     - 3h
 `)
-	p := NewYAMLProviderFromBytes(b)
+	p, err := NewYAMLProviderFromBytes(b)
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	var r Map
 	require.NoError(t, p.Get(Root).Populate(&r))
 	assert.Equal(t, []time.Duration{time.Second}, r.S["first"])
@@ -619,6 +743,7 @@ s:
 
 func TestMapOfArrays(t *testing.T) {
 	t.Parallel()
+
 	type Map struct {
 		S map[string][2]time.Duration
 	}
@@ -632,7 +757,10 @@ s:
     - 2m
     - 3h
 `)
-	p := NewYAMLProviderFromBytes(b)
+
+	p, err := NewYAMLProviderFromBytes(b)
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	var r Map
 	require.NoError(t, p.Get(Root).Populate(&r))
 	assert.Equal(t, [2]time.Duration{time.Second, 4 * time.Minute}, r.S["first"])
@@ -671,6 +799,7 @@ func TestLoops(t *testing.T) {
 
 func TestInternalFieldsAreNotSet(t *testing.T) {
 	t.Parallel()
+
 	type External struct {
 		internal string
 	}
@@ -678,7 +807,9 @@ func TestInternalFieldsAreNotSet(t *testing.T) {
 	b := []byte(`
 internal: set
 `)
-	p := NewYAMLProviderFromBytes(b)
+	p, err := NewYAMLProviderFromBytes(b)
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	var r External
 	require.NoError(t, p.Get(Root).Populate(&r))
 	assert.Equal(t, "", r.internal)
@@ -687,6 +818,7 @@ internal: set
 func TestEmbeddedStructs(t *testing.T) {
 	t.Skip("TODO(alsam) GFM(415)")
 	t.Parallel()
+
 	type Config struct {
 		Foo string
 	}
@@ -706,7 +838,10 @@ logging:
    sentry:
       dsn: asdf
 `)
-	p := NewYAMLProviderFromBytes(b)
+
+	p, err := NewYAMLProviderFromBytes(b)
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	var r Config
 	require.NoError(t, p.Get(Root).Populate(&r))
 	assert.Equal(t, "bar", r.Foo)
@@ -714,6 +849,7 @@ logging:
 
 func TestEmptyValuesSetForMaps(t *testing.T) {
 	t.Parallel()
+
 	type Hello interface {
 		Hello()
 	}
@@ -726,7 +862,10 @@ func TestEmptyValuesSetForMaps(t *testing.T) {
 M:
    sayHello:
 `)
-	p := NewYAMLProviderFromBytes(b)
+
+	p, err := NewYAMLProviderFromBytes(b)
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	var r Foo
 	require.NoError(t, p.Get(Root).Populate(&r))
 	assert.Equal(t, r.M, map[string]Hello{"sayHello": Hello(nil)})
@@ -734,6 +873,7 @@ M:
 
 func TestEmptyValuesSetForStructs(t *testing.T) {
 	t.Parallel()
+
 	type Hello interface {
 		Hello()
 	}
@@ -745,7 +885,10 @@ func TestEmptyValuesSetForStructs(t *testing.T) {
 	b := []byte(`
 Say:
 `)
-	p := NewYAMLProviderFromBytes(b)
+
+	p, err := NewYAMLProviderFromBytes(b)
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	var r Foo
 	require.NoError(t, p.Get(Root).Populate(&r))
 	assert.Nil(t, r.Say)
@@ -786,7 +929,9 @@ func TestHappyUnmarshallerChannelFunction(t *testing.T) {
 
 	f := func(src []byte, band, song string) {
 		var r Chart
-		p := NewYAMLProviderFromBytes(src)
+		p, err := NewYAMLProviderFromBytes(src)
+		require.NoError(t, err, "Can't create a YAML provider")
+
 		require.NoError(t, p.Get(Root).Populate(&r))
 		require.Equal(t, band, <-r.Band)
 		assert.EqualError(t, r.Song("Get "), song)
@@ -809,6 +954,7 @@ Song: off my cloud
 
 func TestGrumpyUnmarshallerChannelFunction(t *testing.T) {
 	t.Parallel()
+
 	type S struct {
 		C unmarshallerChan
 		F unmarshallerFunc
@@ -816,7 +962,9 @@ func TestGrumpyUnmarshallerChannelFunction(t *testing.T) {
 
 	f := func(src []byte, message string) {
 		var r S
-		p := NewYAMLProviderFromBytes(src)
+		p, err := NewYAMLProviderFromBytes(src)
+		require.NoError(t, err, "Can't create a YAML provider")
+
 		e := p.Get(Root).Populate(&r)
 		require.Contains(t, e.Error(), message)
 	}
@@ -843,28 +991,23 @@ F: error
 
 func TestFileNameInPanic(t *testing.T) {
 	t.Parallel()
+
 	f, err := ioutil.TempFile("", "testYaml")
 	require.NoError(t, err)
 	defer os.Remove(f.Name())
 	f.Write([]byte("\t"))
 	require.NoError(t, f.Close())
 
-	defer func() {
-		e := recover()
-		require.NotNil(t, e)
-		err, ok := e.(error)
-		require.True(t, ok)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), f.Name())
-	}()
-
-	NewYAMLProviderFromFiles(f.Name())
+	_, err = NewYAMLProviderFromFiles(f.Name())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), f.Name())
 }
 
 func TestYAMLName(t *testing.T) {
 	t.Parallel()
 
-	p := NewYAMLProviderFromBytes([]byte(``))
+	p, err := NewYAMLProviderFromBytes([]byte(``))
+	require.NoError(t, err, "Can't create a YAML provider")
 	require.Contains(t, p.Name(), "yaml")
 }
 
@@ -877,8 +1020,8 @@ func TestAbsolutePaths(t *testing.T) {
 	require.NoError(t, file.Close())
 	defer func() { assert.NoError(t, os.Remove(file.Name())) }()
 
-	p := NewYAMLProviderFromFiles(file.Name())
-	require.NotNil(t, p)
+	p, err := NewYAMLProviderFromFiles(file.Name())
+	require.NoError(t, err, "Can't create a YAML provider")
 
 	val := p.Get("Imaginary")
 	assert.False(t, val.HasValue())
@@ -900,9 +1043,11 @@ func TestPrivateAnonymousField(t *testing.T) {
 x:
   field: something
 `)
+	p, err := NewYAMLProviderFromBytes(b)
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	var z y
-	provider := NewYAMLProviderFromBytes(b)
-	require.NoError(t, provider.Get(Root).Populate(&z))
+	require.NoError(t, p.Get(Root).Populate(&z))
 	assert.Empty(t, z.field)
 }
 
@@ -922,9 +1067,12 @@ func TestFlatMapWithDots(t *testing.T) {
 a.b.s: Beethoven
 a.b.i: 1770
 `)
+
+	p, err := NewYAMLProviderFromBytes(bytes)
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	var A a
-	provider := NewYAMLProviderFromBytes(bytes)
-	require.NoError(t, provider.Get("a").Populate(&A))
+	require.NoError(t, p.Get("a").Populate(&A))
 	assert.Equal(t, 1770, A.B.I)
 	assert.Equal(t, "Beethoven", A.B.S)
 }
@@ -949,9 +1097,12 @@ a:
 a.b:
   i: 1791
 `)
+
+	p, err := NewYAMLProviderFromBytes(bytes)
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	var A a
-	provider := NewYAMLProviderFromBytes(bytes)
-	require.NoError(t, provider.Get("a").Populate(&A))
+	require.NoError(t, p.Get("a").Populate(&A))
 	assert.Equal(t, 1791, A.B.I)
 	assert.Equal(t, "Mozart", A.B.S)
 }
@@ -974,11 +1125,13 @@ func TestFlatSingleDots(t *testing.T) {
 ...: 3
 .................................................: 50
 `)
-	provider := NewYAMLProviderFromBytes(bytes)
-	require.Equal(t, ".", provider.Get(".").AsString())
-	require.Equal(t, "..", provider.Get("..").AsString())
-	require.Equal(t, "3", provider.Get("...").AsString())
-	require.Equal(t, 50, provider.Get(".................................................").AsInt())
+	p, err := NewYAMLProviderFromBytes(bytes)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	require.Equal(t, ".", p.Get(".").AsString())
+	require.Equal(t, "..", p.Get("..").AsString())
+	require.Equal(t, "3", p.Get("...").AsString())
+	require.Equal(t, 50, p.Get(".................................................").AsInt())
 }
 
 func TestDotsFromMultipleSources(t *testing.T) {
@@ -1005,9 +1158,11 @@ a.b:
   s: List
 a.b.i: 1811
 `)
+	p, err := NewYAMLProviderFromBytes(base, development)
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	var A a
-	provider := NewYAMLProviderFromBytes(base, development)
-	require.NoError(t, provider.Get("a").Populate(&A))
+	require.NoError(t, p.Get("a").Populate(&A))
 	assert.Equal(t, 1811, A.B.I)
 	assert.Equal(t, "List", A.B.S)
 }
@@ -1015,12 +1170,14 @@ a.b.i: 1811
 func TestMapsWithDottedKeys(t *testing.T) {
 	t.Parallel()
 
-	p := NewYAMLProviderFromBytes([]byte(`
+	p, err := NewYAMLProviderFromBytes([]byte(`
 a: b
 a.b: c
 a.b.c: d
 a.b.c.d : e
 `))
+
+	require.NoError(t, err, "Can't create a YAML provider")
 
 	var m map[string]string
 	require.NoError(t, p.Get(Root).Populate(&m))
@@ -1040,7 +1197,8 @@ func TestYAMLEnvInterpolationValueMissing(t *testing.T) {
 	cfg := strings.NewReader(`name:`)
 
 	f := func(string) (string, bool) { return "", false }
-	p := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	require.NoError(t, err, "Can't create a YAML provider")
 	assert.Equal(t, nil, p.Get("name").Value())
 }
 
@@ -1054,7 +1212,9 @@ func TestYAMLEnvInterpolationValueConversion(t *testing.T) {
 		return "3", true
 	}
 
-	p := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	v, ok := p.Get("number").TryAsInt()
 	require.True(t, ok)
 	assert.Equal(t, 3, v)
@@ -1079,9 +1239,11 @@ func (c *cartoon) UnmarshalText(b []byte) error {
 func TestUnmarshalTextOnComplexStruct(t *testing.T) {
 	t.Parallel()
 
-	p := NewYAMLProviderFromBytes([]byte(`cartoon:
+	p, err := NewYAMLProviderFromBytes([]byte(`cartoon:
   year: 1994
   title: FreeWilly`))
+
+	require.NoError(t, err, "Can't create a YAML provider")
 
 	c := &cartoon{}
 	require.NoError(t, p.Get("cartoon").Populate(c))
@@ -1111,11 +1273,13 @@ func (j *jsonUnmarshaller) UnmarshalText(b []byte) error {
 func TestPopulateOfJSONUnmarshal(t *testing.T) {
 	t.Parallel()
 
-	p := NewStaticProvider(map[string]jsonUnmarshaller{
+	p, err := NewStaticProvider(map[string]jsonUnmarshaller{
 		// Test that big integers are not going to be encoded as floats.
 		"pass": {Size: math.MaxInt32, Name: "maxInt"},
 		"fail": {Size: 0, Name: "zero"},
 	})
+
+	require.NoError(t, err, "Can't create a YAML provider")
 
 	j := jsonUnmarshaller{}
 	require.NoError(t, p.Get("pass").Populate(&j))
@@ -1124,7 +1288,7 @@ func TestPopulateOfJSONUnmarshal(t *testing.T) {
 	assert.NoError(t, p.Get("empty").Populate(&j), "Empty value shouldn't cause errors.")
 	assert.Equal(t, j, jsonUnmarshaller{Size: 1000000, Name: "mega"}, "Empty value shouldn't change actual variable")
 
-	err := p.Get("fail").Populate(&j)
+	err = p.Get("fail").Populate(&j)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "boom")
 }
@@ -1194,7 +1358,7 @@ func TestPopulateNotAppropriateTypes(t *testing.T) {
 type alwaysBlueYAML struct{}
 
 func (a alwaysBlueYAML) MarshalYAML() (interface{}, error) {
-	return nil, errors.New("always blue!")
+	return nil, errors.New("always blue")
 }
 
 func (a *alwaysBlueYAML) UnmarshalYAML(func(interface{}) error) error {
@@ -1208,12 +1372,15 @@ func TestYAMLMarshallerErrors(t *testing.T) {
 	var v alwaysBlueYAML
 	err := p.Get(Root).Populate(&v)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "always blue!")
+	assert.Contains(t, err.Error(), "always blue")
 }
 
 func TestYAMLFailOnMalformedData(t *testing.T) {
 	t.Parallel()
-	cfg := NewYAMLProviderFromBytes([]byte(`foo: ["a", "b", "c"]`))
+
+	p, err := NewYAMLProviderFromBytes([]byte(`foo: ["a", "b", "c"]`))
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	var (
 		intMap           map[int]int
 		intList          []int
@@ -1223,23 +1390,23 @@ func TestYAMLFailOnMalformedData(t *testing.T) {
 	)
 
 	assert := assert.New(t)
-	err := cfg.Get("foo").Populate(&intMap)
+	err = p.Get("foo").Populate(&intMap)
 	require.Error(t, err, "can't convert []string to")
 	assert.Contains(err.Error(), `expected map for key "foo". actual type: "[]interface {}"`)
 
-	err = cfg.Get("foo").Populate(&intList)
+	err = p.Get("foo").Populate(&intList)
 	require.Error(t, err)
 	assert.Contains(err.Error(), `parsing "a": invalid syntax`)
 
-	err = cfg.Get("foo").Populate(&intArray)
+	err = p.Get("foo").Populate(&intArray)
 	require.Error(t, err)
 	assert.Contains(err.Error(), `parsing "a": invalid syntax`)
 
-	err = cfg.Get("foo").Populate(&stringListList)
+	err = p.Get("foo").Populate(&stringListList)
 	require.Error(t, err)
 	assert.Contains(err.Error(), `can't convert "string" to "slice"`)
 
-	err = cfg.Get("foo").Populate(&stringArrayArray)
+	err = p.Get("foo").Populate(&stringArrayArray)
 	require.Error(t, err)
 	assert.Contains(err.Error(), `can't convert "string" to "array"`)
 }
@@ -1250,9 +1417,11 @@ func TestJSONDecode(t *testing.T) {
 	b := []byte(`- a: b
 - c: d`)
 	var stringListList [][]string
-	cfg := NewYAMLProviderFromBytes(b)
-	err := cfg.Get("").Populate(&stringListList)
-	assert.Error(t, err)
+	p, err := NewYAMLProviderFromBytes(b)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	err = p.Get("").Populate(&stringListList)
+	require.Error(t, err)
 	assert.Len(t, stringListList, 0)
 }
 
@@ -1261,16 +1430,17 @@ func TestNilsOnMaps(t *testing.T) {
 
 	b := []byte(``)
 	var m map[string]string
-	cfg := NewYAMLProviderFromBytes(b)
-	err := cfg.Get("").Populate(&m)
-	assert.NoError(t, err)
+	p, err := NewYAMLProviderFromBytes(b)
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	require.NoError(t, p.Get(Root).Populate(&m))
 	assert.Nil(t, m)
 }
 
 func TestPopulateOfYAMLUnmarshal(t *testing.T) {
 	t.Parallel()
 
-	p := NewYAMLProviderFromBytes([]byte(`
+	p, err := NewYAMLProviderFromBytes([]byte(`
 pass:
   name: deci
   size: 10
@@ -1278,6 +1448,8 @@ fail:
   name: first
   size: one
 `))
+
+	require.NoError(t, err, "Can't create a YAML provider")
 
 	y := yamlUnmarshal{}
 	require.NoError(t, p.Get("pass").Populate(&y))
@@ -1293,22 +1465,23 @@ fail:
 func TestFailConversionFromMapsToSlices(t *testing.T) {
 	t.Parallel()
 
-	cfg := NewYAMLProviderFromBytes([]byte(`
+	p, err := NewYAMLProviderFromBytes([]byte(`
 foo:
   0: "a"
   1: "b"
 `))
 
+	require.NoError(t, err, "Can't create a YAML provider")
+
 	t.Run("map of ints", func(t *testing.T) {
 		var intMap map[int]string
-		err := cfg.Get("foo").Populate(&intMap)
-		require.NoError(t, err)
+		require.NoError(t, p.Get("foo").Populate(&intMap))
 		assert.Equal(t, map[int]string{0: "a", 1: "b"}, intMap)
 	})
 
 	t.Run("list of strings", func(t *testing.T) {
 		var stringList []string
-		err := cfg.Get("foo").Populate(&stringList)
+		err = p.Get("foo").Populate(&stringList)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `can't convert "map" to "slice"`)
 		require.Len(t, stringList, 0)
@@ -1316,14 +1489,15 @@ foo:
 
 	t.Run("list of strings with first overridden value", func(t *testing.T) {
 		var stringList []string
-		err := NewStaticProvider(map[string]int{"foo.0": 1}).Get("foo").Populate(&stringList)
-		require.NoError(t, err)
+		p, err := NewStaticProvider(map[string]int{"foo.0": 1})
+		require.NoError(t, err, "can't create a static provider")
+		require.NoError(t, p.Get("foo").Populate(&stringList))
 		require.Len(t, stringList, 1)
 	})
 
 	t.Run("array of strings", func(t *testing.T) {
 		var stringArray [2]string
-		err := cfg.Get("foo").Populate(&stringArray)
+		err := p.Get("foo").Populate(&stringArray)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `can't convert "map" to "array"`)
 		require.Equal(t, stringArray, [2]string{"", ""})
@@ -1331,7 +1505,7 @@ foo:
 
 	t.Run("list of strings", func(t *testing.T) {
 		var stringListList [][]string
-		err := cfg.Get("foo").Populate(&stringListList)
+		err := p.Get("foo").Populate(&stringListList)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `can't convert "map" to "slice"`)
 		require.Len(t, stringListList, 0)
@@ -1339,7 +1513,7 @@ foo:
 
 	t.Run("nested map of ints of strings failure", func(t *testing.T) {
 		var mapIntMap map[string]map[int]string
-		err := cfg.Get("foo").Populate(&mapIntMap)
+		err := p.Get("foo").Populate(&mapIntMap)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `expected map for key "foo`)
 		assert.Contains(t, err.Error(), `actual type: "string"`)
@@ -1351,49 +1525,63 @@ func TestSliceElementInDifferentPositions(t *testing.T) {
 	t.Parallel()
 
 	t.Run("empty slice", func(t *testing.T) {
-		p := NewStaticProvider([]int{})
+		p, err := NewStaticProvider([]int{})
+		require.NoError(t, err, "can't create a static provider")
+
 		var s []int
 		require.NoError(t, p.Get(Root).Populate(&s))
 		assert.Nil(t, s)
 	})
 
 	t.Run("first element overridden", func(t *testing.T) {
-		p := NewStaticProvider(map[string]interface{}{"a.0": 1})
+		p, err := NewStaticProvider(map[string]interface{}{"a.0": 1})
+		require.NoError(t, err, "can't create a static provider")
+
 		var s []int
 		require.NoError(t, p.Get("a").Populate(&s))
 		assert.Equal(t, []int{1}, s)
 	})
 
 	t.Run("nil slice with first element overridden", func(t *testing.T) {
-		p := NewStaticProvider(map[string]interface{}{"a": nil, "a.0": 1})
+		p, err := NewStaticProvider(map[string]interface{}{"a": nil, "a.0": 1})
+		require.NoError(t, err, "can't create a static provider")
+
 		var s []int
 		require.NoError(t, p.Get("a").Populate(&s))
 		assert.Equal(t, []int{1}, s)
 	})
 
 	t.Run("empty slice with first element overridden", func(t *testing.T) {
-		p := NewStaticProvider(map[string]interface{}{"a": []int{}, "a.0": 1})
+		p, err := NewStaticProvider(map[string]interface{}{"a": []int{}, "a.0": 1})
+		require.NoError(t, err, "can't create a static provider")
+
 		var s []int
 		require.NoError(t, p.Get("a").Populate(&s))
 		assert.Equal(t, []int{1}, s)
 	})
 
 	t.Run("slice with second element overridden", func(t *testing.T) {
-		p := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.1": 3})
+		p, err := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.1": 3})
+		require.NoError(t, err, "can't create a static provider")
+
 		var s []int
 		require.NoError(t, p.Get("a").Populate(&s))
 		assert.Equal(t, []int{0, 3, 2}, s)
 	})
 
 	t.Run("slice with an extra element added", func(t *testing.T) {
-		p := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.3": 3})
+		p, err := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.3": 3})
+		require.NoError(t, err, "can't create a static provider")
+
 		var s []int
 		require.NoError(t, p.Get("a").Populate(&s))
 		assert.Equal(t, []int{0, 1, 2, 3}, s)
 	})
 
 	t.Run("slice with a nil element inside", func(t *testing.T) {
-		p := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.1": nil})
+		p, err := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.1": nil})
+		require.NoError(t, err, "can't create a static provider")
+
 		var s []int
 		require.NoError(t, p.Get("a").Populate(&s))
 		assert.Equal(t, []int{0, 0, 2}, s)
@@ -1404,11 +1592,13 @@ func TestSliceElementInDifferentPositions(t *testing.T) {
 			Set bool `yaml:"set" default:"true"`
 		}
 
-		p := NewYAMLProviderFromBytes([]byte(`
+		p, err := NewYAMLProviderFromBytes([]byte(`
 a:
 - set: true
 - get: something
 - set: false`))
+
+		require.NoError(t, err, "Can't create a YAML provider")
 
 		var a []Inner
 		require.NoError(t, p.Get("a").Populate(&a))
@@ -1420,62 +1610,79 @@ func TestArrayElementInDifferentPositions(t *testing.T) {
 	t.Parallel()
 
 	t.Run("empty array", func(t *testing.T) {
-		p := NewStaticProvider([]int{})
+		p, err := NewStaticProvider([]int{})
+		require.NoError(t, err, "can't create a static provider")
+
 		var s [2]int
 		require.NoError(t, p.Get(Root).Populate(&s))
 		assert.Equal(t, [2]int{0, 0}, s)
 	})
 
 	t.Run("first element overridden", func(t *testing.T) {
-		p := NewStaticProvider(map[string]interface{}{"a.0": 1})
+		p, err := NewStaticProvider(map[string]interface{}{"a.0": 1})
+		require.NoError(t, err, "can't create a static provider")
+
 		var s [2]int
 		require.NoError(t, p.Get("a").Populate(&s))
 		assert.Equal(t, [2]int{1, 0}, s)
 	})
 
 	t.Run("nil collection with first element overridden", func(t *testing.T) {
-		p := NewStaticProvider(map[string]interface{}{"a": nil, "a.0": 1})
+		p, err := NewStaticProvider(map[string]interface{}{"a": nil, "a.0": 1})
+		require.NoError(t, err, "can't create a static provider")
+
 		var s [2]int
 		require.NoError(t, p.Get("a").Populate(&s))
 		assert.Equal(t, [2]int{1, 0}, s)
 	})
 
 	t.Run("empty collection with first element overridden", func(t *testing.T) {
-		p := NewStaticProvider(map[string]interface{}{"a": []int{}, "a.0": 1})
+		p, err := NewStaticProvider(map[string]interface{}{"a": []int{}, "a.0": 1})
+		require.NoError(t, err, "can't create a static provider")
+
 		var s [2]int
 		require.NoError(t, p.Get("a").Populate(&s))
 		assert.Equal(t, [2]int{1, 0}, s)
 	})
 
 	t.Run("collection with second element overridden", func(t *testing.T) {
-		p := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.1": 3})
+		p, err := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.1": 3})
+		require.NoError(t, err, "can't create a static provider")
+
 		var s [2]int
 		require.NoError(t, p.Get("a").Populate(&s))
 		assert.Equal(t, [2]int{0, 3}, s)
 	})
 
 	t.Run("collection with an extra element added", func(t *testing.T) {
-		p := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.3": 3})
+		p, err := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.3": 3})
+		require.NoError(t, err, "can't create a static provider")
+
 		var s [4]int
 		require.NoError(t, p.Get("a").Populate(&s))
 		assert.Equal(t, [4]int{0, 1, 2, 3}, s)
 	})
 
 	t.Run("collection with a nil element inside", func(t *testing.T) {
-		p := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.1": nil})
+		p, err := NewStaticProvider(map[string]interface{}{"a": []int{0, 1, 2}, "a.1": nil})
+		require.NoError(t, err, "can't create a static provider")
+
 		var s [3]int
 		require.NoError(t, p.Get("a").Populate(&s))
 		assert.Equal(t, [3]int{0, 0, 2}, s)
 	})
 
 	t.Run("collection error unmarshalable elements", func(t *testing.T) {
-		p := NewYAMLProviderFromBytes([]byte(`
+		p, err := NewYAMLProviderFromBytes([]byte(`
 a:
 - protagonist: Scrooge
   pilot: LaunchpadMcQuack
 `))
+
+		require.NoError(t, err, "Can't create a YAML provider")
+
 		var s [2]duckTales
-		err := p.Get("a").Populate(&s)
+		err = p.Get("a").Populate(&s)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `for key "a.1.Protagonist": Unknown character:`)
 	})
@@ -1485,7 +1692,7 @@ a:
 			Set bool `yaml:"set" default:"true"`
 		}
 
-		p := NewYAMLProviderFromBytes([]byte(`
+		p, err := NewYAMLProviderFromBytes([]byte(`
 a:
 - set: true
 - get: something
@@ -1493,8 +1700,130 @@ a:
 - set: false
 a.2.set: false`))
 
+		require.NoError(t, err, "Can't create a YAML provider")
+
 		var a [4]Inner
 		require.NoError(t, p.Get("a").Populate(&a))
 		assert.Equal(t, [4]Inner{{Set: true}, {Set: true}, {Set: false}, {Set: false}}, a)
+	})
+}
+
+func TestNewYamlProviderWithExpand(t *testing.T) {
+	t.Parallel()
+
+	p, err := NewYAMLProviderWithExpand(nil, "./testdata/base.yaml")
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	baseValue := p.Get("value").AsString()
+	assert.Equal(t, "base_only", baseValue)
+}
+
+func TestMergeErrorsFromReaders(t *testing.T) {
+	t.Parallel()
+
+	t.Run("regular", func(t *testing.T) {
+		base := ioutil.NopCloser(strings.NewReader(`a:
+  - b`))
+		dev := ioutil.NopCloser(strings.NewReader(`a:
+  b: c`))
+
+		_, err := NewYAMLProviderFromReader(base, dev)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't merge map")
+	})
+
+	t.Run("expand", func(t *testing.T) {
+		expand := func(string) (string, bool) { return "", false }
+
+		base := ioutil.NopCloser(strings.NewReader(`a:
+  - b`))
+		dev := ioutil.NopCloser(strings.NewReader(`a:
+  b: c`))
+
+		_, err := NewYAMLProviderFromReaderWithExpand(expand, base, dev)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't merge map")
+	})
+}
+
+func TestMergeErrorsFromFiles(t *testing.T) {
+	t.Parallel()
+
+	base, err := ioutil.TempFile(".", "test")
+	require.NoError(t, err, "Can't create a temp base file")
+	fmt.Fprint(base, `a:
+  - b`)
+	require.NoError(t, base.Close(), "Close error for base")
+	defer func() { assert.NoError(t, os.Remove(base.Name())) }()
+
+	dev, err := ioutil.TempFile(".", "test")
+	require.NoError(t, err, "Can't create a temp dev file")
+	fmt.Fprint(dev, `a:
+  b: c`)
+	require.NoError(t, dev.Close(), "Close error for dev")
+	defer func() { assert.NoError(t, os.Remove(dev.Name())) }()
+
+	t.Run("regular files", func(t *testing.T) {
+		_, err := NewYAMLProviderFromFiles(base.Name(), dev.Name())
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't merge map")
+	})
+
+	t.Run("regular readers", func(t *testing.T) {
+		b, err := ioutil.ReadFile(base.Name())
+		require.NoError(t, err, "Can't read base file")
+
+		d, err := ioutil.ReadFile(dev.Name())
+		require.NoError(t, err, "Can't read dev file")
+
+		_, err = NewYAMLProviderFromReader(
+			ioutil.NopCloser(bytes.NewBuffer(b)),
+			ioutil.NopCloser(bytes.NewBuffer(d)))
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't merge map")
+	})
+
+	t.Run("from files with expand", func(t *testing.T) {
+		expand := func(string) (string, bool) { return "", false }
+
+		_, err := NewYAMLProviderWithExpand(expand, base.Name(), dev.Name())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't merge map")
+	})
+
+	t.Run("reader with expand", func(t *testing.T) {
+		b, err := ioutil.ReadFile(base.Name())
+		require.NoError(t, err, "Can't read base file")
+
+		d, err := ioutil.ReadFile(dev.Name())
+		require.NoError(t, err, "Can't read dev file")
+
+		expand := func(string) (string, bool) { return "", false }
+
+		_, err = NewYAMLProviderFromReaderWithExpand(
+			expand,
+			ioutil.NopCloser(bytes.NewBuffer(b)),
+			ioutil.NopCloser(bytes.NewBuffer(d)))
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "can't merge map")
+	})
+}
+
+func TestYAMLProviderWithGarbledPath(t *testing.T) {
+	t.Parallel()
+
+	t.Run("regular", func(t *testing.T) {
+		_, err := NewYAMLProviderFromFiles("/some/nonexisting/config")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no such file or directory")
+	})
+
+	t.Run("expand", func(t *testing.T) {
+		_, err := NewYAMLProviderWithExpand(nil, "/some/nonexisting/config")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no such file or directory")
 	})
 }
