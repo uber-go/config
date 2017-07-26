@@ -1,5 +1,5 @@
-hash: 7d09e842bb5d045f9d3e59e4c2755a9b248b0b9622bc2c168bcfc3a84a9b846c
-updated: 2017-07-18T16:28:34.042449923-07:00
+hash: a867686558437d6c4ee4a4f7985271f07e4dd82b0650067b36769a09f76bb0a9
+updated: 2017-07-26T10:43:55.775960678-07:00
 imports:
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
@@ -8,10 +8,10 @@ imports:
 - name: gopkg.in/validator.v2
   version: 07ffaad256c8e957050ad83d6472eb97d785013d
 - name: gopkg.in/yaml.v2
-  version: 3b4ad1db5b2a649883ff3782f5f9f6fb52be71af
+  version: 25c4ec802a7d637f88d584ab26798e94ad14c13b
 testImports:
 - name: github.com/davecgh/go-spew
-  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
+  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
   subpackages:
   - spew
 - name: github.com/google/gofuzz
@@ -20,6 +20,8 @@ testImports:
   version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
   subpackages:
   - difflib
+- name: github.com/spf13/cast
+  version: acbeb36b902d72a7a4c18e8f3241075e7ab763e4
 - name: github.com/stretchr/testify
   version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
   subpackages:
