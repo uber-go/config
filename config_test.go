@@ -162,6 +162,22 @@ func TestDefaultLoadMultipleTimes(t *testing.T) {
 	assert.Empty(p.Get("roles").Value())
 }
 
+func TestDefaultLoadFailToLoadCommandLine(t *testing.T) {
+	assert := assert.New(t)
+	require.NoError(t, os.Mkdir("config", os.ModePerm))
+	defer func() { assert.NoError(os.Remove("config")) }()
+
+	base, err := os.Create(filepath.Join("config", "base.yaml"))
+	require.NoError(t, err)
+	defer func() { assert.NoError(os.Remove(base.Name())) }()
+
+	base.WriteString("commandLine: unconvertableBool\n")
+	require.NoError(t, base.Close())
+	_, err = LoadDefaults()
+	require.Error(t, err)
+	assert.Contains(err.Error(), `"unconvertableBool": invalid syntax`)
+}
+
 func TestLoadTestProvider(t *testing.T) {
 	assert := assert.New(t)
 	require.NoError(t, os.Mkdir("config", os.ModePerm))

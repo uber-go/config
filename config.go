@@ -69,6 +69,7 @@ func LoadDefaults() (Provider, error) {
 		return nil, err
 	}
 
+	// CommandLine provider is enabled by default.
 	enabled := true
 	if err := p.Get("commandLine").Populate(&enabled); err != nil {
 		return nil, err
