@@ -71,7 +71,7 @@ func ExampleValue_Value_slices() {
 	s := cast.ToStringSlice(p.Get("strings").Value())
 	fmt.Println(s)
 
-	i := cast.ToStringSlice(p.Get("ints").Value())
+	i := cast.ToSlice(p.Get("ints").Value())
 	fmt.Println(i)
 
 	// Output:
