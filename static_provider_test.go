@@ -23,7 +23,9 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -337,6 +339,25 @@ func TestValue_ChildKeys(t *testing.T) {
 	require.NoError(t, err, "can't create a static provider")
 
 	t.Run("MapOfInts", func(t *testing.T) { op(t, Root, []string{"3", "5"}) })
+}
+
+func TestInterpolatedBool(t *testing.T) {
+	t.Parallel()
+
+	f := func(key string) (string, bool) {
+		if key == "interpolate" {
+			return "true", true
+		}
+		return "", false
+	}
+
+	p, err := NewYAMLProviderFromReaderWithExpand(
+		f,
+		ioutil.NopCloser(strings.NewReader("val: ${interpolate:false}")))
+
+	require.NoError(t, err, "Can't create a static provider")
+
+	assert.Equal(t, "true", p.Get("val").String())
 }
 
 func TestConfigDefaults(t *testing.T) {

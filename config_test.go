@@ -129,10 +129,10 @@ func TestDefaultLoad(t *testing.T) {
 	var val map[string]interface{}
 	require.NoError(t, p.Get(Root).Populate(&val))
 	assert.Equal(5, len(val))
-	assert.Equal("base", p.Get("source").Value())
+	assert.Equal("base", p.Get("source").String())
 	assert.Equal("80", p.Get("interpolated").String())
-	assert.Equal("loaded", p.Get("development").Value())
-	assert.Equal("${password:1111}", p.Get("secret").Value())
+	assert.Equal("loaded", p.Get("development").String())
+	assert.Equal("${password:1111}", p.Get("secret").String())
 	assert.False(p.Get("roles").HasValue())
 }
 
@@ -156,7 +156,7 @@ func TestDefaultLoadMultipleTimes(t *testing.T) {
 	var val map[string]interface{}
 	require.NoError(t, p.Get(Root).Populate(&val))
 	assert.Equal(3, len(val))
-	assert.Equal("base", p.Get("source").Value())
+	assert.Equal("base", p.Get("source").String())
 	assert.Equal("80", p.Get("interpolated").String())
 	assert.True(p.Get("roles").HasValue())
 	assert.Empty(p.Get("roles").Value())
@@ -182,8 +182,8 @@ func TestLoadTestProvider(t *testing.T) {
 
 	p, err := LoadTestProvider()
 	require.NoError(t, err)
-	assert.Equal("base", p.Get("source").Value())
-	assert.Equal("test", p.Get("dir").Value())
+	assert.Equal("base", p.Get("source").String())
+	assert.Equal("test", p.Get("dir").String())
 }
 
 func TestErrorWhenNoFilesLoaded(t *testing.T) {
@@ -255,9 +255,11 @@ func TestSimpleConfigValues(t *testing.T) {
 
 	assert.Equal(t, 123, provider.Get("int").Value())
 	assert.Equal(t, "test string", provider.Get("string").String())
+
 	_, err = strconv.ParseBool(provider.Get("nonexisting").String())
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid syntax")
+
 	assert.Equal(t, true, provider.Get("bool").Value())
 	assert.Equal(t, 1.123, provider.Get("float").Value())
 
