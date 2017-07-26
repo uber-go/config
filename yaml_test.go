@@ -56,7 +56,7 @@ func TestYAMLSimple(t *testing.T) {
 	assert.True(t, c.HasValue())
 	assert.NotNil(t, c.Value())
 
-	assert.Equal(t, ":28941", c.AsString())
+	assert.Equal(t, ":28941", c.String())
 }
 
 func TestYAMLEnvInterpolation(t *testing.T) {
@@ -78,12 +78,9 @@ module:
 
 	p, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
 	require.NoError(t, err, "Can't create a YAML provider")
+	require.Equal(t, "321", p.Get("module.fake.number").String())
 
-	num, ok := p.Get("module.fake.number").TryAsFloat()
-	require.True(t, ok)
-	require.Equal(t, float64(321), num)
-
-	owner := p.Get("owner").AsString()
+	owner := p.Get("owner").String()
 	require.Equal(t, "hello@there.yasss", owner)
 }
 
@@ -125,7 +122,7 @@ func TestYAMLEnvInterpolationWithColon(t *testing.T) {
 	p, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
 	require.NoError(t, err, "Can't create a YAML provider")
 
-	require.Equal(t, "this:is:my:value", p.Get("fullValue").AsString())
+	require.Equal(t, "this:is:my:value", p.Get("fullValue").String())
 }
 
 func TestYAMLEnvInterpolationEmptyString(t *testing.T) {
@@ -139,8 +136,8 @@ fullTel: 1-800-LOLZ${TELEPHONE_EXTENSION:""}`)
 	p, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
 	require.NoError(t, err, "Can't create a YAML provider")
 
-	require.Equal(t, "my shiny app", p.Get("name").AsString())
-	require.Equal(t, "1-800-LOLZ", p.Get("fullTel").AsString())
+	require.Equal(t, "my shiny app", p.Get("name").String())
+	require.Equal(t, "1-800-LOLZ", p.Get("fullTel").String())
 }
 
 type configStruct struct {
@@ -187,13 +184,13 @@ func TestExtends(t *testing.T) {
 
 	require.NoError(t, err, "Can't create a YAML provider")
 
-	baseValue := p.Get("value").AsString()
+	baseValue := p.Get("value").String()
 	assert.Equal(t, "base_only", baseValue)
 
-	devValue := p.Get("value_override").AsString()
+	devValue := p.Get("value_override").String()
 	assert.Equal(t, "dev_setting", devValue)
 
-	secretValue := p.Get("secret").AsString()
+	secretValue := p.Get("secret").String()
 	assert.Equal(t, "my_${secret}", secretValue)
 }
 
@@ -207,13 +204,13 @@ func TestAppRoot(t *testing.T) {
 
 	require.NoError(t, err, "Can't create a combined YAML provider")
 
-	baseValue := p.Get("value").AsString()
+	baseValue := p.Get("value").String()
 	assert.Equal(t, "base_only", baseValue)
 
-	devValue := p.Get("value_override").AsString()
+	devValue := p.Get("value_override").String()
 	assert.Equal(t, "dev_setting", devValue)
 
-	secretValue := p.Get("secret").AsString()
+	secretValue := p.Get("secret").String()
 	assert.Equal(t, "my_${secret}", secretValue)
 }
 
@@ -1128,10 +1125,10 @@ func TestFlatSingleDots(t *testing.T) {
 	p, err := NewYAMLProviderFromBytes(bytes)
 	require.NoError(t, err, "Can't create a YAML provider")
 
-	require.Equal(t, ".", p.Get(".").AsString())
-	require.Equal(t, "..", p.Get("..").AsString())
-	require.Equal(t, "3", p.Get("...").AsString())
-	require.Equal(t, 50, p.Get(".................................................").AsInt())
+	require.Equal(t, ".", p.Get(".").String())
+	require.Equal(t, "..", p.Get("..").String())
+	require.Equal(t, "3", p.Get("...").String())
+	require.Equal(t, 50, p.Get(".................................................").Value())
 }
 
 func TestDotsFromMultipleSources(t *testing.T) {
@@ -1215,9 +1212,7 @@ func TestYAMLEnvInterpolationValueConversion(t *testing.T) {
 	p, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
 	require.NoError(t, err, "Can't create a YAML provider")
 
-	v, ok := p.Get("number").TryAsInt()
-	require.True(t, ok)
-	assert.Equal(t, 3, v)
+	assert.Equal(t, "3", p.Get("number").String())
 }
 
 type cartoon struct {
@@ -1714,7 +1709,7 @@ func TestNewYamlProviderWithExpand(t *testing.T) {
 	p, err := NewYAMLProviderWithExpand(nil, "./testdata/base.yaml")
 	require.NoError(t, err, "Can't create a YAML provider")
 
-	baseValue := p.Get("value").AsString()
+	baseValue := p.Get("value").String()
 	assert.Equal(t, "base_only", baseValue)
 }
 

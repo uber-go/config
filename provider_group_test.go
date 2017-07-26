@@ -35,7 +35,7 @@ func TestProviderGroup(t *testing.T) {
 
 	pg := NewProviderGroup("test-group", p)
 	assert.Equal(t, "test-group", pg.Name())
-	assert.Equal(t, "test", pg.Get("id").AsString())
+	assert.Equal(t, "test", pg.Get("id").String())
 }
 
 func TestProviderGroupScope(t *testing.T) {
@@ -45,7 +45,7 @@ func TestProviderGroupScope(t *testing.T) {
 	require.NoError(t, err, "Can't create a static provider")
 
 	pg := NewProviderGroup("test-group", p)
-	assert.Equal(t, 42, pg.Get("hello").Get("world").AsInt())
+	assert.Equal(t, 42, pg.Get("hello").Get("world").Value())
 }
 
 func TestScope_WithGetFromValue(t *testing.T) {
@@ -55,19 +55,19 @@ func TestScope_WithGetFromValue(t *testing.T) {
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	scope := NewScopedProvider("", mock)
-	require.Equal(t, "go-lang", scope.Get("uber.fx").AsString())
+	require.Equal(t, "go-lang", scope.Get("uber.fx").String())
 	require.False(t, scope.Get("uber").HasValue())
 
 	base := scope.Get("uber")
-	require.Equal(t, "go-lang", base.Get("fx").AsString())
+	require.Equal(t, "go-lang", base.Get("fx").String())
 	require.False(t, base.Get("").HasValue())
 
 	uber := base.Get(Root)
-	require.Equal(t, "go-lang", uber.Get("fx").AsString())
+	require.Equal(t, "go-lang", uber.Get("fx").String())
 	require.False(t, uber.Get("").HasValue())
 
 	fx := uber.Get("fx")
-	require.Equal(t, "go-lang", fx.Get("").AsString())
+	require.Equal(t, "go-lang", fx.Get("").String())
 	require.False(t, fx.Get("fx").HasValue())
 }
 
@@ -88,7 +88,7 @@ logging:
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	pg := NewProviderGroup("group", s, f)
-	assert.True(t, pg.Get("logging").Get("enabled").AsBool())
+	assert.True(t, pg.Get("logging").Get("enabled").Value().(bool))
 }
 
 func TestProviderGroup_GetChecksAllProviders(t *testing.T) {

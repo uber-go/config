@@ -69,8 +69,12 @@ func LoadDefaults() (Provider, error) {
 		return nil, err
 	}
 
-	ok, err := p.Get("commandLine").WithDefault(true)
-	if err != nil || !ok.AsBool() {
+	enabled := true
+	if err := p.Get("commandLine").Populate(&enabled); err != nil {
+		return nil, err
+	}
+
+	if !enabled {
 		return p, nil
 	}
 

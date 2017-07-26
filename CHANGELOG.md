@@ -10,6 +10,8 @@
 - Let user to skip loading command line provider via `commandLine` parameter.
 - **[Breaking]** Most of the `Provider` constructors return an error instead of panics.
 - **[Breaking]** `Value.WithDefault` returns an error when a default can't be used.
+- **[Breaking]** Try and As conversion helpers are removed in favor of using
+  other cast libraries.
 
 ## v1.0.0-rc1 (26 Jun 2017)
 

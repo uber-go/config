@@ -57,7 +57,7 @@ func TestCommandLineProvider_Default(t *testing.T) {
 
 	v := c.Get("killerFeature")
 	require.True(t, v.HasValue())
-	assert.Equal(t, "minesweeper", v.AsString())
+	assert.Equal(t, "minesweeper", v.Value())
 }
 
 func TestCommandLineProvider_Conversion(t *testing.T) {
@@ -71,7 +71,7 @@ func TestCommandLineProvider_Conversion(t *testing.T) {
 
 	v := c.Get("dozen")
 	require.True(t, v.HasValue())
-	assert.Equal(t, 13, v.AsInt())
+	assert.Equal(t, "13", v.Value())
 }
 
 func TestCommandLineProvider_ErrorsOnUnknownFlags(t *testing.T) {
@@ -101,7 +101,7 @@ func TestCommandLineProvider_RepeatingArguments(t *testing.T) {
 
 	v := c.Get("count")
 	require.True(t, v.HasValue())
-	assert.Equal(t, "3", v.AsString())
+	assert.Equal(t, "3", v.Value())
 }
 
 func TestCommandLineProvider_NestedValues(t *testing.T) {

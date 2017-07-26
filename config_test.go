@@ -28,6 +28,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"strconv"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -127,10 +129,10 @@ func TestDefaultLoad(t *testing.T) {
 	var val map[string]interface{}
 	require.NoError(t, p.Get(Root).Populate(&val))
 	assert.Equal(5, len(val))
-	assert.Equal("base", p.Get("source").AsString())
-	assert.Equal(80, p.Get("interpolated").AsInt())
-	assert.Equal("loaded", p.Get("development").AsString())
-	assert.Equal("${password:1111}", p.Get("secret").AsString())
+	assert.Equal("base", p.Get("source").Value())
+	assert.Equal("80", p.Get("interpolated").String())
+	assert.Equal("loaded", p.Get("development").Value())
+	assert.Equal("${password:1111}", p.Get("secret").Value())
 	assert.False(p.Get("roles").HasValue())
 }
 
@@ -154,8 +156,8 @@ func TestDefaultLoadMultipleTimes(t *testing.T) {
 	var val map[string]interface{}
 	require.NoError(t, p.Get(Root).Populate(&val))
 	assert.Equal(3, len(val))
-	assert.Equal("base", p.Get("source").AsString())
-	assert.Equal(80, p.Get("interpolated").AsInt())
+	assert.Equal("base", p.Get("source").Value())
+	assert.Equal("80", p.Get("interpolated").String())
 	assert.True(p.Get("roles").HasValue())
 	assert.Empty(p.Get("roles").Value())
 }
@@ -180,8 +182,8 @@ func TestLoadTestProvider(t *testing.T) {
 
 	p, err := LoadTestProvider()
 	require.NoError(t, err)
-	assert.Equal("base", p.Get("source").AsString())
-	assert.Equal("test", p.Get("dir").AsString())
+	assert.Equal("base", p.Get("source").Value())
+	assert.Equal("test", p.Get("dir").Value())
 }
 
 func TestErrorWhenNoFilesLoaded(t *testing.T) {
@@ -204,7 +206,7 @@ one:
 	cfg, err := NewYAMLProviderFromBytes(txt)
 	require.NoError(t, err, "Can't create a YAML provider")
 
-	assert.Equal(t, "map[one:map[two:hello]]", cfg.Get(Root).AsString())
+	assert.Equal(t, "map[one:map[two:hello]]", cfg.Get(Root).String())
 }
 
 func TestDirectAccess(t *testing.T) {
@@ -237,10 +239,10 @@ func TestScopedAccess(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, v1.HasValue())
-	assert.Equal(t, 111, v1.AsInt())
+	assert.Equal(t, 111, v1.Value())
 	assert.True(t, v2.IsDefault())
 	assert.True(t, v2.HasValue())
-	assert.Equal(t, v2.AsString(), "nope")
+	assert.Equal(t, v2.String(), "nope")
 }
 
 func TestSimpleConfigValues(t *testing.T) {
@@ -251,60 +253,17 @@ func TestSimpleConfigValues(t *testing.T) {
 
 	provider := NewProviderGroup("test", p)
 
-	assert.Equal(t, 123, provider.Get("int").AsInt())
-	assert.Equal(t, "test string", provider.Get("string").AsString())
-	_, ok := provider.Get("nonexisting").TryAsString()
-	assert.False(t, ok)
-	assert.Equal(t, true, provider.Get("bool").AsBool())
-	assert.Equal(t, 1.123, provider.Get("float").AsFloat())
+	assert.Equal(t, 123, provider.Get("int").Value())
+	assert.Equal(t, "test string", provider.Get("string").String())
+	_, err = strconv.ParseBool(provider.Get("nonexisting").String())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid syntax")
+	assert.Equal(t, true, provider.Get("bool").Value())
+	assert.Equal(t, 1.123, provider.Get("float").Value())
 
 	nested := &nested{}
 	v := provider.Get("nonexisting")
 	assert.NoError(t, v.Populate(nested))
-}
-
-func TestGetAsIntegerValue(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		value interface{}
-	}{
-		{float32(2)},
-		{float64(2)},
-		{int(2)},
-		{int32(2)},
-		{int64(2)},
-	}
-
-	p, err := NewStaticProvider(nil)
-	require.NoError(t, err, "Can't create a static provider")
-
-	for _, tc := range testCases {
-		cv := NewValue(p, "key", tc.value, true, nil)
-		assert.Equal(t, 2, cv.AsInt())
-	}
-}
-
-func TestGetAsFloatValue(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		value interface{}
-	}{
-		{float32(2)},
-		{float64(2)},
-		{int(2)},
-		{int32(2)},
-		{int64(2)},
-	}
-
-	p, err := NewStaticProvider(nil)
-	require.NoError(t, err, "Can't create a static provider")
-
-	for _, tc := range testCases {
-		cv := NewValue(p, "key", tc.value, true, nil)
-		assert.Equal(t, float64(2), cv.AsFloat())
-	}
 }
 
 func TestNestedStructs(t *testing.T) {
@@ -374,12 +333,8 @@ boolean: hooli
 	require.Error(t, err, "Can't parse invalid YAML")
 	assert.Contains(t, err.Error(), "yaml: control characters are not allowed")
 
-	p, err := NewYAMLProviderFromBytes(valueType)
+	_, err = NewYAMLProviderFromBytes(valueType)
 	require.NoError(t, err, "Can't create a YAML provider")
-
-	assert.Panics(t, func() { p.Get("id").AsInt() }, "Can't parse as int")
-	assert.Panics(t, func() { p.Get("boolean").AsBool() }, "Can't parse invalid boolean")
-	assert.Panics(t, func() { p.Get("id").AsFloat() }, "Can't parse as float")
 }
 
 func TestNopProvider_Get(t *testing.T) {
