@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package example
+package config_test
 
 import (
 	"fmt"
@@ -28,7 +28,7 @@ import (
 	"go.uber.org/config"
 )
 
-func ExampleSimpleTypeCasting() {
+func ExampleValue_Value() {
 	p, err := config.NewStaticProvider(map[string]interface{}{
 		"string": "example",
 		"float":  "2.718281828",
@@ -58,7 +58,7 @@ func ExampleSimpleTypeCasting() {
 	// true
 }
 
-func ExampleSliceTypeCasting() {
+func ExampleValue_Value_slices() {
 	p, err := config.NewStaticProvider(map[string]interface{}{
 		"strings": []string{"one", "two", "three"},
 		"ints":    []int{1, 2, 3},
@@ -79,7 +79,7 @@ func ExampleSliceTypeCasting() {
 	// [1 2 3]
 }
 
-func ExampleMapTypeCasting() {
+func ExampleValue_Value_maps() {
 	p, err := config.NewStaticProvider(map[string]interface{}{
 		"struct": struct{ Car string }{Car: "Mazda"},
 		"map":    map[string]int{"uno": 1},
