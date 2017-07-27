@@ -71,7 +71,7 @@ func TestCommandLineProvider_Conversion(t *testing.T) {
 
 	v := c.Get("dozen")
 	require.True(t, v.HasValue())
-	assert.Equal(t, "13", v.String())
+	assert.Equal(t, "13", v.Value())
 }
 
 func TestCommandLineProvider_ErrorsOnUnknownFlags(t *testing.T) {
