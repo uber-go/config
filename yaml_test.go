@@ -775,7 +775,7 @@ type testProvider struct {
 
 func (s *testProvider) Get(key string) Value {
 	val, found := s.a, true
-	return NewValue(s, key, val, found, nil)
+	return NewValue(s, key, val, found)
 }
 
 func TestLoops(t *testing.T) {
@@ -1022,7 +1022,6 @@ func TestAbsolutePaths(t *testing.T) {
 
 	val := p.Get("Imaginary")
 	assert.False(t, val.HasValue())
-	assert.Equal(t, time.Time{}, val.LastUpdated())
 }
 
 func TestPrivateAnonymousField(t *testing.T) {

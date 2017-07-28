@@ -20,11 +20,10 @@
 
 package config
 
-// Root marks the root node in a Provider
+// Root marks the root node in a Provider.
 const Root = ""
 
-// A Provider provides a unified interface to accessing
-// configuration systems.
+// A Provider provides a unified interface to accessing configuration systems.
 type Provider interface {
 	// the Name of the provider (YAML, Env, etc)
 	Name() string
@@ -32,7 +31,7 @@ type Provider interface {
 	Get(key string) Value
 }
 
-// scopedProvider defines recursive interface of providers based on the prefix
+// scopedProvider defines recursive interface of providers based on the prefix.
 type scopedProvider struct {
 	Provider
 
@@ -59,7 +58,7 @@ func (sp scopedProvider) addPrefix(key string) string {
 	return sp.prefix + "." + key
 }
 
-// Get returns configuration value
+// Get returns the configuration value found at key.
 func (sp scopedProvider) Get(key string) Value {
 	return sp.Provider.Get(sp.addPrefix(key))
 }

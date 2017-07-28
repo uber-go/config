@@ -20,12 +20,13 @@
 
 package config
 
-// valueProvider always returns the same Value
+// valueProvider always returns the same Value.
 type valueProvider struct {
 	*NopProvider
 	Value
 }
 
+// Get returns the value this provider was created with.
 func (m *valueProvider) Get(key string) Value {
 	return m.Value
 }

@@ -22,7 +22,6 @@ package config
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,12 +40,4 @@ func TestSource(t *testing.T) {
 
 	assert.Empty(t, Value{}.Source())
 	assert.Equal(t, "NopProvider", Value{provider: NopProvider{}}.Source())
-}
-
-func TestLastUpdated(t *testing.T) {
-	t.Parallel()
-
-	assert.Equal(t, time.Time{}, Value{}.LastUpdated())
-	now := time.Time{}.Add(time.Hour)
-	assert.Equal(t, now, Value{found: true, timestamp: now}.LastUpdated())
 }

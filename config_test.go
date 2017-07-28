@@ -108,7 +108,7 @@ func TestDefaultLoad(t *testing.T) {
 	defer func() { assert.NoError(os.Remove(base.Name())) }()
 
 	defer setEnv("PORT", "80")()
-	base.WriteString("commandline: false\nsource: base\ninterpolated: ${PORT:17}\n")
+	base.WriteString("source: base\ninterpolated: ${PORT:17}\n")
 	base.Close()
 
 	// Setup development.yaml
@@ -128,12 +128,11 @@ func TestDefaultLoad(t *testing.T) {
 
 	var val map[string]interface{}
 	require.NoError(t, p.Get(Root).Populate(&val))
-	assert.Equal(5, len(val))
+	assert.Equal(4, len(val))
 	assert.Equal("base", p.Get("source").String())
 	assert.Equal("80", p.Get("interpolated").String())
 	assert.Equal("loaded", p.Get("development").String())
 	assert.Equal("${password:1111}", p.Get("secret").String())
-	assert.False(p.Get("roles").HasValue())
 }
 
 func TestDefaultLoadMultipleTimes(t *testing.T) {
@@ -145,9 +144,10 @@ func TestDefaultLoadMultipleTimes(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { assert.NoError(os.Remove(base.Name())) }()
 
+	defer setEnv("PORT", "80")()
 	base.WriteString("source: base\ninterpolated: ${PORT:17}\n")
 	base.Close()
-	defer setEnv("PORT", "80")()
+
 	p, err := LoadDefaults()
 	require.NoError(t, err)
 	p, err = LoadDefaults()
@@ -155,27 +155,9 @@ func TestDefaultLoadMultipleTimes(t *testing.T) {
 
 	var val map[string]interface{}
 	require.NoError(t, p.Get(Root).Populate(&val))
-	assert.Equal(3, len(val))
+	assert.Equal(2, len(val))
 	assert.Equal("base", p.Get("source").String())
 	assert.Equal("80", p.Get("interpolated").String())
-	assert.True(p.Get("roles").HasValue())
-	assert.Empty(p.Get("roles").Value())
-}
-
-func TestDefaultLoadFailToLoadCommandLine(t *testing.T) {
-	assert := assert.New(t)
-	require.NoError(t, os.Mkdir("config", os.ModePerm))
-	defer func() { assert.NoError(os.Remove("config")) }()
-
-	base, err := os.Create(filepath.Join("config", "base.yaml"))
-	require.NoError(t, err)
-	defer func() { assert.NoError(os.Remove(base.Name())) }()
-
-	base.WriteString("commandLine: unconvertableBool\n")
-	require.NoError(t, base.Close())
-	_, err = LoadDefaults()
-	require.Error(t, err)
-	assert.Contains(err.Error(), `"unconvertableBool": invalid syntax`)
 }
 
 func TestLoadTestProvider(t *testing.T) {

@@ -57,7 +57,7 @@ func (p providerGroup) Get(key string) Value {
 		if val := provider.Get(key); val.HasValue() && !val.IsDefault() {
 			tmp, err := mergeMaps(res, val.value)
 			if err != nil {
-				return NewValue(p, key, nil, false, nil)
+				return NewValue(p, key, nil, false)
 			}
 
 			res = tmp
@@ -65,7 +65,7 @@ func (p providerGroup) Get(key string) Value {
 		}
 	}
 
-	cv := NewValue(p, key, res, found, nil)
+	cv := NewValue(p, key, res, found)
 
 	// here we add a new root, which defines the "scope" at which
 	// Populates will look for values.

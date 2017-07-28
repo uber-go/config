@@ -25,11 +25,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	flag "github.com/spf13/pflag"
 )
 
-// LookUpFunc is a type alias for a function to look for environment variables,
+// LookUpFunc is a type alias for a function to look for environment variables.
 type LookUpFunc func(string) (string, bool)
 
 // FileInfo represents a file to load by LoadFromFiles function.
@@ -43,20 +41,13 @@ type FileInfo struct {
 //  ./config/base.yaml
 //  ./config/${ENVIRONMENT}.yaml
 //  ./config/secrets.yaml
-//
-// The result configuration is merged with a command line provider that
-// reads a roles flag. If it is not a desired behavior, the command line
-// provider can be skipped by seting commandLine value to false
-// at the root level of any of the config files:
-//
-//  commandLine: false
 func LoadDefaults() (Provider, error) {
 	env := "development"
 	if val, ok := os.LookupEnv("ENVIRONMENT"); ok {
 		env = val
 	}
 
-	p, err := LoadFromFiles(
+	return LoadFromFiles(
 		[]string{"config"},
 		[]FileInfo{
 			{Name: "base.yaml", Interpolate: true},
@@ -64,37 +55,11 @@ func LoadDefaults() (Provider, error) {
 			{Name: "secrets.yaml"},
 		},
 		os.LookupEnv)
-
-	if err != nil {
-		return nil, err
-	}
-
-	// CommandLine provider is enabled by default.
-	enabled := true
-	if err := p.Get("commandLine").Populate(&enabled); err != nil {
-		return nil, err
-	}
-
-	if !enabled {
-		return p, nil
-	}
-
-	// Load commandLineProvider
-	var s StringSlice
-	f := flag.CommandLine
-	if f.Lookup("roles") == nil {
-		f.Var(&s, "roles", "")
-	}
-
-	cmd, err := NewCommandLineProvider(f, os.Args[1:])
-	if err != nil {
-		return nil, err
-	}
-
-	return NewProviderGroup("global", p, cmd), nil
 }
 
-// LoadTestProvider will read configuration base.yaml and test.yaml from a
+// LoadTestProvider returns a default set of test configuration files:
+//  ./config/base.yaml
+//  ./config/test.yaml
 func LoadTestProvider() (Provider, error) {
 	return LoadFromFiles(
 		[]string{"config"},
