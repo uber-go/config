@@ -14,7 +14,7 @@
   other cast libraries.
 - **[Breaking]** Removed `Value.IsDefault` method.
 - **[Breaking]** Removed Load* functions.
-- **[Breaking]** Removed NewYAMLProviderFromReader* functions.
+- **[Breaking]** Unexport NewYAMLProviderFromReader* functions.
 
 ## v1.0.0-rc1 (26 Jun 2017)
 
