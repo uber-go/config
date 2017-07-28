@@ -12,6 +12,8 @@
 - **[Breaking]** `Value.WithDefault` returns an error when a default can't be used.
 - **[Breaking]** Try and As conversion helpers are removed in favor of using
   other cast libraries.
+- **[Breaking]** Cached provider is internal
+- **[Breaking]** `Value.ChildKeys` and `Value.LastUpdate` methods are removed
 
 ## v1.0.0-rc1 (26 Jun 2017)
 
