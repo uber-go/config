@@ -139,7 +139,7 @@ func NewYAMLProviderFromFiles(files ...string) (Provider, error) {
 		return nil, err
 	}
 
-	return NewCachedProvider(p)
+	return newCachedProvider(p)
 }
 
 // NewYAMLProviderWithExpand creates a configuration provider from a set of YAML
@@ -161,7 +161,7 @@ func NewYAMLProviderFromReader(readers ...io.ReadCloser) (Provider, error) {
 		return nil, err
 	}
 
-	return NewCachedProvider(p)
+	return newCachedProvider(p)
 }
 
 // NewYAMLProviderFromReaderWithExpand creates a configuration provider from
@@ -179,7 +179,7 @@ func NewYAMLProviderFromReaderWithExpand(
 		return nil, err
 	}
 
-	return NewCachedProvider(p)
+	return newCachedProvider(p)
 }
 
 // NewYAMLProviderFromBytes creates a config provider from a byte-backed YAML
@@ -196,7 +196,7 @@ func NewYAMLProviderFromBytes(yamls ...[]byte) (Provider, error) {
 		return nil, err
 	}
 
-	return NewCachedProvider(p)
+	return newCachedProvider(p)
 }
 
 func filesToReaders(files ...string) ([]io.ReadCloser, error) {
