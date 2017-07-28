@@ -23,7 +23,6 @@ package config
 import (
 	"bytes"
 	"io/ioutil"
-	"os"
 	"testing"
 
 	"strconv"
@@ -84,16 +83,6 @@ string: test string
 
 type arrayOfStructs struct {
 	Things []nested `yaml:"things"`
-}
-
-func setEnv(key, value string) func() {
-	res := func() { os.Unsetenv(key) }
-	if oldVal, ok := os.LookupEnv(key); ok {
-		res = func() { os.Setenv(key, oldVal) }
-	}
-
-	os.Setenv(key, value)
-	return res
 }
 
 func TestRootNodeConfig(t *testing.T) {
