@@ -23,6 +23,14 @@ package config
 import (
 	"bytes"
 	"io/ioutil"
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+	"os"
+	"path/filepath"
+=======
+>>>>>>> Remove unused test function
+>>>>>>> Remove unused test function
 	"testing"
 
 	"strconv"
