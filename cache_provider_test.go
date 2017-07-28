@@ -34,7 +34,7 @@ func TestCacheProviderName(t *testing.T) {
 	s, err := NewStaticProvider(nil)
 	require.NoError(t, err)
 
-	c, err := NewCachedProvider(s)
+	c, err := newCachedProvider(s)
 	require.NoError(t, err, "Can't create a cached provider")
 
 	assert.Equal(t, `cached "static"`, c.Name())
@@ -43,7 +43,7 @@ func TestCacheProviderName(t *testing.T) {
 func TestCachedProvider_ConstructorErrorsOnNil(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewCachedProvider(nil)
+	_, err := newCachedProvider(nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "received a nil provider")
 }
@@ -70,7 +70,7 @@ func TestCachedProvider_GetNewValues(t *testing.T) {
 		return NewValue(m, key, "Simpsons", true, nil)
 	}
 
-	p, err := NewCachedProvider(m)
+	p, err := newCachedProvider(m)
 	require.NoError(t, err, "Can't create a cached provider")
 
 	v := p.Get("cartoon")
@@ -97,7 +97,7 @@ func TestCachedProviderConcurrentUse(t *testing.T) {
 		return NewValue(m, key, "Simpsons", true, nil)
 	}
 
-	p, err := NewCachedProvider(m)
+	p, err := newCachedProvider(m)
 	require.NoError(t, err, "Can't create a cached provider")
 
 	wg := sync.WaitGroup{}

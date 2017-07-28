@@ -1022,7 +1022,6 @@ func TestAbsolutePaths(t *testing.T) {
 
 	val := p.Get("Imaginary")
 	assert.False(t, val.HasValue())
-	assert.Equal(t, time.Time{}, val.LastUpdated())
 }
 
 func TestPrivateAnonymousField(t *testing.T) {

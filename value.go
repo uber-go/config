@@ -38,7 +38,6 @@ type Value struct {
 	value        interface{}
 	found        bool
 	defaultValue interface{}
-	timestamp    time.Time
 }
 
 // NewValue creates a configuration value from a provider and a set
@@ -50,20 +49,13 @@ func NewValue(
 	found bool,
 	timestamp *time.Time,
 ) Value {
-	cv := Value{
+	return Value{
 		provider:     provider,
 		key:          key,
 		value:        value,
 		defaultValue: nil,
 		found:        found,
 	}
-
-	if timestamp == nil {
-		cv.timestamp = time.Now()
-	} else {
-		cv.timestamp = *timestamp
-	}
-	return cv
 }
 
 // Source returns a configuration provider's name.
@@ -72,14 +64,6 @@ func (cv Value) Source() string {
 		return ""
 	}
 	return cv.provider.Name()
-}
-
-// LastUpdated returns when the configuration value was last updated.
-func (cv Value) LastUpdated() time.Time {
-	if !cv.HasValue() {
-		return time.Time{} // zero value if never updated?
-	}
-	return cv.timestamp
 }
 
 // WithDefault sets the default value that can be overridden
@@ -93,31 +77,6 @@ func (cv Value) WithDefault(value interface{}) (Value, error) {
 
 	cv.root = NewProviderGroup("withDefault", p, cv.provider)
 	return cv, nil
-}
-
-// ChildKeys returns the child keys.
-func (cv Value) ChildKeys() []string {
-	var slice []interface{}
-	var res []string
-	if err := cv.Populate(&slice); err == nil {
-		for i := range slice {
-			res = append(res, fmt.Sprint(i))
-		}
-
-		return res
-	}
-
-	var m map[string]interface{}
-	if err := cv.Populate(&m); err != nil {
-		// got a scalar value => no child keys
-		return nil
-	}
-
-	for k := range m {
-		res = append(res, k)
-	}
-
-	return res
 }
 
 // String prints out underline value in Value with fmt.Sprint.
