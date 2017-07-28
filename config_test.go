@@ -22,10 +22,8 @@ package config
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"strconv"
@@ -96,120 +94,6 @@ func setEnv(key, value string) func() {
 
 	os.Setenv(key, value)
 	return res
-}
-
-func TestDefaultLoad(t *testing.T) {
-	assert := assert.New(t)
-	require.NoError(t, os.Mkdir("config", os.ModePerm))
-	defer func() { assert.NoError(os.Remove("config")) }()
-
-	base, err := os.Create(filepath.Join("config", "base.yaml"))
-	require.NoError(t, err)
-	defer func() { assert.NoError(os.Remove(base.Name())) }()
-
-	defer setEnv("PORT", "80")()
-	base.WriteString("commandline: false\nsource: base\ninterpolated: ${PORT:17}\n")
-	base.Close()
-
-	// Setup development.yaml
-	dev, err := os.Create(filepath.Join("config", "development.yaml"))
-	require.NoError(t, err)
-	defer func() { assert.NoError(os.Remove(dev.Name())) }()
-	fmt.Fprint(dev, "development: loaded")
-
-	// Setup secrets.yaml
-	sec, err := os.Create(filepath.Join("config", "secrets.yaml"))
-	require.NoError(t, err)
-	defer func() { assert.NoError(os.Remove(sec.Name())) }()
-	fmt.Fprint(sec, "secret: ${password:1111}")
-
-	p, err := LoadDefaults()
-	require.NoError(t, err)
-
-	var val map[string]interface{}
-	require.NoError(t, p.Get(Root).Populate(&val))
-	assert.Equal(5, len(val))
-	assert.Equal("base", p.Get("source").String())
-	assert.Equal("80", p.Get("interpolated").String())
-	assert.Equal("loaded", p.Get("development").String())
-	assert.Equal("${password:1111}", p.Get("secret").String())
-	assert.False(p.Get("roles").HasValue())
-}
-
-func TestDefaultLoadMultipleTimes(t *testing.T) {
-	assert := assert.New(t)
-	require.NoError(t, os.Mkdir("config", os.ModePerm))
-	defer func() { assert.NoError(os.Remove("config")) }()
-
-	base, err := os.Create(filepath.Join("config", "base.yaml"))
-	require.NoError(t, err)
-	defer func() { assert.NoError(os.Remove(base.Name())) }()
-
-	base.WriteString("source: base\ninterpolated: ${PORT:17}\n")
-	base.Close()
-	defer setEnv("PORT", "80")()
-	p, err := LoadDefaults()
-	require.NoError(t, err)
-	p, err = LoadDefaults()
-	require.NoError(t, err)
-
-	var val map[string]interface{}
-	require.NoError(t, p.Get(Root).Populate(&val))
-	assert.Equal(3, len(val))
-	assert.Equal("base", p.Get("source").String())
-	assert.Equal("80", p.Get("interpolated").String())
-	assert.True(p.Get("roles").HasValue())
-	assert.Empty(p.Get("roles").Value())
-}
-
-func TestDefaultLoadFailToLoadCommandLine(t *testing.T) {
-	assert := assert.New(t)
-	require.NoError(t, os.Mkdir("config", os.ModePerm))
-	defer func() { assert.NoError(os.Remove("config")) }()
-
-	base, err := os.Create(filepath.Join("config", "base.yaml"))
-	require.NoError(t, err)
-	defer func() { assert.NoError(os.Remove(base.Name())) }()
-
-	base.WriteString("commandLine: unconvertableBool\n")
-	require.NoError(t, base.Close())
-	_, err = LoadDefaults()
-	require.Error(t, err)
-	assert.Contains(err.Error(), `"unconvertableBool": invalid syntax`)
-}
-
-func TestLoadTestProvider(t *testing.T) {
-	assert := assert.New(t)
-	require.NoError(t, os.Mkdir("config", os.ModePerm))
-	defer func() { assert.NoError(os.Remove("config")) }()
-
-	base, err := os.Create(filepath.Join("config", "base.yaml"))
-	require.NoError(t, err)
-	defer func() { assert.NoError(os.Remove(base.Name())) }()
-
-	base.WriteString("source: base")
-	base.Close()
-
-	// Setup test.yaml
-	tst, err := os.Create(filepath.Join("config", "test.yaml"))
-	require.NoError(t, err)
-	defer func() { assert.NoError(os.Remove(tst.Name())) }()
-	fmt.Fprint(tst, "dir: ${CONFIG_DIR:test}")
-
-	p, err := LoadTestProvider()
-	require.NoError(t, err)
-	assert.Equal("base", p.Get("source").String())
-	assert.Equal("test", p.Get("dir").String())
-}
-
-func TestErrorWhenNoFilesLoaded(t *testing.T) {
-	dir, err := ioutil.TempDir("", "TestConfig")
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, os.Remove(dir)) }()
-
-	_, err = LoadFromFiles(nil, nil, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no providers were loaded")
 }
 
 func TestRootNodeConfig(t *testing.T) {
@@ -495,35 +379,4 @@ rpc:
 
 	require.NoError(t, v.Populate(cfg))
 	require.Equal(t, 4324, int(*cfg.Outbounds[0].TChannel.Port))
-}
-
-func TestLoadFromFiles(t *testing.T) {
-	t.Parallel()
-
-	withBase(t, func(dir string) {
-		_, err := LoadFromFiles(
-			[]string{dir},
-			[]FileInfo{{Name: "base.yaml", Interpolate: true}},
-			func(string) (string, bool) { return "", false },
-		)
-
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), `default is empty for "Email"`)
-	}, "${Email}")
-}
-
-func withBase(t *testing.T, f func(dir string), contents string) {
-	dir, err := ioutil.TempDir("", "TestConfig")
-	require.NoError(t, err)
-
-	defer func() { require.NoError(t, os.Remove(dir)) }()
-
-	base, err := os.Create(fmt.Sprintf("%s/base.yaml", dir))
-	require.NoError(t, err)
-	defer os.Remove(base.Name())
-
-	base.WriteString(contents)
-	base.Close()
-
-	f(dir)
 }
