@@ -371,7 +371,7 @@ func unmarshalYAMLValue(reader io.ReadCloser, value interface{}) error {
 // will be used.
 //
 // TODO: what if someone wanted a literal ${FOO} in config? need a small escape hatch
-func replace(lookUp LookUpFunc) func(in string) string {
+func replace(lookUp func(string) (string, bool)) func(in string) string {
 	return func(in string) string {
 		sep := strings.Index(in, _envSeparator)
 		var key string
