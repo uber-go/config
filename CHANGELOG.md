@@ -13,7 +13,7 @@
 - **[Breaking]** Try and As conversion helpers are removed in favor of using
   other cast libraries.
 - **[Breaking]** Removed `Value.IsDefault` method.
-- **[Breaking]** Removed Load* functions because they are too Uber specific.
+- **[Breaking]** Removed Load* functions.
 
 ## v1.0.0-rc1 (26 Jun 2017)
 
