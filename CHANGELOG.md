@@ -13,6 +13,7 @@
 - **[Breaking]** Try and As conversion helpers are removed in favor of using
   other cast libraries.
 - **[Breaking]** Removed Load* functions.
+- **[Breaking]** Removed NewYAMLProviderFromReader* functions.
 
 ## v1.0.0-rc1 (26 Jun 2017)
 
