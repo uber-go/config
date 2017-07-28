@@ -46,8 +46,8 @@ func NewProviderGroup(name string, providers ...Provider) Provider {
 //     update:fromA      update:fromB       update:fromB
 //                                          new:B
 //
-// * if A is a map and B is not, this function will panic,
-// e.g. key:value and -slice
+// * if A is a map and B is not, this function will return a Value with
+// an error inside.
 //
 // * in all the remaining cases B will overwrite A.
 func (p providerGroup) Get(key string) Value {
@@ -57,7 +57,7 @@ func (p providerGroup) Get(key string) Value {
 		if val := provider.Get(key); val.HasValue() {
 			tmp, err := mergeMaps(res, val.value)
 			if err != nil {
-				return NewValue(p, key, nil, false)
+				return NewValue(p, key, err, false, nil)
 			}
 
 			res = tmp

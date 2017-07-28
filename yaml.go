@@ -82,7 +82,8 @@ func newYAMLProviderCore(files ...io.ReadCloser) (*yamlConfigProvider, error) {
 //     update:fromA      update:fromB       update:fromB
 //                                          new:B
 //
-// * if A is a map and B is not, this function will panic, e.g. key:value and -slice
+// * if A is a map and B is not, this function will return an error,
+//   e.g. key:value and -slice.
 //
 // * in all the remaining cases B will overwrite A.
 func mergeMaps(dst interface{}, src interface{}) (interface{}, error) {

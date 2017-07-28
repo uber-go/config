@@ -119,4 +119,13 @@ func TestProviderGroupMergeFail(t *testing.T) {
 	g := NewProviderGroup("group", s, m)
 	v := g.Get("a")
 	assert.False(t, v.HasValue())
+
+	var a struct {
+		Field string
+	}
+
+	err = v.Populate(&a)
+	require.Error(t, err, "value has an error inside")
+	assert.Contains(t, err.Error(), `can't merge map[interface{}]interface{} and []interface {}`)
+	assert.Contains(t, err.Error(), `Source: map["b":"c"]. Destination: ["b"]`)
 }
