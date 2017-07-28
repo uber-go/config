@@ -357,7 +357,7 @@ rpc:
 		return "4324", true
 	}
 
-	p, err := NewYAMLProviderFromReaderWithExpand(
+	p, err := newYAMLProviderFromReaderWithExpand(
 		lookup,
 		ioutil.NopCloser(bytes.NewBufferString(rpc)))
 

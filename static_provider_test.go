@@ -351,7 +351,7 @@ func TestInterpolatedBool(t *testing.T) {
 		return "", false
 	}
 
-	p, err := NewYAMLProviderFromReaderWithExpand(
+	p, err := newYAMLProviderFromReaderWithExpand(
 		f,
 		ioutil.NopCloser(strings.NewReader("val: ${interpolate:false}")))
 
