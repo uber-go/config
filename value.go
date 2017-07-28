@@ -38,7 +38,6 @@ type Value struct {
 	value        interface{}
 	found        bool
 	defaultValue interface{}
-	timestamp    time.Time
 }
 
 // NewValue creates a configuration value from a provider and a set
@@ -48,22 +47,14 @@ func NewValue(
 	key string,
 	value interface{},
 	found bool,
-	timestamp *time.Time,
 ) Value {
-	cv := Value{
+	return Value{
 		provider:     provider,
 		key:          key,
 		value:        value,
 		defaultValue: nil,
 		found:        found,
 	}
-
-	if timestamp == nil {
-		cv.timestamp = time.Now()
-	} else {
-		cv.timestamp = *timestamp
-	}
-	return cv
 }
 
 // Source returns a configuration provider's name.
@@ -72,14 +63,6 @@ func (cv Value) Source() string {
 		return ""
 	}
 	return cv.provider.Name()
-}
-
-// LastUpdated returns when the configuration value was last updated.
-func (cv Value) LastUpdated() time.Time {
-	if !cv.HasValue() {
-		return time.Time{} // zero value if never updated?
-	}
-	return cv.timestamp
 }
 
 // WithDefault sets the default value that can be overridden
@@ -95,32 +78,7 @@ func (cv Value) WithDefault(value interface{}) (Value, error) {
 	return cv, nil
 }
 
-// ChildKeys returns the child keys.
-func (cv Value) ChildKeys() []string {
-	var slice []interface{}
-	var res []string
-	if err := cv.Populate(&slice); err == nil {
-		for i := range slice {
-			res = append(res, fmt.Sprint(i))
-		}
-
-		return res
-	}
-
-	var m map[string]interface{}
-	if err := cv.Populate(&m); err != nil {
-		// got a scalar value => no child keys
-		return nil
-	}
-
-	for k := range m {
-		res = append(res, k)
-	}
-
-	return res
-}
-
-// String prints out underline value in Value with fmt.Sprint.
+// String prints out underlying value in Value with fmt.Sprint.
 func (cv Value) String() string {
 	return fmt.Sprint(cv.Value())
 }
@@ -150,9 +108,9 @@ func (cv Value) Get(key string) Value {
 	return NewScopedProvider(cv.key, cv.provider).Get(key)
 }
 
-// this is a quick-and-dirty conversion method that only handles
+// convertValue is a quick-and-dirty conversion method that only handles
 // a couple of cases and complains if it finds one it doesn't like.
-// needs a bunch more cases.
+// TODO: This needs a lot more cases.
 func convertValue(value interface{}, targetType reflect.Type) (interface{}, error) {
 	valueType := reflect.TypeOf(value)
 	if valueType.AssignableTo(targetType) {
