@@ -21,56 +21,27 @@
 package config
 
 type providerGroup struct {
-	name      string
-	providers []Provider
+	Provider
+	name string
 }
 
 // NewProviderGroup creates a configuration provider from a group of providers.
 // The highest priority provider is the last.
-func NewProviderGroup(name string, providers ...Provider) Provider {
-	return providerGroup{
-		name:      name,
-		providers: providers,
-	}
-}
-
-// Get iterates through the providers and return the value merged from
-// underlying of providers.
-//
 // The merge strategy for two objects
 // from the first provider(A) and the last provider(B) is following:
-// * if A and B are maps, A and B will form a new map with keys from
+// If A and B are maps, A and B will form a new map with keys from
 // A and B and values from B will overwrite values of A. e.g.
 //   A:                B:                 merge(A, B):
 //     keep:A            new:B              keep:A
 //     update:fromA      update:fromB       update:fromB
 //                                          new:B
 //
-// * if A is a map and B is not, this function will return a Value with
+// If A is a map and B is not, this function will return a Value with
 // an error inside.
 //
-// * in all the remaining cases B will overwrite A.
-func (p providerGroup) Get(key string) Value {
-	var res interface{}
-	found := false
-	for _, provider := range p.providers {
-		if val := provider.Get(key); val.HasValue() {
-			tmp, err := mergeMaps(res, val.value)
-			if err != nil {
-				return NewValue(p, key, err, false, nil)
-			}
-
-			res = tmp
-			found = true
-		}
-	}
-
-	cv := NewValue(p, key, res, found)
-
-	// here we add a new root, which defines the "scope" at which
-	// Populates will look for values.
-	cv.root = p
-	return cv
+// In all the remaining cases B will overwrite A.
+func NewProviderGroup(name string, providers ...Provider) (Provider, error) {
+	return providerGroup{Provider: p, name: name}, nil
 }
 
 // Name returns the name this provider was created with.
