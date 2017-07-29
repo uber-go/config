@@ -238,7 +238,6 @@ func TestScopedAccess(t *testing.T) {
 
 	assert.True(t, v1.HasValue())
 	assert.Equal(t, 111, v1.Value())
-	assert.True(t, v2.IsDefault())
 	assert.True(t, v2.HasValue())
 	assert.Equal(t, v2.String(), "nope")
 }

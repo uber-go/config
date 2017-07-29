@@ -54,7 +54,7 @@ func (p providerGroup) Get(key string) Value {
 	var res interface{}
 	found := false
 	for _, provider := range p.providers {
-		if val := provider.Get(key); val.HasValue() && !val.IsDefault() {
+		if val := provider.Get(key); val.HasValue() {
 			tmp, err := mergeMaps(res, val.value)
 			if err != nil {
 				return NewValue(p, key, nil, false)

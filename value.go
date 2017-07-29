@@ -32,12 +32,11 @@ var _typeOfString = reflect.TypeOf("string")
 
 // A Value holds the value of a configuration
 type Value struct {
-	root         Provider
-	provider     Provider
-	key          string
-	value        interface{}
-	found        bool
-	defaultValue interface{}
+	root     Provider
+	provider Provider
+	key      string
+	value    interface{}
+	found    bool
 }
 
 // NewValue creates a configuration value from a provider and a set
@@ -49,11 +48,10 @@ func NewValue(
 	found bool,
 ) Value {
 	return Value{
-		provider:     provider,
-		key:          key,
-		value:        value,
-		defaultValue: nil,
-		found:        found,
+		provider: provider,
+		key:      key,
+		value:    value,
+		found:    found,
 	}
 }
 
@@ -68,14 +66,13 @@ func (cv Value) Source() string {
 // WithDefault sets the default value that can be overridden
 // by providers with a highger priority.
 func (cv Value) WithDefault(value interface{}) (Value, error) {
-	cv.defaultValue = value
 	p, err := NewStaticProvider(map[string]interface{}{cv.key: value})
 	if err != nil {
 		return cv, err
 	}
 
-	cv.root = NewProviderGroup("withDefault", p, cv.provider)
-	return cv, nil
+	g := NewProviderGroup("withDefault", p, cv.provider)
+	return g.Get(cv.key), nil
 }
 
 // String prints out underlying value in Value with fmt.Sprint.
@@ -83,24 +80,14 @@ func (cv Value) String() string {
 	return fmt.Sprint(cv.Value())
 }
 
-// IsDefault returns whether the return value is the default.
-func (cv Value) IsDefault() bool {
-	// TODO(ai) what should the semantics be if the provider has a value that's
-	// the same as the default value?
-	return !cv.found && cv.defaultValue != nil
-}
-
 // HasValue returns whether the configuration has a value that can be used.
 func (cv Value) HasValue() bool {
-	return cv.found || cv.IsDefault()
+	return cv.found
 }
 
 // Value returns the underlying configuration's value.
 func (cv Value) Value() interface{} {
-	if cv.found {
-		return cv.value
-	}
-	return cv.defaultValue
+	return cv.value
 }
 
 // Get returns a value scoped in the current value.
