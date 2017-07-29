@@ -322,6 +322,10 @@ func (n *yamlNode) Children() []*yamlNode {
 	return nodes
 }
 
+// Apply expand to all nested elements of a node.
+// There is no need to use reflectionYAML unmarshaler is using
+// map[interface{}]interface{} to store objects and []interface{}
+// to store collections.
 func recursiveApply(node interface{}, expand func(string) string) interface{} {
 	if node == nil {
 		return nil

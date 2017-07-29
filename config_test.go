@@ -387,3 +387,34 @@ rpc:
 	require.NoError(t, v.Populate(cfg))
 	require.Equal(t, 4324, int(*cfg.Outbounds[0].TChannel.Port))
 }
+
+func TestLoadFromFiles(t *testing.T) {
+	t.Parallel()
+
+	withBase(t, func(dir string) {
+		_, err := LoadFromFiles(
+			[]string{dir},
+			[]FileInfo{{Name: "base.yaml", Interpolate: true}},
+			func(string) (string, bool) { return "", false },
+		)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `default is empty for "Email"`)
+	}, "${Email}")
+}
+
+func withBase(t *testing.T, f func(dir string), contents string) {
+	dir, err := ioutil.TempDir("", "TestConfig")
+	require.NoError(t, err)
+
+	defer func() { require.NoError(t, os.Remove(dir)) }()
+
+	base, err := os.Create(fmt.Sprintf("%s/base.yaml", dir))
+	require.NoError(t, err)
+	defer os.Remove(base.Name())
+
+	base.WriteString(contents)
+	base.Close()
+
+	f(dir)
+}
