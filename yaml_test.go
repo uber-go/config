@@ -254,7 +254,9 @@ func withYamlBytes(yamlBytes []byte, f func(Provider), t *testing.T) {
 	y, err := NewYAMLProviderFromBytes(yamlBytes)
 	require.NoError(t, err, "Can't create a YAML provider")
 
-	provider := NewProviderGroup("global", y)
+	provider, err := NewProviderGroup("global", y)
+	require.NoError(t, err)
+
 	f(provider)
 }
 

@@ -71,7 +71,11 @@ func (cv Value) WithDefault(value interface{}) (Value, error) {
 		return cv, err
 	}
 
-	g := NewProviderGroup("withDefault", p, cv.provider)
+	g, err := NewProviderGroup("withDefault", p, cv.provider)
+	if err != nil {
+		return cv, err
+	}
+
 	return g.Get(cv.key), nil
 }
 

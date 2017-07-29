@@ -118,5 +118,5 @@ func LoadFromFiles(dirs []string, files []FileInfo, lookUp LookUpFunc) (Provider
 		return nil, errors.New("no providers were loaded")
 	}
 
-	return NewProviderGroup("files", providers...), nil
+	return NewProviderGroup("files", providers...)
 }

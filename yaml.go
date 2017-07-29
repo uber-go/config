@@ -322,6 +322,26 @@ func (n *yamlNode) Children() []*yamlNode {
 	return nodes
 }
 
+func recursiveApply(node interface{}, expand func(string) string) interface{} {
+	if node == nil {
+		return nil
+	}
+	switch t := node.(type) {
+	case map[interface{}]interface{}:
+		for k := range t {
+			t[k] = recursiveApply(t[k], expand)
+		}
+		return t
+	case []interface{}:
+		for i := range t {
+			t[i] = recursiveApply(t[i], expand)
+		}
+		return t
+	}
+
+	return os.Expand(fmt.Sprint(node), expand)
+}
+
 func (n *yamlNode) applyOnAllNodes(expand func(string) string) (err error) {
 
 	defer func() {
@@ -334,9 +354,7 @@ func (n *yamlNode) applyOnAllNodes(expand func(string) string) (err error) {
 		}
 	}()
 
-	if n.nodeType == valueNode && n.value != nil {
-		n.value = os.Expand(fmt.Sprint(n.value), expand)
-	}
+	n.value = recursiveApply(n.value, expand)
 
 	for _, c := range n.Children() {
 		if err := c.applyOnAllNodes(expand); err != nil {
