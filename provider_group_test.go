@@ -127,3 +127,14 @@ func TestProviderGroupMergeFail(t *testing.T) {
 	assert.Contains(t, err.Error(), `can't merge map[interface{}]interface{} and []interface {}`)
 	assert.Contains(t, err.Error(), `Source: map["b":"c"]. Destination: ["b"]`)
 }
+
+func TestProviderGroupFailToCreateStaticProvider(t *testing.T) {
+	t.Parallel()
+
+	v := &valueProvider{}
+	v.Value = NewValue(v, "", grumpyMarshalYAML{}, true)
+
+	_, err := NewProviderGroup("test", v)
+	require.Error(t, err, "should fail to marshal grumpy object")
+	assert.Contains(t, err.Error(), "grumpy")
+}
