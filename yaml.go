@@ -150,12 +150,12 @@ func NewYAMLProviderWithExpand(mapping func(string) (string, bool), files ...str
 		return nil, err
 	}
 
-	return NewYAMLProviderFromReaderWithExpand(mapping, readers...)
+	return newYAMLProviderFromReaderWithExpand(mapping, readers...)
 }
 
 // NewYAMLProviderFromReader creates a configuration provider from a list of io.ReadClosers.
 // As above, all the objects are going to be merged and arrays/values overridden in the order of the files.
-func NewYAMLProviderFromReader(readers ...io.ReadCloser) (Provider, error) {
+func newYAMLProviderFromReader(readers ...io.ReadCloser) (Provider, error) {
 	p, err := newYAMLProviderCore(readers...)
 	if err != nil {
 		return nil, err
@@ -167,7 +167,7 @@ func NewYAMLProviderFromReader(readers ...io.ReadCloser) (Provider, error) {
 // NewYAMLProviderFromReaderWithExpand creates a configuration provider from
 // a list of `io.ReadClosers and uses the mapping function to expand values
 // in the underlying provider.
-func NewYAMLProviderFromReaderWithExpand(
+func newYAMLProviderFromReaderWithExpand(
 	mapping func(string) (string, bool),
 	readers ...io.ReadCloser) (Provider, error) {
 	p, err := newYAMLProviderCore(readers...)

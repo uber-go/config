@@ -76,7 +76,7 @@ module:
   fake:
     number: ${FAKE_NUMBER:321}`)
 
-	p, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := newYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
 	require.NoError(t, err, "Can't create a YAML provider")
 	require.Equal(t, "321", p.Get("module.fake.number").String())
 
@@ -92,7 +92,7 @@ name: some name here
 email: ${EMAIL_ADDRESS}`)
 
 	f := func(string) (string, bool) { return "", false }
-	_, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	_, err := newYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `default is empty for "EMAIL_ADDRESS"`)
 }
@@ -105,7 +105,7 @@ name: some name here
 telephone: ${SUPPORT_TEL:}`)
 
 	f := func(string) (string, bool) { return "", false }
-	_, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	_, err := newYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `default is empty for "SUPPORT_TEL" (use "" for empty string)`)
@@ -119,7 +119,7 @@ func TestYAMLEnvInterpolationWithColon(t *testing.T) {
 		return "", false
 	}
 
-	p, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := newYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	require.Equal(t, "this:is:my:value", p.Get("fullValue").String())
@@ -133,7 +133,7 @@ name: ${APP_NAME:my shiny app}
 fullTel: 1-800-LOLZ${TELEPHONE_EXTENSION:""}`)
 
 	f := func(string) (string, bool) { return "", false }
-	p, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := newYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	require.Equal(t, "my shiny app", p.Get("name").String())
@@ -218,7 +218,7 @@ func TestNewYAMLProviderFromReader(t *testing.T) {
 	t.Parallel()
 
 	buff := bytes.NewBuffer([]byte(_yamlConfig1))
-	provider, err := NewYAMLProviderFromReader(ioutil.NopCloser(buff))
+	provider, err := newYAMLProviderFromReader(ioutil.NopCloser(buff))
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	cs := &configStruct{}
@@ -1193,7 +1193,7 @@ func TestYAMLEnvInterpolationValueMissing(t *testing.T) {
 	cfg := strings.NewReader(`name:`)
 
 	f := func(string) (string, bool) { return "", false }
-	p, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := newYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
 	require.NoError(t, err, "Can't create a YAML provider")
 	assert.Equal(t, nil, p.Get("name").Value())
 }
@@ -1208,7 +1208,7 @@ func TestYAMLEnvInterpolationValueConversion(t *testing.T) {
 		return "3", true
 	}
 
-	p, err := NewYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := newYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	assert.Equal(t, "3", p.Get("number").String())
@@ -1721,7 +1721,7 @@ func TestMergeErrorsFromReaders(t *testing.T) {
 		dev := ioutil.NopCloser(strings.NewReader(`a:
   b: c`))
 
-		_, err := NewYAMLProviderFromReader(base, dev)
+		_, err := newYAMLProviderFromReader(base, dev)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "can't merge map")
 	})
@@ -1734,7 +1734,7 @@ func TestMergeErrorsFromReaders(t *testing.T) {
 		dev := ioutil.NopCloser(strings.NewReader(`a:
   b: c`))
 
-		_, err := NewYAMLProviderFromReaderWithExpand(expand, base, dev)
+		_, err := newYAMLProviderFromReaderWithExpand(expand, base, dev)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "can't merge map")
 	})
@@ -1771,7 +1771,7 @@ func TestMergeErrorsFromFiles(t *testing.T) {
 		d, err := ioutil.ReadFile(dev.Name())
 		require.NoError(t, err, "Can't read dev file")
 
-		_, err = NewYAMLProviderFromReader(
+		_, err = newYAMLProviderFromReader(
 			ioutil.NopCloser(bytes.NewBuffer(b)),
 			ioutil.NopCloser(bytes.NewBuffer(d)))
 
@@ -1796,7 +1796,7 @@ func TestMergeErrorsFromFiles(t *testing.T) {
 
 		expand := func(string) (string, bool) { return "", false }
 
-		_, err = NewYAMLProviderFromReaderWithExpand(
+		_, err = newYAMLProviderFromReaderWithExpand(
 			expand,
 			ioutil.NopCloser(bytes.NewBuffer(b)),
 			ioutil.NopCloser(bytes.NewBuffer(d)))
