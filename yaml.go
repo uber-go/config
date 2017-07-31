@@ -73,19 +73,23 @@ func newYAMLProviderCore(files ...io.ReadCloser) (*yamlConfigProvider, error) {
 	}, nil
 }
 
-// We need to have a custom merge map because yamlV2 doesn't unmarshal `map[interface{}]map[interface{}]interface{}`
-// as we expect: it will replace second level maps with new maps on each unmarshal call, instead of merging them.
+// We need to have a custom merge map because yamlV2 doesn't unmarshal
+// `map[interface{}]map[interface{}]interface{}` as we expect: it will
+// replace second level maps with new maps on each unmarshal call,
+// instead of merging them.
+//
 // The merge strategy for two objects A and B is following:
-// * if A and B are maps, A and B will form a new map with keys from A and B and values from B will overwrite values of A. e.g.
+// If A and B are maps, A and B will form a new map with keys from A and B and
+// values from B will overwrite values of A. e.g.:
 //   A:                B:                 merge(A, B):
 //     keep:A            new:B              keep:A
 //     update:fromA      update:fromB       update:fromB
 //                                          new:B
 //
-// * if A is a map and B is not, this function will return an error,
-//   e.g. key:value and -slice.
+// If A is a map and B is not, this function will return an error,
+// e.g. key:value and -slice.
 //
-// * in all the remaining cases B will overwrite A.
+// In all the remaining cases B will overwrite A.
 func mergeMaps(dst interface{}, src interface{}) (interface{}, error) {
 	if dst == nil {
 		return src, nil

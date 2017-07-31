@@ -21,8 +21,8 @@
 package config
 
 type providerGroup struct {
-	Provider
-	name string
+	providers []Provider
+	name      string
 }
 
 // NewProviderGroup creates a configuration provider from a group of providers.

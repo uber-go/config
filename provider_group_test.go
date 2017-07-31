@@ -113,28 +113,3 @@ func TestProviderGroup_GetChecksAllProviders(t *testing.T) {
 	require.NoError(t, pg.Get(Root).Populate(&svc))
 	assert.Equal(t, map[string]string{"name": "fx", "owner": "tst@example.com", "desc": "test"}, svc)
 }
-
-func TestProviderGroupMergeFail(t *testing.T) {
-	t.Parallel()
-
-	m, err := NewStaticProvider(map[string]interface{}{"a": map[string]string{"b": "c"}})
-	require.NoError(t, err)
-	s, err := NewStaticProvider(map[string]interface{}{"a": []string{"b"}})
-	require.NoError(t, err)
-
-	_, err = NewProviderGroup("group", s, m)
-	require.Error(t, err, "value has an error inside")
-	assert.Contains(t, err.Error(), `can't merge map[interface{}]interface{} and []interface {}`)
-	assert.Contains(t, err.Error(), `Source: map["b":"c"]. Destination: ["b"]`)
-}
-
-func TestProviderGroupFailToCreateStaticProvider(t *testing.T) {
-	t.Parallel()
-
-	v := &valueProvider{}
-	v.Value = NewValue(v, "", grumpyMarshalYAML{}, true)
-
-	_, err := NewProviderGroup("test", v)
-	require.Error(t, err, "should fail to marshal grumpy object")
-	assert.Contains(t, err.Error(), "grumpy")
-}
