@@ -22,10 +22,7 @@ package config
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"strconv"
@@ -88,112 +85,6 @@ type arrayOfStructs struct {
 	Things []nested `yaml:"things"`
 }
 
-func setEnv(key, value string) func() {
-	res := func() { os.Unsetenv(key) }
-	if oldVal, ok := os.LookupEnv(key); ok {
-		res = func() { os.Setenv(key, oldVal) }
-	}
-
-	os.Setenv(key, value)
-	return res
-}
-
-func TestDefaultLoad(t *testing.T) {
-	assert := assert.New(t)
-	require.NoError(t, os.Mkdir("config", os.ModePerm))
-	defer func() { assert.NoError(os.Remove("config")) }()
-
-	base, err := os.Create(filepath.Join("config", "base.yaml"))
-	require.NoError(t, err)
-	defer func() { assert.NoError(os.Remove(base.Name())) }()
-
-	defer setEnv("PORT", "80")()
-	base.WriteString("source: base\ninterpolated: ${PORT:17}\n")
-	base.Close()
-
-	// Setup development.yaml
-	dev, err := os.Create(filepath.Join("config", "development.yaml"))
-	require.NoError(t, err)
-	defer func() { assert.NoError(os.Remove(dev.Name())) }()
-	fmt.Fprint(dev, "development: loaded")
-
-	// Setup secrets.yaml
-	sec, err := os.Create(filepath.Join("config", "secrets.yaml"))
-	require.NoError(t, err)
-	defer func() { assert.NoError(os.Remove(sec.Name())) }()
-	fmt.Fprint(sec, "secret: ${password:1111}")
-
-	p, err := LoadDefaults()
-	require.NoError(t, err)
-
-	var val map[string]interface{}
-	require.NoError(t, p.Get(Root).Populate(&val))
-	assert.Equal(4, len(val))
-	assert.Equal("base", p.Get("source").String())
-	assert.Equal("80", p.Get("interpolated").String())
-	assert.Equal("loaded", p.Get("development").String())
-	assert.Equal("${password:1111}", p.Get("secret").String())
-}
-
-func TestDefaultLoadMultipleTimes(t *testing.T) {
-	assert := assert.New(t)
-	require.NoError(t, os.Mkdir("config", os.ModePerm))
-	defer func() { assert.NoError(os.Remove("config")) }()
-
-	base, err := os.Create(filepath.Join("config", "base.yaml"))
-	require.NoError(t, err)
-	defer func() { assert.NoError(os.Remove(base.Name())) }()
-
-	defer setEnv("PORT", "80")()
-	base.WriteString("source: base\ninterpolated: ${PORT:17}\n")
-	base.Close()
-
-	p, err := LoadDefaults()
-	require.NoError(t, err)
-	p, err = LoadDefaults()
-	require.NoError(t, err)
-
-	var val map[string]interface{}
-	require.NoError(t, p.Get(Root).Populate(&val))
-	assert.Equal(2, len(val))
-	assert.Equal("base", p.Get("source").String())
-	assert.Equal("80", p.Get("interpolated").String())
-}
-
-func TestLoadTestProvider(t *testing.T) {
-	assert := assert.New(t)
-	require.NoError(t, os.Mkdir("config", os.ModePerm))
-	defer func() { assert.NoError(os.Remove("config")) }()
-
-	base, err := os.Create(filepath.Join("config", "base.yaml"))
-	require.NoError(t, err)
-	defer func() { assert.NoError(os.Remove(base.Name())) }()
-
-	base.WriteString("source: base")
-	base.Close()
-
-	// Setup test.yaml
-	tst, err := os.Create(filepath.Join("config", "test.yaml"))
-	require.NoError(t, err)
-	defer func() { assert.NoError(os.Remove(tst.Name())) }()
-	fmt.Fprint(tst, "dir: ${CONFIG_DIR:test}")
-
-	p, err := LoadTestProvider()
-	require.NoError(t, err)
-	assert.Equal("base", p.Get("source").String())
-	assert.Equal("test", p.Get("dir").String())
-}
-
-func TestErrorWhenNoFilesLoaded(t *testing.T) {
-	dir, err := ioutil.TempDir("", "TestConfig")
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, os.Remove(dir)) }()
-
-	_, err = LoadFromFiles(nil, nil, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no providers were loaded")
-}
-
 func TestRootNodeConfig(t *testing.T) {
 	t.Parallel()
 	txt := []byte(`
@@ -214,6 +105,7 @@ func TestDirectAccess(t *testing.T) {
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	provider := NewProviderGroup("test", p)
+	require.NoError(t, err)
 
 	v, err := provider.Get("n1.id1").WithDefault("xxx")
 	require.NoError(t, err, "Can't create a default value")
@@ -229,6 +121,7 @@ func TestScopedAccess(t *testing.T) {
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	provider := NewProviderGroup("test", p)
+	require.NoError(t, err)
 
 	p1 := provider.Get("n1")
 
@@ -249,6 +142,7 @@ func TestSimpleConfigValues(t *testing.T) {
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	provider := NewProviderGroup("test", p)
+	require.NoError(t, err)
 
 	assert.Equal(t, 123, provider.Get("int").Value())
 	assert.Equal(t, "test string", provider.Get("string").String())
@@ -272,6 +166,7 @@ func TestNestedStructs(t *testing.T) {
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	provider := NewProviderGroup("test", p)
+	require.NoError(t, err)
 
 	str := &root{}
 
@@ -295,6 +190,7 @@ func TestArrayOfStructs(t *testing.T) {
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	provider := NewProviderGroup("test", p)
+	require.NoError(t, err)
 
 	target := &arrayOfStructs{}
 
@@ -313,6 +209,8 @@ func TestDefault(t *testing.T) {
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	provider := NewProviderGroup("test", p)
+	require.NoError(t, err)
+
 	target := &nested{}
 	v := provider.Get(Root)
 	assert.True(t, v.HasValue())
@@ -465,7 +363,7 @@ rpc:
 		return "4324", true
 	}
 
-	p, err := NewYAMLProviderFromReaderWithExpand(
+	p, err := newYAMLProviderFromReaderWithExpand(
 		lookup,
 		ioutil.NopCloser(bytes.NewBufferString(rpc)))
 
@@ -476,35 +374,4 @@ rpc:
 
 	require.NoError(t, v.Populate(cfg))
 	require.Equal(t, 4324, int(*cfg.Outbounds[0].TChannel.Port))
-}
-
-func TestLoadFromFiles(t *testing.T) {
-	t.Parallel()
-
-	withBase(t, func(dir string) {
-		_, err := LoadFromFiles(
-			[]string{dir},
-			[]FileInfo{{Name: "base.yaml", Interpolate: true}},
-			func(string) (string, bool) { return "", false },
-		)
-
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), `default is empty for "Email"`)
-	}, "${Email}")
-}
-
-func withBase(t *testing.T, f func(dir string), contents string) {
-	dir, err := ioutil.TempDir("", "TestConfig")
-	require.NoError(t, err)
-
-	defer func() { require.NoError(t, os.Remove(dir)) }()
-
-	base, err := os.Create(fmt.Sprintf("%s/base.yaml", dir))
-	require.NoError(t, err)
-	defer os.Remove(base.Name())
-
-	base.WriteString(contents)
-	base.Close()
-
-	f(dir)
 }

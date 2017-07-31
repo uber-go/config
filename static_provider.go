@@ -41,7 +41,7 @@ func NewStaticProvider(data interface{}) (Provider, error) {
 		return nil, err
 	}
 
-	p, err := NewYAMLProviderFromReader(c)
+	p, err := newYAMLProviderFromReader(c)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func NewStaticProviderWithExpand(
 		return nil, err
 	}
 
-	p, err := NewYAMLProviderFromReaderWithExpand(mapping, reader)
+	p, err := newYAMLProviderFromReaderWithExpand(mapping, reader)
 	if err != nil {
 		return nil, err
 	}
