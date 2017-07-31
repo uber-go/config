@@ -10,6 +10,20 @@ Package `config` allows users to:
 * Get components working with minimal configuration
 * Override any field if the default doesn't make sense for their use case
 
+## Installation
+We recommend locking to [SemVer](http://semver.org/) range `^1` using
+[Glide](https://github.com/Masterminds/glide):
+
+```
+glide get 'go.uber.org/config#^1
+```
+
+## Stability
+
+This library is `v1` and follows [SemVer](http://semver.org/) strictly.
+
+No breaking changes will be made to exported APIs before `v2.0.0`.
+
 ## License
 
 [MIT](LICENSE.txt)
