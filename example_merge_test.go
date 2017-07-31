@@ -54,7 +54,10 @@ config:
 
 	// Provider is going to keep name from the base provider,
 	// but ports and pool values will be overridden by prod.
-	p := config.NewProviderGroup("merge", base, prod)
+	p, err := config.NewProviderGroup("merge", base, prod)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	var c struct {
 		Name  string

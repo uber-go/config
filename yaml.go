@@ -73,18 +73,23 @@ func newYAMLProviderCore(files ...io.ReadCloser) (*yamlConfigProvider, error) {
 	}, nil
 }
 
-// We need to have a custom merge map because yamlV2 doesn't unmarshal `map[interface{}]map[interface{}]interface{}`
-// as we expect: it will replace second level maps with new maps on each unmarshal call, instead of merging them.
+// We need to have a custom merge map because yamlV2 doesn't unmarshal
+// `map[interface{}]map[interface{}]interface{}` as we expect: it will
+// replace second level maps with new maps on each unmarshal call,
+// instead of merging them.
+//
 // The merge strategy for two objects A and B is following:
-// * if A and B are maps, A and B will form a new map with keys from A and B and values from B will overwrite values of A. e.g.
+// If A and B are maps, A and B will form a new map with keys from A and B and
+// values from B will overwrite values of A. e.g.:
 //   A:                B:                 merge(A, B):
 //     keep:A            new:B              keep:A
 //     update:fromA      update:fromB       update:fromB
 //                                          new:B
 //
-// * if A is a map and B is not, this function will panic, e.g. key:value and -slice
+// If A is a map and B is not, this function will return an error,
+// e.g. key:value and -slice.
 //
-// * in all the remaining cases B will overwrite A.
+// In all the remaining cases B will overwrite A.
 func mergeMaps(dst interface{}, src interface{}) (interface{}, error) {
 	if dst == nil {
 		return src, nil
@@ -321,6 +326,30 @@ func (n *yamlNode) Children() []*yamlNode {
 	return nodes
 }
 
+// Apply expand to all nested elements of a node.
+// There is no need to use reflection, because YAML unmarshaler is using
+// map[interface{}]interface{} to store objects and []interface{}
+// to store collections.
+func recursiveApply(node interface{}, expand func(string) string) interface{} {
+	if node == nil {
+		return nil
+	}
+	switch t := node.(type) {
+	case map[interface{}]interface{}:
+		for k := range t {
+			t[k] = recursiveApply(t[k], expand)
+		}
+		return t
+	case []interface{}:
+		for i := range t {
+			t[i] = recursiveApply(t[i], expand)
+		}
+		return t
+	}
+
+	return os.Expand(fmt.Sprint(node), expand)
+}
+
 func (n *yamlNode) applyOnAllNodes(expand func(string) string) (err error) {
 
 	defer func() {
@@ -333,9 +362,7 @@ func (n *yamlNode) applyOnAllNodes(expand func(string) string) (err error) {
 		}
 	}()
 
-	if n.nodeType == valueNode && n.value != nil {
-		n.value = os.Expand(fmt.Sprint(n.value), expand)
-	}
+	n.value = recursiveApply(n.value, expand)
 
 	for _, c := range n.Children() {
 		if err := c.applyOnAllNodes(expand); err != nil {

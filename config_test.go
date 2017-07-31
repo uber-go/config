@@ -104,7 +104,7 @@ func TestDirectAccess(t *testing.T) {
 	p, err := NewYAMLProviderFromBytes(nestedYaml)
 	require.NoError(t, err, "Can't create a YAML provider")
 
-	provider := NewProviderGroup("test", p)
+	provider, err := NewProviderGroup("test", p)
 	require.NoError(t, err)
 
 	v, err := provider.Get("n1.id1").WithDefault("xxx")
@@ -119,8 +119,7 @@ func TestScopedAccess(t *testing.T) {
 
 	p, err := NewYAMLProviderFromBytes(nestedYaml)
 	require.NoError(t, err, "Can't create a YAML provider")
-
-	provider := NewProviderGroup("test", p)
+	provider, err := NewProviderGroup("test", p)
 	require.NoError(t, err)
 
 	p1 := provider.Get("n1")
@@ -141,7 +140,7 @@ func TestSimpleConfigValues(t *testing.T) {
 	p, err := NewYAMLProviderFromBytes(yamlConfig3)
 	require.NoError(t, err, "Can't create a YAML provider")
 
-	provider := NewProviderGroup("test", p)
+	provider, err := NewProviderGroup("test", p)
 	require.NoError(t, err)
 
 	assert.Equal(t, 123, provider.Get("int").Value())
@@ -165,7 +164,7 @@ func TestNestedStructs(t *testing.T) {
 	p, err := NewYAMLProviderFromBytes(nestedYaml)
 	require.NoError(t, err, "Can't create a YAML provider")
 
-	provider := NewProviderGroup("test", p)
+	provider, err := NewProviderGroup("test", p)
 	require.NoError(t, err)
 
 	str := &root{}
@@ -189,7 +188,7 @@ func TestArrayOfStructs(t *testing.T) {
 	p, err := NewYAMLProviderFromBytes(structArrayYaml)
 	require.NoError(t, err, "Can't create a YAML provider")
 
-	provider := NewProviderGroup("test", p)
+	provider, err := NewProviderGroup("test", p)
 	require.NoError(t, err)
 
 	target := &arrayOfStructs{}
@@ -208,7 +207,7 @@ func TestDefault(t *testing.T) {
 	p, err := NewYAMLProviderFromBytes(nest1)
 	require.NoError(t, err, "Can't create a YAML provider")
 
-	provider := NewProviderGroup("test", p)
+	provider, err := NewProviderGroup("test", p)
 	require.NoError(t, err)
 
 	target := &nested{}
