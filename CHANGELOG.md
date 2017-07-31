@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.1 (unreleased)
+
+- No changes yet
+
 ## v1.0.0 (07-31-2017)
 
 First stable release: no breaking changes will be made in the 1.x series.
