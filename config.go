@@ -97,14 +97,14 @@ func LoadFromFiles(dirs []string, files []FileInfo, lookUp LookUpFunc) (Provider
 			}
 
 			if info.Interpolate {
-				p, err := NewYAMLProviderFromReaderWithExpand(lookUp, f)
+				p, err := newYAMLProviderFromReaderWithExpand(lookUp, f)
 				if err != nil {
 					return nil, err
 				}
 
 				providers = append(providers, p)
 			} else {
-				p, err := NewYAMLProviderFromReader(f)
+				p, err := newYAMLProviderFromReader(f)
 				if err != nil {
 					return nil, err
 				}
