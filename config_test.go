@@ -22,20 +22,9 @@ package config
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
 	"os"
-	"path/filepath"
-=======
->>>>>>> Remove unused test function
->>>>>>> Remove unused test function
-=======
-	"os"
-	"path/filepath"
->>>>>>> Merge providers in advance
 	"testing"
 
 	"strconv"

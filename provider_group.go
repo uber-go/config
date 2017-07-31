@@ -41,7 +41,30 @@ type providerGroup struct {
 //
 // In all the remaining cases B will overwrite A.
 func NewProviderGroup(name string, providers ...Provider) (Provider, error) {
-	return providerGroup{Provider: p, name: name}, nil
+	return providerGroup{providers: providers, name: name}, nil
+}
+
+func (p providerGroup) Get(key string) Value {
+	var res interface{}
+	found := false
+	for _, provider := range p.providers {
+		if val := provider.Get(key); val.HasValue() {
+			tmp, err := mergeMaps(res, val.value)
+			if err != nil {
+				return NewValue(p, key, nil, false)
+			}
+
+			res = tmp
+			found = true
+		}
+	}
+
+	cv := NewValue(p, key, res, found)
+
+	// here we add a new root, which defines the "scope" at which
+	// Populates will look for values.
+	cv.root = p
+	return cv
 }
 
 // Name returns the name this provider was created with.
