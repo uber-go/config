@@ -15,6 +15,7 @@
 - **[Breaking]** Removed `Value.IsDefault` method.
 - **[Breaking]** Removed Load* functions.
 - **[Breaking]** Unexport NewYAMLProviderFromReader* functions.
+- **[Breaking]** `NewProviderGroup` returns an error.
 
 ## v1.0.0-rc1 (26 Jun 2017)
 
