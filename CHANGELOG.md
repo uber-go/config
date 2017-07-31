@@ -12,6 +12,7 @@
 - **[Breaking]** `Value.WithDefault` returns an error when a default can't be used.
 - **[Breaking]** Try and As conversion helpers are removed in favor of using
   other cast libraries.
+- **[Breaking]** Removed `Value.IsDefault` method.
 
 ## v1.0.0-rc1 (26 Jun 2017)
 

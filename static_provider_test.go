@@ -62,7 +62,6 @@ func TestStaticProvider_WithData(t *testing.T) {
 
 	val := p.Get("hello")
 	assert.True(t, val.HasValue())
-	assert.False(t, val.IsDefault())
 	assert.Equal(t, "world", val.String())
 }
 
