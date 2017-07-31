@@ -1,23 +1,21 @@
-hash: a867686558437d6c4ee4a4f7985271f07e4dd82b0650067b36769a09f76bb0a9
-updated: 2017-07-26T10:43:55.775960678-07:00
+hash: bc86f2e1ca95a651be64c94f23db29be3b606272d03bc66bb8c8efca2b0a3545
+updated: 2017-07-31T12:01:52.034767994-07:00
 imports:
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
-- name: github.com/spf13/pflag
-  version: e57e3eeb33f795204c1ca35f56c44f83227c6e66
 - name: gopkg.in/validator.v2
   version: 07ffaad256c8e957050ad83d6472eb97d785013d
 - name: gopkg.in/yaml.v2
   version: 25c4ec802a7d637f88d584ab26798e94ad14c13b
 testImports:
 - name: github.com/davecgh/go-spew
-  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
+  version: adab96458c51a58dc1783b3335dcce5461522e75
   subpackages:
   - spew
 - name: github.com/google/gofuzz
   version: 24818f796faf91cd76ec7bddd72458fbced7a6c1
 - name: github.com/pmezard/go-difflib
-  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
+  version: 792786c7400a136282c1664665ae0a8db921c6c2
   subpackages:
   - difflib
 - name: github.com/spf13/cast
