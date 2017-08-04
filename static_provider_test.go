@@ -404,3 +404,12 @@ func TestStaticProviderConstructorErrors(t *testing.T) {
 		assert.Contains(t, err.Error(), `default is empty for "Email"`)
 	})
 }
+
+func TestTextUnmarshalerOnMissingValue(t *testing.T) {
+	t.Parallel()
+
+	p, err := NewStaticProvider(nil)
+	require.NoError(t, err)
+	ds := duckTales{}
+	require.NoError(t, p.Get(Root).Populate(&ds))
+}

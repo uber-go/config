@@ -564,6 +564,8 @@ func (d *decoder) tryUnmarshalers(key string, value reflect.Value, def string) (
 		// check if we need to use custom defaults
 		if v.HasValue() {
 			def = v.String()
+		} else {
+			return true, nil
 		}
 
 		return true, errorWithKey(t.UnmarshalText([]byte(def)), key)
