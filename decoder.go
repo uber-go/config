@@ -529,6 +529,10 @@ func jsonMap(v interface{}) interface{} {
 	return v
 }
 
+func skip(value *Value, def string) bool {
+	return !value.HasValue() && def == ""
+}
+
 // tryUnmarshallers checks if the value's type implements either one of standard
 // interfaces in order:
 // 1. `json.Unmarshaler`
@@ -548,8 +552,13 @@ func (d *decoder) tryUnmarshalers(key string, value reflect.Value, def string) (
 	switch t := value.Addr().Interface().(type) {
 	case json.Unmarshaler:
 		// Skip unmarshaling if there is no value.
-		if !v.HasValue() {
+		if skip(&v, def) {
 			return true, nil
+		}
+
+		// check if we need to use custom defaults
+		if !v.HasValue() {
+			return true, errorWithKey(t.UnmarshalJSON([]byte(def)), key)
 		}
 
 		// Marshal the value first.
@@ -561,18 +570,24 @@ func (d *decoder) tryUnmarshalers(key string, value reflect.Value, def string) (
 		// Unmarshal corresponding json.
 		return true, errorWithKey(t.UnmarshalJSON(b), key)
 	case encoding.TextUnmarshaler:
+		if skip(&v, def) {
+			return true, nil
+		}
+
 		// check if we need to use custom defaults
 		if v.HasValue() {
 			def = v.String()
-		} else {
-			return true, nil
 		}
 
 		return true, errorWithKey(t.UnmarshalText([]byte(def)), key)
 	case yaml.Unmarshaler:
-		// Skip unmarshaling if there is no value.
-		if !v.HasValue() {
+		if skip(&v, def) {
 			return true, nil
+		}
+
+		// check if we need to use custom defaults
+		if !v.HasValue() {
+			return true, errorWithKey(yaml.Unmarshal([]byte(def), value.Addr().Interface()), key)
 		}
 
 		b, err := yaml.Marshal(v.Value())
