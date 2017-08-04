@@ -529,7 +529,8 @@ func jsonMap(v interface{}) interface{} {
 	return v
 }
 
-func skip(value *Value, def string) bool {
+// Skip unmarshaling if there is no value in provider and default is empty.
+func shouldSkip(value *Value, def string) bool {
 	return !value.HasValue() && def == ""
 }
 
@@ -552,11 +553,11 @@ func (d *decoder) tryUnmarshalers(key string, value reflect.Value, def string) (
 	switch t := value.Addr().Interface().(type) {
 	case json.Unmarshaler:
 		// Skip unmarshaling if there is no value.
-		if skip(&v, def) {
+		if shouldSkip(&v, def) {
 			return true, nil
 		}
 
-		// check if we need to use custom defaults
+		// Use default if a value wasn't found.
 		if !v.HasValue() {
 			return true, errorWithKey(t.UnmarshalJSON([]byte(def)), key)
 		}
@@ -570,22 +571,22 @@ func (d *decoder) tryUnmarshalers(key string, value reflect.Value, def string) (
 		// Unmarshal corresponding json.
 		return true, errorWithKey(t.UnmarshalJSON(b), key)
 	case encoding.TextUnmarshaler:
-		if skip(&v, def) {
+		if shouldSkip(&v, def) {
 			return true, nil
 		}
 
-		// check if we need to use custom defaults
+		// Use default if a value wasn't found.
 		if v.HasValue() {
 			def = v.String()
 		}
 
 		return true, errorWithKey(t.UnmarshalText([]byte(def)), key)
 	case yaml.Unmarshaler:
-		if skip(&v, def) {
+		if shouldSkip(&v, def) {
 			return true, nil
 		}
 
-		// check if we need to use custom defaults
+		// Use default if a value wasn't found.
 		if !v.HasValue() {
 			return true, errorWithKey(yaml.Unmarshal([]byte(def), value.Addr().Interface()), key)
 		}
