@@ -921,6 +921,7 @@ func (m *unmarshallerFunc) UnmarshalText(text []byte) error {
 
 func TestHappyUnmarshallerChannelFunction(t *testing.T) {
 	t.Parallel()
+
 	type Chart struct {
 		Band unmarshallerChan `default:"Beatles"`
 		Song unmarshallerFunc `default:"back"`
@@ -1336,6 +1337,35 @@ func (y *yamlUnmarshal) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+func TestPopulateUnmarshalersWithDefaultsFromTags(t *testing.T) {
+	t.Parallel()
+
+	t.Run("JSON", func(t *testing.T) {
+		var j struct {
+			J jsonUnmarshaller `default:"explode"`
+		}
+
+		p, err := NewStaticProvider(nil)
+		require.NoError(t, err)
+
+		err = p.Get(Root).Populate(&j)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "boom")
+	})
+
+	t.Run("YAML", func(t *testing.T) {
+		var y struct {
+			Y yamlUnmarshal `default:"Fake: fake"`
+		}
+
+		p, err := NewStaticProvider(nil)
+		require.NoError(t, err)
+
+		err = p.Get(Root).Populate(&y)
+		require.NoError(t, err)
+		assert.Equal(t, yamlUnmarshal{Name: "Fake"}, y.Y)
+	})
+}
 func TestPopulateNotAppropriateTypes(t *testing.T) {
 	t.Parallel()
 
@@ -1673,6 +1703,7 @@ func TestArrayElementInDifferentPositions(t *testing.T) {
 a:
 - protagonist: Scrooge
   pilot: LaunchpadMcQuack
+- protagonist:
 `))
 
 		require.NoError(t, err, "Can't create a YAML provider")

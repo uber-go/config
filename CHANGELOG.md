@@ -1,10 +1,10 @@
 # Changelog
 
-## v1.0.1 (unreleased)
+## v1.0.1 (2017-08-04)
 
-- No changes yet
+- Fixed unmarshal text on missing value.
 
-## v1.0.0 (07-31-2017)
+## v1.0.0 (2017-07-31)
 
 First stable release: no breaking changes will be made in the 1.x series.
 
@@ -23,6 +23,6 @@ First stable release: no breaking changes will be made in the 1.x series.
 - **[Breaking]** Unexport NewYAMLProviderFromReader* functions.
 - **[Breaking]** `NewProviderGroup` returns an error.
 
-## v1.0.0-rc1 (06-26-2017)
+## v1.0.0-rc1 (2017-06-26)
 
 - **[Breaking]** `Provider` interface was trimmed down to 2 methods: `Name` and `Get`
