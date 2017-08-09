@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.1.0 (unreleased)
+
+- Expand functions transform a special sequence $$ to literal $.
+- The underlying objects encapsulated by config.Value types will now
+  have the types determined by the YAML unmarshaller regardless of
+  whether expansion was performed or not.
+
 ## v1.0.1 (2017-08-04)
 
 - Fixed unmarshal text on missing value.

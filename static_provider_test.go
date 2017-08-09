@@ -258,12 +258,16 @@ func TestStaticProviderWithExpand(t *testing.T) {
 	p, err := NewStaticProviderWithExpand(map[string]interface{}{
 		"slice": []interface{}{"one", "${iTwo:2}"},
 		"value": `${iValue:""}`,
+		"empty": `${iEmpty:""}`,
+		"two":   `${iTwo:2}`,
 		"map": map[string]interface{}{
 			"drink?": "${iMap:tea?}",
 			"tea?":   "with cream",
 		},
 	}, func(key string) (string, bool) {
 		switch key {
+		case "iEmpty":
+			return "\"\"", true
 		case "iValue":
 			return "null", true
 		case "iTwo":
@@ -279,10 +283,35 @@ func TestStaticProviderWithExpand(t *testing.T) {
 
 	assert.Equal(t, "one", p.Get("slice.0").String())
 	assert.Equal(t, "3", p.Get("slice.1").String())
-	assert.Equal(t, "null", p.Get("value").Value())
+	assert.Equal(t, nil, p.Get("value").Value())
+	assert.Equal(t, "", p.Get("empty").Value())
+	assert.Equal(t, int(3), p.Get("two").Value())
 
 	assert.Equal(t, "rum please!", p.Get("map.drink?").String())
 	assert.Equal(t, "with cream", p.Get("map.tea?").String())
+}
+
+func TestStaticProviderWithExpandEscapeHandling(t *testing.T) {
+	t.Parallel()
+
+	p, err := NewStaticProviderWithExpand(map[string]interface{}{
+		"nil":   "a",
+		"one":   "$a",
+		"two":   "$$a",
+		"three": "$$$a",
+		"four":  "$$$$a",
+		"five":  "$$$$$a",
+	}, func(key string) (string, bool) {
+		return fmt.Sprint(len(key)), true
+	})
+
+	require.NoError(t, err, "can't create a static provider")
+	assert.Equal(t, "a", p.Get("nil").String())
+	assert.Equal(t, "1", p.Get("one").String())
+	assert.Equal(t, "$a", p.Get("two").String())
+	assert.Equal(t, "$1", p.Get("three").String())
+	assert.Equal(t, "$$a", p.Get("four").String())
+	assert.Equal(t, "$$1", p.Get("five").String())
 }
 
 func TestPopulateForMapOfDifferentKeyTypes(t *testing.T) {

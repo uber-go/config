@@ -70,7 +70,7 @@ func TestYAMLEnvInterpolation(t *testing.T) {
 	}
 
 	cfg := strings.NewReader(`
-name: some name here
+name: some $$name here
 owner: ${OWNER_EMAIL}
 module:
   fake:
@@ -82,6 +82,9 @@ module:
 
 	owner := p.Get("owner").String()
 	require.Equal(t, "hello@there.yasss", owner)
+
+	name := p.Get("name").String()
+	require.Equal(t, "some $name here", name)
 }
 
 func TestYAMLEnvInterpolationMissing(t *testing.T) {

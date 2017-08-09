@@ -27,11 +27,11 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
+	"golang.org/x/text/transform"
 	"gopkg.in/yaml.v2"
 )
 
@@ -158,6 +158,18 @@ func NewYAMLProviderFromFiles(files ...string) (Provider, error) {
 
 // NewYAMLProviderWithExpand creates a configuration provider from a set of YAML
 // file names with ${var} or $var values replaced based on the mapping function.
+// Variable names not wrapped in curly braces will be parsed according
+// to the shell variable naming rules:
+//
+//     ...a word consisting solely of underscores, digits, and
+//     alphabetics from the portable character set. The first
+//     character of a name is not a digit.
+//
+// For variables wrapped in braces, all characters between '{' and '}'
+// will be passed to the expand function.  e.g. "${foo:13}" will cause
+// "foo:13" to be passed to the expand function.  The sequence '$$' will
+// be replaced by a literal '$'.  All other sequences will be ignored
+// for expansion purposes.
 func NewYAMLProviderWithExpand(mapping func(string) (string, bool), files ...string) (Provider, error) {
 	readClosers, err := filesToReaders(files...)
 	if err != nil {
@@ -199,16 +211,17 @@ func newYAMLProviderFromReader(readers ...io.Reader) (Provider, error) {
 func newYAMLProviderFromReaderWithExpand(
 	mapping func(string) (string, bool),
 	readers ...io.Reader) (Provider, error) {
-	p, err := newYAMLProviderCore(readers...)
-	if err != nil {
-		return nil, err
+
+	expandFunc := replace(mapping)
+
+	ereaders := make([]io.Reader, len(readers))
+	for i, reader := range readers {
+		ereaders[i] = transform.NewReader(
+			reader,
+			&expandTransformer{expand: expandFunc})
 	}
 
-	if err := p.root.applyOnAllNodes(replace(mapping)); err != nil {
-		return nil, err
-	}
-
-	return newCachedProvider(p)
+	return newYAMLProviderFromReader(ereaders...)
 }
 
 // NewYAMLProviderFromBytes creates a config provider from a byte-backed YAML
@@ -348,53 +361,6 @@ func (n *yamlNode) Children() []*yamlNode {
 	return nodes
 }
 
-// Apply expand to all nested elements of a node.
-// There is no need to use reflection, because YAML unmarshaler is using
-// map[interface{}]interface{} to store objects and []interface{}
-// to store collections.
-func recursiveApply(node interface{}, expand func(string) string) interface{} {
-	if node == nil {
-		return nil
-	}
-	switch t := node.(type) {
-	case map[interface{}]interface{}:
-		for k := range t {
-			t[k] = recursiveApply(t[k], expand)
-		}
-		return t
-	case []interface{}:
-		for i := range t {
-			t[i] = recursiveApply(t[i], expand)
-		}
-		return t
-	}
-
-	return os.Expand(fmt.Sprint(node), expand)
-}
-
-func (n *yamlNode) applyOnAllNodes(expand func(string) string) (err error) {
-
-	defer func() {
-		if r := recover(); r != nil {
-			if _, ok := r.(runtime.Error); ok {
-				panic(r)
-			}
-
-			err = r.(error)
-		}
-	}()
-
-	n.value = recursiveApply(n.value, expand)
-
-	for _, c := range n.Children() {
-		if err := c.applyOnAllNodes(expand); err != nil {
-			return err
-		}
-	}
-
-	return
-}
-
 func unmarshalYAMLValue(reader io.Reader, value interface{}) error {
 	raw, err := ioutil.ReadAll(reader)
 	if err != nil {
@@ -414,10 +380,8 @@ func unmarshalYAMLValue(reader io.Reader, value interface{}) error {
 //
 // In the case that HTTP_PORT is not provided, default value (in this case 8080)
 // will be used.
-//
-// TODO: what if someone wanted a literal ${FOO} in config? need a small escape hatch
-func replace(lookUp func(string) (string, bool)) func(in string) string {
-	return func(in string) string {
+func replace(lookUp func(string) (string, bool)) func(in string) (string, error) {
+	return func(in string) (string, error) {
 		sep := strings.Index(in, _envSeparator)
 		var key string
 		var def string
@@ -432,16 +396,16 @@ func replace(lookUp func(string) (string, bool)) func(in string) string {
 		}
 
 		if envVal, ok := lookUp(key); ok {
-			return envVal
+			return envVal, nil
 		}
 
 		if def == "" {
-			panic(fmt.Errorf(`default is empty for %q (use "" for empty string)`, key))
+			return "", fmt.Errorf(`default is empty for %q (use "" for empty string)`, key)
 		} else if def == _emptyDefault {
-			return ""
+			return "", nil
 		}
 
-		return def
+		return def, nil
 	}
 }
 
