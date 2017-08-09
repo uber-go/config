@@ -139,12 +139,7 @@ func NewYAMLProviderFromFiles(files ...string) (Provider, error) {
 		return nil, err
 	}
 
-	p, err := newYAMLProviderCore(readers...)
-	if err != nil {
-		return nil, err
-	}
-
-	return newCachedProvider(p)
+	return newYAMLProviderFromReader(readers...)
 }
 
 // NewYAMLProviderWithExpand creates a configuration provider from a set of YAML
@@ -196,12 +191,7 @@ func NewYAMLProviderFromBytes(yamls ...[]byte) (Provider, error) {
 		closers[i] = ioutil.NopCloser(bytes.NewReader(yml))
 	}
 
-	p, err := newYAMLProviderCore(closers...)
-	if err != nil {
-		return nil, err
-	}
-
-	return newCachedProvider(p)
+	return newYAMLProviderFromReader(closers...)
 }
 
 func filesToReaders(files ...string) ([]io.ReadCloser, error) {
