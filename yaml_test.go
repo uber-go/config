@@ -1745,6 +1745,31 @@ func TestNewYamlProviderWithExpand(t *testing.T) {
 	assert.Equal(t, "base_only", baseValue)
 }
 
+func TestYamlProvidersProduceSameResults(t *testing.T) {
+	t.Parallel()
+
+	p, err := NewYAMLProviderFromFiles("./testdata/base.yaml")
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	pp, err := NewYAMLProviderWithExpand(nil, "./testdata/base.yaml")
+	require.NoError(t, err, "Can't create a YAML provider with expand")
+
+	assert.IsType(t, true, p.Get("a-bool").Value())
+	assert.Exactly(t, p.Get("a-bool").Value(), pp.Get("a-bool").Value())
+	assert.IsType(t, "empty", p.Get("a-empty").Value())
+	assert.Exactly(t, p.Get("a-empty").Value(), pp.Get("a-empty").Value())
+	assert.IsType(t, float64(1.2), p.Get("a-float").Value())
+	assert.Exactly(t, p.Get("a-float").Value(), pp.Get("a-float").Value())
+	assert.IsType(t, int(12), p.Get("a-int").Value())
+	assert.Exactly(t, p.Get("a-int").Value(), pp.Get("a-int").Value())
+	assert.IsType(t, nil, p.Get("a-nil").Value())
+	assert.Exactly(t, p.Get("a-nil").Value(), pp.Get("a-nil").Value())
+	assert.IsType(t, nil, p.Get("a-null").Value())
+	assert.Exactly(t, p.Get("a-null").Value(), pp.Get("a-null").Value())
+	assert.IsType(t, "string", p.Get("a-string").Value())
+	assert.Exactly(t, p.Get("a-string").Value(), pp.Get("a-string").Value())
+}
+
 func TestMergeErrorsFromReaders(t *testing.T) {
 	t.Parallel()
 
