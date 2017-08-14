@@ -413,3 +413,15 @@ func TestTextUnmarshalerOnMissingValue(t *testing.T) {
 	ds := duckTales{}
 	require.NoError(t, p.Get(Root).Populate(&ds))
 }
+
+func TestPopulateNilPointer(t *testing.T) {
+	t.Parallel()
+
+	p, err := NewStaticProvider(13)
+	require.NoError(t, err)
+
+	var i *int
+	err = p.Get(Root).Populate(i)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `can't populate nil *int`)
+}
