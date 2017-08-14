@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.1.0 (not released yet)
+
+- No changes yet.
+
 ## v1.0.1 (2017-08-04)
 
 - Fixed unmarshal text on missing value.
