@@ -128,7 +128,12 @@ func (cv Value) Populate(target interface{}) error {
 		return fmt.Errorf("can't populate non pointer type %T", target)
 	}
 
+	ptr := reflect.Indirect(reflect.ValueOf(target))
+	if !ptr.IsValid() {
+		return fmt.Errorf("can't populate nil %T", target)
+	}
+
 	d := decoder{Value: &cv, m: make(map[interface{}]struct{})}
 
-	return d.unmarshal(cv.key, reflect.Indirect(reflect.ValueOf(target)), "")
+	return d.unmarshal(cv.key, ptr, "")
 }
