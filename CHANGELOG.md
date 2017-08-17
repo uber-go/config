@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.1.0 (not released yet)
+
+- No changes yet.
+
 ## v1.0.2 (2017-08-17)
 
 - Fixed populate panic for a nil pointer.
