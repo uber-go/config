@@ -1,8 +1,8 @@
 # Changelog
 
-## v1.1.0 (not released yet)
+## v1.0.3 (2017-08-25)
 
-- No changes yet.
+- Fixed compilation errors for `GOARCH=arm/x86`.
 
 ## v1.0.2 (2017-08-17)
 

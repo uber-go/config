@@ -73,7 +73,7 @@ func convertSignedInts(src interface{}, dst *reflect.Value) error {
 			return nil
 		}
 	case uintptr:
-		if t <= math.MaxInt64 && !dst.OverflowInt(int64(t)) {
+		if int64(t) <= math.MaxInt64 && !dst.OverflowInt(int64(t)) {
 			dst.SetInt(int64(t))
 			return nil
 		}
@@ -119,7 +119,7 @@ func convertUnsignedInts(src interface{}, dst *reflect.Value) error {
 			return nil
 		}
 	case uintptr:
-		if t <= math.MaxUint64 && !dst.OverflowUint(uint64(t)) {
+		if uint64(t) <= math.MaxUint64 && !dst.OverflowUint(uint64(t)) {
 			dst.SetUint(uint64(t))
 			return nil
 		}
