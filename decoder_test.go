@@ -23,6 +23,7 @@ package config
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"testing"
 
 	"github.com/google/gofuzz"
@@ -550,4 +551,16 @@ func TestAddKeyToErrorReturnsNilForNilErrors(t *testing.T) {
 	t.Parallel()
 
 	assert.NoError(t, errorWithKey(nil, "key"))
+}
+
+func TestLargeUintPtr(t *testing.T) {
+	t.Parallel()
+
+	var m uint64 = math.MaxUint32
+	v := reflect.New(reflect.TypeOf(int32(1))).Elem()
+	require.Error(t, convertSignedInts(uintptr(m), &v))
+
+	m = math.MaxInt32
+	require.NoError(t, convertSignedInts(uintptr(m), &v))
+	assert.Equal(t, int32(m), v.Interface())
 }
