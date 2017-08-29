@@ -8,7 +8,7 @@ go:
   - 1.8.x
 
 install:
-  - make install
+  - make dependencies
 
 script:
   - make ci

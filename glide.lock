@@ -1,5 +1,5 @@
-hash: bc86f2e1ca95a651be64c94f23db29be3b606272d03bc66bb8c8efca2b0a3545
-updated: 2017-07-31T12:01:52.034767994-07:00
+hash: 1821d99ebba79cd53d3322b4876cc0f19f1983a9e6a5d7996e4bb7ad0f829ddd
+updated: 2017-08-29T15:52:10.253407459-07:00
 imports:
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
@@ -12,6 +12,10 @@ testImports:
   version: adab96458c51a58dc1783b3335dcce5461522e75
   subpackages:
   - spew
+- name: github.com/golang/lint
+  version: c5fb716d6688a859aae56d26d3e6070808df29f7
+  subpackages:
+  - golint
 - name: github.com/google/gofuzz
   version: 24818f796faf91cd76ec7bddd72458fbced7a6c1
 - name: github.com/pmezard/go-difflib
