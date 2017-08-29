@@ -5,7 +5,8 @@ go_import_path: go.uber.org/config
 go:
   - 1.7
   - 1.8
-  - 1.8.x
+  - 1.9
+  - tip
 
 install:
   - make install
