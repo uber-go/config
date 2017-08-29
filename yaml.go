@@ -44,7 +44,7 @@ var (
 	_emptyDefault = `""`
 )
 
-func newYAMLProviderCore(files ...io.ReadCloser) (*yamlConfigProvider, error) {
+func newYAMLProviderCore(files ...io.Reader) (*yamlConfigProvider, error) {
 	var root interface{}
 	for _, v := range files {
 		var curr interface{}
@@ -134,28 +134,57 @@ func mergeMaps(dst interface{}, src interface{}) (interface{}, error) {
 // file names. All the objects are going to be merged and arrays/values
 // overridden in the order of the files.
 func NewYAMLProviderFromFiles(files ...string) (Provider, error) {
-	readers, err := filesToReaders(files...)
+	readClosers, err := filesToReaders(files...)
 	if err != nil {
 		return nil, err
 	}
 
-	return newYAMLProviderFromReader(readers...)
+	readers := make([]io.Reader, len(readClosers))
+	for i, r := range readClosers {
+		readers[i] = r
+	}
+
+	provider, err := newYAMLProviderFromReader(readers...)
+
+	for _, r := range readClosers {
+		nerr := r.Close()
+		if err == nil {
+			err = nerr
+		}
+	}
+
+	return provider, err
 }
 
 // NewYAMLProviderWithExpand creates a configuration provider from a set of YAML
 // file names with ${var} or $var values replaced based on the mapping function.
 func NewYAMLProviderWithExpand(mapping func(string) (string, bool), files ...string) (Provider, error) {
-	readers, err := filesToReaders(files...)
+	readClosers, err := filesToReaders(files...)
 	if err != nil {
 		return nil, err
 	}
 
-	return newYAMLProviderFromReaderWithExpand(mapping, readers...)
+	readers := make([]io.Reader, len(readClosers))
+	for i, r := range readClosers {
+		readers[i] = r
+	}
+
+	provider, err := newYAMLProviderFromReaderWithExpand(mapping,
+		readers...)
+
+	for _, r := range readClosers {
+		nerr := r.Close()
+		if err == nil {
+			err = nerr
+		}
+	}
+
+	return provider, err
 }
 
-// NewYAMLProviderFromReader creates a configuration provider from a list of io.ReadClosers.
+// NewYAMLProviderFromReader creates a configuration provider from a list of io.Readers.
 // As above, all the objects are going to be merged and arrays/values overridden in the order of the files.
-func newYAMLProviderFromReader(readers ...io.ReadCloser) (Provider, error) {
+func newYAMLProviderFromReader(readers ...io.Reader) (Provider, error) {
 	p, err := newYAMLProviderCore(readers...)
 	if err != nil {
 		return nil, err
@@ -165,11 +194,11 @@ func newYAMLProviderFromReader(readers ...io.ReadCloser) (Provider, error) {
 }
 
 // NewYAMLProviderFromReaderWithExpand creates a configuration provider from
-// a list of `io.ReadClosers and uses the mapping function to expand values
+// a list of `io.Readers and uses the mapping function to expand values
 // in the underlying provider.
 func newYAMLProviderFromReaderWithExpand(
 	mapping func(string) (string, bool),
-	readers ...io.ReadCloser) (Provider, error) {
+	readers ...io.Reader) (Provider, error) {
 	p, err := newYAMLProviderCore(readers...)
 	if err != nil {
 		return nil, err
@@ -186,12 +215,12 @@ func newYAMLProviderFromReaderWithExpand(
 // blobs. As above, all the objects are going to be merged and arrays/values
 // overridden in the order of the yamls.
 func NewYAMLProviderFromBytes(yamls ...[]byte) (Provider, error) {
-	closers := make([]io.ReadCloser, len(yamls))
+	readers := make([]io.Reader, len(yamls))
 	for i, yml := range yamls {
-		closers[i] = ioutil.NopCloser(bytes.NewReader(yml))
+		readers[i] = bytes.NewReader(yml)
 	}
 
-	return newYAMLProviderFromReader(closers...)
+	return newYAMLProviderFromReader(readers...)
 }
 
 func filesToReaders(files ...string) ([]io.ReadCloser, error) {
@@ -200,6 +229,9 @@ func filesToReaders(files ...string) ([]io.ReadCloser, error) {
 
 	for _, v := range files {
 		if reader, err := os.Open(v); err != nil {
+			for _, r := range readers {
+				r.Close()
+			}
 			return nil, err
 		} else if reader != nil {
 			readers = append(readers, reader)
@@ -363,17 +395,13 @@ func (n *yamlNode) applyOnAllNodes(expand func(string) string) (err error) {
 	return
 }
 
-func unmarshalYAMLValue(reader io.ReadCloser, value interface{}) error {
+func unmarshalYAMLValue(reader io.Reader, value interface{}) error {
 	raw, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return errors.Wrap(err, "failed to read the yaml config")
 	}
 
-	if err = yaml.Unmarshal(raw, value); err != nil {
-		return err
-	}
-
-	return reader.Close()
+	return yaml.Unmarshal(raw, value)
 }
 
 // Function to expand environment variables in returned values that have form: ${ENV_VAR:DEFAULT_VALUE}.

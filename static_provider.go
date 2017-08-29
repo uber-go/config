@@ -23,7 +23,6 @@ package config
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 
 	"gopkg.in/yaml.v2"
 )
@@ -36,7 +35,7 @@ type staticProvider struct {
 // accessed via Get method. It is using the yaml marshaler to encode data first,
 // and is subject to panic if data contains a fixed sized array.
 func NewStaticProvider(data interface{}) (Provider, error) {
-	c, err := toReadCloser(data)
+	c, err := toReader(data)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +53,7 @@ func NewStaticProvider(data interface{}) (Provider, error) {
 func NewStaticProviderWithExpand(
 	data interface{},
 	mapping func(string) (string, bool)) (Provider, error) {
-	reader, err := toReadCloser(data)
+	reader, err := toReader(data)
 	if err != nil {
 		return nil, err
 	}
@@ -72,11 +71,11 @@ func (staticProvider) Name() string {
 	return "static"
 }
 
-func toReadCloser(data interface{}) (io.ReadCloser, error) {
+func toReader(data interface{}) (io.Reader, error) {
 	b, err := yaml.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
 
-	return ioutil.NopCloser(bytes.NewBuffer(b)), nil
+	return bytes.NewBuffer(b), nil
 }
