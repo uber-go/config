@@ -1,5 +1,5 @@
-hash: 1821d99ebba79cd53d3322b4876cc0f19f1983a9e6a5d7996e4bb7ad0f829ddd
-updated: 2017-08-29T15:52:10.253407459-07:00
+hash: 646bec3ae13e405817948cf1d1b41794d5572f27d53f0c72c236cb6c281ef9ab
+updated: 2017-08-29T16:23:04.088788375-07:00
 imports:
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
@@ -33,3 +33,7 @@ testImports:
   version: ce2550dad7144b81ae2f67dc5e55597643f6902b
   subpackages:
   - update-license
+- name: golang.org/x/tools
+  version: 2d19ab38faf14664c76088411c21bf4fafea960b
+  subpackages:
+  - cover
