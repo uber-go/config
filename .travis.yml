@@ -1,14 +1,15 @@
 language: go
+sudo: false
 
 go_import_path: go.uber.org/config
 
 go:
-  - 1.7
   - 1.8
   - 1.9
+  - tip
 
 install:
-  - make install
+  - make dependencies
 
 script:
   - make ci
