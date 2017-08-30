@@ -57,7 +57,7 @@ func derefType(t reflect.Type) reflect.Type {
 
 func convertSignedInts(src interface{}, dst *reflect.Value) error {
 	switch t := src.(type) {
-	case int, uint, int8, uint8, int16, uint16, int32, uint32, int64:
+	case int, uint, int8, uint8, int16, uint16, int32, uint32, int64, uint64, uintptr:
 		i, err := strconv.ParseInt(fmt.Sprint(t), 10, 64)
 		if err != nil {
 			return err
@@ -65,16 +65,6 @@ func convertSignedInts(src interface{}, dst *reflect.Value) error {
 
 		if !dst.OverflowInt(i) {
 			dst.SetInt(i)
-			return nil
-		}
-	case uint64:
-		if t <= math.MaxInt64 {
-			dst.SetInt(int64(t))
-			return nil
-		}
-	case uintptr:
-		if t <= math.MaxInt64 && !dst.OverflowInt(int64(t)) {
-			dst.SetInt(int64(t))
 			return nil
 		}
 	case float32:
@@ -104,23 +94,13 @@ func convertSignedInts(src interface{}, dst *reflect.Value) error {
 
 func convertUnsignedInts(src interface{}, dst *reflect.Value) error {
 	switch t := src.(type) {
-	case int, uint, int8, uint8, int16, uint16, int32, uint32, int64:
+	case int, uint, int8, uint8, int16, uint16, int32, uint32, int64, uint64, uintptr:
 		i, err := strconv.ParseInt(fmt.Sprint(t), 10, 64)
 		if err != nil {
 			return err
 		}
 		if i >= 0 && !dst.OverflowUint(uint64(i)) {
 			dst.SetUint(uint64(i))
-			return nil
-		}
-	case uint64:
-		if !dst.OverflowUint(t) {
-			dst.SetUint(t)
-			return nil
-		}
-	case uintptr:
-		if t <= math.MaxUint64 && !dst.OverflowUint(uint64(t)) {
-			dst.SetUint(uint64(t))
 			return nil
 		}
 	case float32:
