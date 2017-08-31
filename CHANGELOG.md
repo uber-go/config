@@ -2,7 +2,10 @@
 
 ## v1.1.0 (not released yet)
 
-- No changes yet.
+- Expand functions transform a special sequence $$ to literal $.
+- The underlying objects encapsulated by config.Value types will now
+  have the types determined by the YAML unmarshaller regardless of
+  whether expansion was performed or not.
 
 ## v1.0.2 (2017-08-17)
 

@@ -70,18 +70,21 @@ func TestYAMLEnvInterpolation(t *testing.T) {
 	}
 
 	cfg := strings.NewReader(`
-name: some name here
+name: some $$name here
 owner: ${OWNER_EMAIL}
 module:
   fake:
     number: ${FAKE_NUMBER:321}`)
 
-	p, err := newYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := newYAMLProviderFromReaderWithExpand(f, cfg)
 	require.NoError(t, err, "Can't create a YAML provider")
 	require.Equal(t, "321", p.Get("module.fake.number").String())
 
 	owner := p.Get("owner").String()
 	require.Equal(t, "hello@there.yasss", owner)
+
+	name := p.Get("name").String()
+	require.Equal(t, "some $name here", name)
 }
 
 func TestYAMLEnvInterpolationMissing(t *testing.T) {
@@ -92,7 +95,7 @@ name: some name here
 email: ${EMAIL_ADDRESS}`)
 
 	f := func(string) (string, bool) { return "", false }
-	_, err := newYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	_, err := newYAMLProviderFromReaderWithExpand(f, cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `default is empty for "EMAIL_ADDRESS"`)
 }
@@ -105,7 +108,7 @@ name: some name here
 telephone: ${SUPPORT_TEL:}`)
 
 	f := func(string) (string, bool) { return "", false }
-	_, err := newYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	_, err := newYAMLProviderFromReaderWithExpand(f, cfg)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `default is empty for "SUPPORT_TEL" (use "" for empty string)`)
@@ -119,7 +122,7 @@ func TestYAMLEnvInterpolationWithColon(t *testing.T) {
 		return "", false
 	}
 
-	p, err := newYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := newYAMLProviderFromReaderWithExpand(f, cfg)
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	require.Equal(t, "this:is:my:value", p.Get("fullValue").String())
@@ -133,7 +136,7 @@ name: ${APP_NAME:my shiny app}
 fullTel: 1-800-LOLZ${TELEPHONE_EXTENSION:""}`)
 
 	f := func(string) (string, bool) { return "", false }
-	p, err := newYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := newYAMLProviderFromReaderWithExpand(f, cfg)
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	require.Equal(t, "my shiny app", p.Get("name").String())
@@ -218,7 +221,7 @@ func TestNewYAMLProviderFromReader(t *testing.T) {
 	t.Parallel()
 
 	buff := bytes.NewBuffer([]byte(_yamlConfig1))
-	provider, err := newYAMLProviderFromReader(ioutil.NopCloser(buff))
+	provider, err := newYAMLProviderFromReader(buff)
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	cs := &configStruct{}
@@ -232,7 +235,7 @@ func TestYAMLNode(t *testing.T) {
 
 	buff := bytes.NewBuffer([]byte("a: b"))
 	node := &yamlNode{value: make(map[interface{}]interface{})}
-	require.NoError(t, unmarshalYAMLValue(ioutil.NopCloser(buff), &node.value))
+	require.NoError(t, unmarshalYAMLValue(buff, &node.value))
 
 	assert.Equal(t, "map[a:b]", node.String())
 	assert.Equal(t, "map[interface {}]interface {}", node.Type().String())
@@ -1196,7 +1199,7 @@ func TestYAMLEnvInterpolationValueMissing(t *testing.T) {
 	cfg := strings.NewReader(`name:`)
 
 	f := func(string) (string, bool) { return "", false }
-	p, err := newYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := newYAMLProviderFromReaderWithExpand(f, cfg)
 	require.NoError(t, err, "Can't create a YAML provider")
 	assert.Equal(t, nil, p.Get("name").Value())
 }
@@ -1211,7 +1214,7 @@ func TestYAMLEnvInterpolationValueConversion(t *testing.T) {
 		return "3", true
 	}
 
-	p, err := newYAMLProviderFromReaderWithExpand(f, ioutil.NopCloser(cfg))
+	p, err := newYAMLProviderFromReaderWithExpand(f, cfg)
 	require.NoError(t, err, "Can't create a YAML provider")
 
 	assert.Equal(t, "3", p.Get("number").String())
@@ -1745,14 +1748,39 @@ func TestNewYamlProviderWithExpand(t *testing.T) {
 	assert.Equal(t, "base_only", baseValue)
 }
 
+func TestYamlProvidersProduceSameResults(t *testing.T) {
+	t.Parallel()
+
+	p, err := NewYAMLProviderFromFiles("./testdata/base.yaml")
+	require.NoError(t, err, "Can't create a YAML provider")
+
+	pp, err := NewYAMLProviderWithExpand(nil, "./testdata/base.yaml")
+	require.NoError(t, err, "Can't create a YAML provider with expand")
+
+	assert.IsType(t, true, p.Get("a-bool").Value())
+	assert.Exactly(t, p.Get("a-bool").Value(), pp.Get("a-bool").Value())
+	assert.IsType(t, "empty", p.Get("a-empty").Value())
+	assert.Exactly(t, p.Get("a-empty").Value(), pp.Get("a-empty").Value())
+	assert.IsType(t, float64(1.2), p.Get("a-float").Value())
+	assert.Exactly(t, p.Get("a-float").Value(), pp.Get("a-float").Value())
+	assert.IsType(t, int(12), p.Get("a-int").Value())
+	assert.Exactly(t, p.Get("a-int").Value(), pp.Get("a-int").Value())
+	assert.IsType(t, nil, p.Get("a-nil").Value())
+	assert.Exactly(t, p.Get("a-nil").Value(), pp.Get("a-nil").Value())
+	assert.IsType(t, nil, p.Get("a-null").Value())
+	assert.Exactly(t, p.Get("a-null").Value(), pp.Get("a-null").Value())
+	assert.IsType(t, "string", p.Get("a-string").Value())
+	assert.Exactly(t, p.Get("a-string").Value(), pp.Get("a-string").Value())
+}
+
 func TestMergeErrorsFromReaders(t *testing.T) {
 	t.Parallel()
 
 	t.Run("regular", func(t *testing.T) {
-		base := ioutil.NopCloser(strings.NewReader(`a:
-  - b`))
-		dev := ioutil.NopCloser(strings.NewReader(`a:
-  b: c`))
+		base := strings.NewReader(`a:
+  - b`)
+		dev := strings.NewReader(`a:
+  b: c`)
 
 		_, err := newYAMLProviderFromReader(base, dev)
 		require.Error(t, err)
@@ -1762,10 +1790,10 @@ func TestMergeErrorsFromReaders(t *testing.T) {
 	t.Run("expand", func(t *testing.T) {
 		expand := func(string) (string, bool) { return "", false }
 
-		base := ioutil.NopCloser(strings.NewReader(`a:
-  - b`))
-		dev := ioutil.NopCloser(strings.NewReader(`a:
-  b: c`))
+		base := strings.NewReader(`a:
+  - b`)
+		dev := strings.NewReader(`a:
+  b: c`)
 
 		_, err := newYAMLProviderFromReaderWithExpand(expand, base, dev)
 		require.Error(t, err)
@@ -1805,8 +1833,8 @@ func TestMergeErrorsFromFiles(t *testing.T) {
 		require.NoError(t, err, "Can't read dev file")
 
 		_, err = newYAMLProviderFromReader(
-			ioutil.NopCloser(bytes.NewBuffer(b)),
-			ioutil.NopCloser(bytes.NewBuffer(d)))
+			bytes.NewBuffer(b),
+			bytes.NewBuffer(d))
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "can't merge map")
@@ -1831,8 +1859,8 @@ func TestMergeErrorsFromFiles(t *testing.T) {
 
 		_, err = newYAMLProviderFromReaderWithExpand(
 			expand,
-			ioutil.NopCloser(bytes.NewBuffer(b)),
-			ioutil.NopCloser(bytes.NewBuffer(d)))
+			bytes.NewBuffer(b),
+			bytes.NewBuffer(d))
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "can't merge map")
@@ -1843,13 +1871,15 @@ func TestYAMLProviderWithGarbledPath(t *testing.T) {
 	t.Parallel()
 
 	t.Run("regular", func(t *testing.T) {
-		_, err := NewYAMLProviderFromFiles("/some/nonexisting/config")
+		_, err := NewYAMLProviderFromFiles("./testdata/base.yaml",
+			"/some/nonexisting/config")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no such file or directory")
 	})
 
 	t.Run("expand", func(t *testing.T) {
-		_, err := NewYAMLProviderWithExpand(nil, "/some/nonexisting/config")
+		_, err := NewYAMLProviderWithExpand(nil, "./testdata/base.yaml",
+			"/some/nonexisting/config")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no such file or directory")
 	})
