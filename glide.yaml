@@ -4,6 +4,9 @@ import:
 - package: gopkg.in/yaml.v2
 - package: github.com/pkg/errors
   version: ~0.8.0
+- package: golang.org/x/text
+  subpackages:
+  - transform
 testImport:
 - package: github.com/google/gofuzz
 - package: github.com/stretchr/testify
