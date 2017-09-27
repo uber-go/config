@@ -236,6 +236,20 @@ func NewYAMLProviderFromBytes(yamls ...[]byte) (Provider, error) {
 	return newYAMLProviderFromReader(readers...)
 }
 
+// NewYAMLProviderFromBytesWithExpand creates a config provider from a byte-backed
+// YAML blobs with ${var} or $var values replaced based on the mapping function.
+func NewYAMLProviderFromBytesWithExpand(
+	mapping func(string) (string, bool),
+	yamls ...[]byte,
+) (Provider, error) {
+	readers := make([]io.Reader, len(yamls))
+	for i, yml := range yamls {
+		readers[i] = bytes.NewReader(yml)
+	}
+
+	return newYAMLProviderFromReaderWithExpand(mapping, readers...)
+}
+
 func filesToReaders(files ...string) ([]io.ReadCloser, error) {
 	// load the files, read their bytes
 	readers := []io.ReadCloser{}
