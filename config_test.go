@@ -362,7 +362,7 @@ rpc:
 		return "4324", true
 	}
 
-	p, err := newYAMLProviderFromReaderWithExpand(
+	p, err := NewYAMLProviderFromReaderWithExpand(
 		lookup,
 		ioutil.NopCloser(bytes.NewBufferString(rpc)))
 
@@ -373,59 +373,4 @@ rpc:
 
 	require.NoError(t, v.Populate(cfg))
 	require.Equal(t, 4324, int(*cfg.Outbounds[0].TChannel.Port))
-}
-
-func TestNewYAMLProviderFromBytesWithExpand(t *testing.T) {
-	t.Parallel()
-	txt := []byte(`
- one:
-   two: hello
-   owner: ${OWNER_EMAIL}
- `)
-
-	f := func(key string) (string, bool) {
-		if key == "OWNER_EMAIL" {
-			return "hello@there.yasss", true
-		}
-
-		return "", false
-	}
-
-	cfg, err := NewYAMLProviderFromBytesWithExpand(f, txt)
-	require.NoError(t, err, "Can't create a YAML provider")
-
-	assert.Equal(t, "map[one:map[two:hello owner:hello@there.yasss]]", cfg.Get(Root).String())
-}
-
-func TestNewYAMLProviderFromBytesWithExpandInterpolationError(t *testing.T) {
-	t.Parallel()
-	txt := []byte(`
-one:
-  two: hello
-  owner: ${OWNER_EMAIL}
-`)
-
-	f := func(key string) (string, bool) {return "", false}
-	_, err := NewYAMLProviderFromBytesWithExpand(f, txt)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), `default is empty for "OWNER_EMAIL"`)
-}
-
-func TestNewYAMLProviderFromBytesWithExpandMergeError(t *testing.T) {
-	t.Parallel()
-	src := []byte(`
-map:
-  key: value
-`)
-	dst := []byte(`
-map:
-  - array
-`)
-
-	f := func(key string) (string, bool) {return "", false}
-
-	_, err := NewYAMLProviderFromBytesWithExpand(f, dst, src)
-	require.Error(t, err, "Merge should return an error")
-	assert.Contains(t, err.Error(), `can't merge map[interface{}]interface{} and []interface {}. Source: map["key":"value"]. Destination: ["array"]`)
 }
