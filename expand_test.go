@@ -159,7 +159,7 @@ func TestExpanderFailingTransform(t *testing.T) {
 		switch s {
 		case "t3sT":
 			return "test", nil
-		// missing "i5_" case
+			// missing "i5_" case
 		}
 
 		return "NOMATCH", errors.New("No Match")

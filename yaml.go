@@ -144,7 +144,7 @@ func NewYAMLProviderFromFiles(files ...string) (Provider, error) {
 		readers[i] = r
 	}
 
-	provider, err := newYAMLProviderFromReader(readers...)
+	provider, err := NewYAMLProviderFromReader(readers...)
 
 	for _, r := range readClosers {
 		nerr := r.Close()
@@ -181,7 +181,7 @@ func NewYAMLProviderWithExpand(mapping func(string) (string, bool), files ...str
 		readers[i] = r
 	}
 
-	provider, err := newYAMLProviderFromReaderWithExpand(mapping,
+	provider, err := NewYAMLProviderFromReaderWithExpand(mapping,
 		readers...)
 
 	for _, r := range readClosers {
@@ -196,7 +196,7 @@ func NewYAMLProviderWithExpand(mapping func(string) (string, bool), files ...str
 
 // NewYAMLProviderFromReader creates a configuration provider from a list of io.Readers.
 // As above, all the objects are going to be merged and arrays/values overridden in the order of the files.
-func newYAMLProviderFromReader(readers ...io.Reader) (Provider, error) {
+func NewYAMLProviderFromReader(readers ...io.Reader) (Provider, error) {
 	p, err := newYAMLProviderCore(readers...)
 	if err != nil {
 		return nil, err
@@ -208,7 +208,7 @@ func newYAMLProviderFromReader(readers ...io.Reader) (Provider, error) {
 // NewYAMLProviderFromReaderWithExpand creates a configuration provider from
 // a list of `io.Readers and uses the mapping function to expand values
 // in the underlying provider.
-func newYAMLProviderFromReaderWithExpand(
+func NewYAMLProviderFromReaderWithExpand(
 	mapping func(string) (string, bool),
 	readers ...io.Reader) (Provider, error) {
 
@@ -221,7 +221,7 @@ func newYAMLProviderFromReaderWithExpand(
 			&expandTransformer{expand: expandFunc})
 	}
 
-	return newYAMLProviderFromReader(ereaders...)
+	return NewYAMLProviderFromReader(ereaders...)
 }
 
 // NewYAMLProviderFromBytes creates a config provider from a byte-backed YAML
@@ -233,7 +233,7 @@ func NewYAMLProviderFromBytes(yamls ...[]byte) (Provider, error) {
 		readers[i] = bytes.NewReader(yml)
 	}
 
-	return newYAMLProviderFromReader(readers...)
+	return NewYAMLProviderFromReader(readers...)
 }
 
 func filesToReaders(files ...string) ([]io.ReadCloser, error) {
