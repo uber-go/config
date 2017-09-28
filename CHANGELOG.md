@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.0 (unreleased)
+
+- No changes yet.
+
 ## v1.1.0 (2017-09-28)
 
 - Expand functions transform a special sequence $$ to literal $.
