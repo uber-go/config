@@ -1,11 +1,12 @@
 # Changelog
 
-## v1.1.0 (not released yet)
+## v1.1.0 (2017-09-28)
 
 - Expand functions transform a special sequence $$ to literal $.
 - The underlying objects encapsulated by config.Value types will now
   have the types determined by the YAML unmarshaller regardless of
   whether expansion was performed or not.
+- Export Provider constructors that take io.Readers.
 
 ## v1.0.2 (2017-08-17)
 
