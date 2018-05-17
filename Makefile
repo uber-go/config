@@ -14,7 +14,3 @@ ci: SHELL := /bin/bash
 ci:
 	go test -race $(PACKAGES) -coverprofile=coverage.txt -covermode=atomic -count 2
 	bash <(curl -s https://codecov.io/bash)
-
-.PHONY: license
-license:
-	$(ECHO_V)./.build/license.sh
