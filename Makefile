@@ -1,4 +1,5 @@
 PACKAGES := $(shell glide novendor)
+TEST := go test -race $(PACKAGES)
 
 .PHONY: install
 install:
@@ -12,9 +13,9 @@ test:
 .PHONY: ci
 ci: SHELL := /bin/bash
 ci:
-	go test -race $(PACKAGES) -coverprofile=coverage.txt -covermode=atomic -count 2
+ifdef COVER
+	$(TEST) -coverprofile=coverage.txt -covermode=atomic -count 2
 	bash <(curl -s https://codecov.io/bash)
-
-.PHONY: license
-license:
-	$(ECHO_V)./.build/license.sh
+else
+	$(TEST)
+endif
