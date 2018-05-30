@@ -16,13 +16,17 @@ nothing: ~
 fun:
   - maserati
   - porsche
-practical:
+practical: &ptr
   toyota: camry
   honda: accord
+antique: ~
 occupants:
   honda:
     driver: jane
     backseat: [nate]
+extra_practical:
+  <<: *ptr
+  volkswagon: jetta
 `)
 	second := strings.NewReader(`
 fun:
@@ -31,6 +35,7 @@ fun:
 practical:
   honda: civic
   nissan: altima
+antique: model_t
 occupants:
   honda:
     passenger: arthur
@@ -111,6 +116,17 @@ occupants:
 		assert.Equal(t, "camry", s, "unexpected result after Populate")
 	})
 
+	t.Run("scalar merged into nil", func(t *testing.T) {
+		var s string
+		run(TestCase{
+			Value:     provider.Get("antique"),
+			HasValue:  true,
+			Interface: "model_t",
+			Populate:  &s,
+		})
+		assert.Equal(t, "model_t", s, "unexpected result after Populate")
+	})
+
 	t.Run("map", func(t *testing.T) {
 		var m map[string]string
 		run(TestCase{
@@ -165,6 +181,25 @@ occupants:
 		}, o, "unexpected result after populate")
 	})
 
+	t.Run("anchors and native merge", func(t *testing.T) {
+		var m map[string]string
+		run(TestCase{
+			Value:    provider.Get("extra_practical"),
+			HasValue: true,
+			Interface: map[interface{}]interface{}{
+				"toyota":     "camry",
+				"honda":      "accord",
+				"volkswagon": "jetta",
+			},
+			Populate: &m,
+		})
+		assert.Equal(t, map[string]string{
+			"toyota":     "camry",
+			"honda":      "accord",
+			"volkswagon": "jetta",
+		}, m, "unexpected result after populate")
+	})
+
 	t.Run("multiple gets", func(t *testing.T) {
 		var s string
 		run(TestCase{
@@ -178,13 +213,15 @@ occupants:
 
 	t.Run("default missing value", func(t *testing.T) {
 		var s string
+		val, err := provider.Get("not_there").WithDefault("something")
+		require.NoError(t, err, "couldn't set default")
 		run(TestCase{
-			Value:     provider.Get("occupants").Get("honda").Get("driver"),
+			Value:     val,
 			HasValue:  true,
-			Interface: "jane",
+			Interface: "something",
 			Populate:  &s,
 		})
-		assert.Equal(t, "jane", s, "unexpected result after populate")
+		assert.Equal(t, "something", s, "unexpected result after populate")
 	})
 
 	t.Run("default overriden by scalar", func(t *testing.T) {
@@ -215,15 +252,19 @@ occupants:
 	})
 
 	t.Run("default merges maps", func(t *testing.T) {
+		t.Skip("TODO: defaults aren't deep-merged")
 		var m map[string]string
-		val, err := provider.Get("practical").WithDefault(map[string]string{"ford": "fiesta"})
+		val, err := provider.Get("practical").WithDefault(map[string]string{
+			"ford":   "fiesta",
+			"toyota": "corolla",
+		})
 		require.NoError(t, err, "couldn't set default")
 		run(TestCase{
 			Value:    val,
 			HasValue: true,
 			Interface: map[interface{}]interface{}{
 				"honda":  "civic",
-				"toyota": "camry",
+				"toyota": "corolla",
 				"nissan": "altima",
 				"ford":   "fiesta",
 			},
@@ -231,13 +272,13 @@ occupants:
 		})
 		assert.Equal(t, map[string]string{
 			"honda":  "civic",
-			"toyota": "camry",
+			"toyota": "corolla",
 			"nissan": "altima",
 			"ford":   "fiesta",
 		}, m, "unexpected result after populate")
 	})
 
-	t.Run("default replaces sequences", func(t *testing.T) {
+	t.Run("default doesn't merge sequences", func(t *testing.T) {
 		var s []string
 		val, err := provider.Get("fun").WithDefault([]string{"delorean"})
 		require.NoError(t, err, "couldn't set default")
@@ -259,8 +300,8 @@ occupants:
 	})
 
 	t.Run("chained defaults", func(t *testing.T) {
-		// Defaults should be FIFO: once we've set a default value, we can't later
-		// change our minds and set a different default.
+		// Once we've set a default, the key has a value. Subsequent calls to
+		// WithDefault have no effect.
 		val, err := provider.Get("top").WithDefault(map[string]string{"middle": "bottom"})
 		require.NoError(t, err, "couldn't set first default")
 		val, err = val.Get("middle").WithDefault("boom")
@@ -311,7 +352,7 @@ occupants:
 
 		var c cfg
 		require.NoError(t, provider.Get(Root).Populate(&c))
-		assert.Equal(t, 0, len(c.Boring), "wrong number of fun cars")
+		assert.Empty(t, c.Boring, "wrong number of fun cars")
 	})
 
 	t.Run("omitempty field", func(t *testing.T) {
