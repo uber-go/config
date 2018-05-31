@@ -39,7 +39,7 @@ fun:
 practical: &ptr
   toyota: camry
   honda: accord
-antique: ~
+antique: model_t
 occupants:
   honda:
     driver: jane
@@ -56,7 +56,7 @@ fun:
 practical:
   honda: civic
   nissan: altima
-antique: model_t
+antique: ~
 occupants:
   honda:
     passenger: arthur
@@ -138,17 +138,6 @@ mismatch: [scalar]
 		assert.Equal(t, "camry", s, "unexpected result after Populate")
 	})
 
-	t.Run("scalar merged into nil", func(t *testing.T) {
-		var s string
-		run(TestCase{
-			Value:     provider.Get("antique"),
-			HasValue:  true,
-			Interface: "model_t",
-			Populate:  &s,
-		})
-		assert.Equal(t, "model_t", s, "unexpected result after Populate")
-	})
-
 	t.Run("map", func(t *testing.T) {
 		var m map[string]string
 		run(TestCase{
@@ -201,6 +190,18 @@ mismatch: [scalar]
 			Passenger: "arthur",
 			Backseat:  []string{"nora"},
 		}, o, "unexpected result after populate")
+	})
+
+	t.Run("nil merged into scalar", func(t *testing.T) {
+		t.Skip("TODO: ignores explicit nil")
+		var s string
+		run(TestCase{
+			Value:     provider.Get("antique"),
+			HasValue:  true,
+			Interface: nil,
+			Populate:  &s,
+		})
+		assert.Empty(t, s, "unexpected result after Populate")
 	})
 
 	t.Run("sequence merged into scalar", func(t *testing.T) {
