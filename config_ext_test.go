@@ -47,6 +47,7 @@ occupants:
 extra_practical:
   <<: *ptr
   volkswagon: jetta
+mismatch: scalar
 `)
 	second := strings.NewReader(`
 fun:
@@ -60,6 +61,7 @@ occupants:
   honda:
     passenger: arthur
     backseat: [nora]
+mismatch: [scalar]
 `)
 
 	provider, err := NewYAMLProviderFromReader(first, second)
@@ -199,6 +201,17 @@ occupants:
 			Passenger: "arthur",
 			Backseat:  []string{"nora"},
 		}, o, "unexpected result after populate")
+	})
+
+	t.Run("sequence merged into scalar", func(t *testing.T) {
+		var s []string
+		run(TestCase{
+			Value:     provider.Get("mismatch"),
+			HasValue:  true,
+			Interface: []interface{}{"scalar"},
+			Populate:  &s,
+		})
+		assert.Equal(t, []string{"scalar"}, s, "unexpected result after populate")
 	})
 
 	t.Run("anchors and native merge", func(t *testing.T) {
