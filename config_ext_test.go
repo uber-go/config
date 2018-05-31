@@ -409,6 +409,7 @@ mismatch: [scalar]
 		require.NoError(t, provider.Get(Root).Populate(&c))
 		assert.Equal(t, 2, len(c.Fun), "wrong number of fun cars")
 	})
+
 	t.Run("inline field", func(t *testing.T) {
 		t.Skip("TODO: doesn't handle inline fields")
 		type cfg struct {
