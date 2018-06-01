@@ -64,7 +64,7 @@ func TestValueIntegration(t *testing.T) {
 			true,    // found
 		)
 		assert.Equal(t, "hello", v.Value(), "expected to use user-supplied value")
-		assert.Equal(t, "foo", v.Get("scalar").Value(), "get exposes data not in top-level value") // WAT?!
+		assert.Equal(t, "foo", v.Get("scalar").Value(), "get exposes data not in top-level value") // WAT
 	})
 
 	t.Run("found overrides provider", func(t *testing.T) {
@@ -74,17 +74,21 @@ func TestValueIntegration(t *testing.T) {
 			"foo",    // value
 			false,    // found, doesn't match provider
 		)
-		assert.False(t, v.HasValue(), "unexpected string representation")
+		assert.False(t, v.HasValue(), "HasValue should be false")
+		assert.Equal(t, "foo", v.Value(), "Value should return something") // WAT
 	})
 
-	t.Run("found overrides provider", func(t *testing.T) {
+	t.Run("default re-exposes provider", func(t *testing.T) {
 		v := NewValue(
 			provider,
 			"scalar", // key
-			"foo",    // value
-			false,    // found, doesn't match provider
+			"hello",  // value, doesn't match provider contents
+			true,     // found
 		)
-		assert.False(t, v.HasValue(), "unexpected string representation")
+		assert.Equal(t, "hello", v.Value(), "expected to use user-supplied value")
+		defaulted, err := v.WithDefault("goodbye")
+		require.NoError(t, err, "couldn't set default")
+		assert.Equal(t, "foo", defaulted.Value(), "expected to re-expose provider") // WAT
 	})
 
 	t.Run("populate", func(t *testing.T) {
@@ -95,7 +99,8 @@ func TestValueIntegration(t *testing.T) {
 			"bar",    // value, doesn't match provider contents
 			true,     // found
 		)
+		assert.Equal(t, "bar", v.Value(), "expected to use user-supplied value")
 		require.NoError(t, v.Populate(&s), "error on first populate")
-		assert.Equal(t, "foo", s, "expected to use provider-contained value")
+		assert.Equal(t, "foo", s, "expected to use provider-contained value") // WAT
 	})
 }
