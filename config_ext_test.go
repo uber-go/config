@@ -39,7 +39,11 @@ fun:
 practical: &ptr
   toyota: camry
   honda: accord
-antique: model_t
+antique_scalar: model_t
+antique_sequence:
+  - model_t
+antique_mapping:
+  ford: model_t
 occupants:
   honda:
     driver: jane
@@ -56,7 +60,9 @@ fun:
 practical:
   honda: civic
   nissan: altima
-antique: ~
+antique_scalar: ~
+antique_sequence: ~
+antique_mapping: ~
 occupants:
   honda:
     passenger: arthur
@@ -76,7 +82,7 @@ mismatch: [scalar]
 		Populate  interface{}
 	}
 
-	run := func(tt TestCase) {
+	run := func(t testing.TB, tt TestCase) {
 		assert.Equal(t, tt.HasValue, tt.Value.HasValue(), "unexpected result from HasValue")
 		assert.Equal(t, tt.Interface, tt.Value.Value(), "unexpected result from Value")
 		require.NoError(t, tt.Value.Populate(tt.Populate), "error populating")
@@ -86,7 +92,7 @@ mismatch: [scalar]
 		var s string
 
 		t.Run("top level", func(t *testing.T) {
-			run(TestCase{
+			run(t, TestCase{
 				Value:     provider.Get("not_a_key"),
 				HasValue:  false,
 				Interface: nil,
@@ -96,7 +102,7 @@ mismatch: [scalar]
 		})
 
 		t.Run("subkey", func(t *testing.T) {
-			run(TestCase{
+			run(t, TestCase{
 				Value:     provider.Get("practical.cadillac"),
 				HasValue:  false,
 				Interface: nil,
@@ -106,7 +112,7 @@ mismatch: [scalar]
 		})
 
 		t.Run("descend into slice", func(t *testing.T) {
-			run(TestCase{
+			run(t, TestCase{
 				Value:     provider.Get("fun.extra"),
 				HasValue:  false,
 				Interface: nil,
@@ -118,7 +124,7 @@ mismatch: [scalar]
 
 	t.Run("nil", func(t *testing.T) {
 		var s string
-		run(TestCase{
+		run(t, TestCase{
 			Value:     provider.Get("nothing"),
 			HasValue:  true,
 			Interface: nil,
@@ -129,7 +135,7 @@ mismatch: [scalar]
 
 	t.Run("scalar", func(t *testing.T) {
 		var s string
-		run(TestCase{
+		run(t, TestCase{
 			Value:     provider.Get("practical.toyota"),
 			HasValue:  true,
 			Interface: "camry",
@@ -140,7 +146,7 @@ mismatch: [scalar]
 
 	t.Run("map", func(t *testing.T) {
 		var m map[string]string
-		run(TestCase{
+		run(t, TestCase{
 			Value:    provider.Get("practical"),
 			HasValue: true,
 			Interface: map[interface{}]interface{}{
@@ -159,7 +165,7 @@ mismatch: [scalar]
 
 	t.Run("slice", func(t *testing.T) {
 		var s []string
-		run(TestCase{
+		run(t, TestCase{
 			Value:     provider.Get("fun"),
 			HasValue:  true,
 			Interface: []interface{}{"maserati", "lamborghini"},
@@ -175,7 +181,7 @@ mismatch: [scalar]
 			Backseat  []string
 		}
 		var o Occupants
-		run(TestCase{
+		run(t, TestCase{
 			Value:    provider.Get("occupants.honda"),
 			HasValue: true,
 			Interface: map[interface{}]interface{}{
@@ -193,10 +199,12 @@ mismatch: [scalar]
 	})
 
 	t.Run("nil merged into scalar", func(t *testing.T) {
+		// Merging replaces scalars, so an explicit nil should replace
+		// lower-priority values.
 		t.Skip("TODO: ignores explicit nil")
 		var s string
-		run(TestCase{
-			Value:     provider.Get("antique"),
+		run(t, TestCase{
+			Value:     provider.Get("antique_scalar"),
 			HasValue:  true,
 			Interface: nil,
 			Populate:  &s,
@@ -204,9 +212,36 @@ mismatch: [scalar]
 		assert.Empty(t, s, "unexpected result after Populate")
 	})
 
+	t.Run("nil merged into sequence", func(t *testing.T) {
+		// Merging replaces sequences, so an explicit nil should replace
+		// lower-priority values.
+		t.Skip("TODO: ignores explicit nil")
+		var s []string
+		run(t, TestCase{
+			Value:     provider.Get("antique_sequence"),
+			HasValue:  true,
+			Interface: nil,
+			Populate:  &s,
+		})
+		assert.Empty(t, s, "unexpected result after Populate")
+	})
+
+	t.Run("nil merged into mapping", func(t *testing.T) {
+		// Merging deep-merges mappings, so an explicit nil should leave
+		// lower-priority values unchanged.
+		var m map[string]string
+		run(t, TestCase{
+			Value:     provider.Get("antique_mapping"),
+			HasValue:  true,
+			Interface: map[interface{}]interface{}{"ford": "model_t"},
+			Populate:  &m,
+		})
+		assert.Equal(t, map[string]string{"ford": "model_t"}, m, "unexpected result after Populate")
+	})
+
 	t.Run("sequence merged into scalar", func(t *testing.T) {
 		var s []string
-		run(TestCase{
+		run(t, TestCase{
 			Value:     provider.Get("mismatch"),
 			HasValue:  true,
 			Interface: []interface{}{"scalar"},
@@ -217,7 +252,7 @@ mismatch: [scalar]
 
 	t.Run("anchors and native merge", func(t *testing.T) {
 		var m map[string]string
-		run(TestCase{
+		run(t, TestCase{
 			Value:    provider.Get("extra_practical"),
 			HasValue: true,
 			Interface: map[interface{}]interface{}{
@@ -236,7 +271,7 @@ mismatch: [scalar]
 
 	t.Run("multiple gets", func(t *testing.T) {
 		var s string
-		run(TestCase{
+		run(t, TestCase{
 			Value:     provider.Get("occupants").Get("honda").Get("driver"),
 			HasValue:  true,
 			Interface: "jane",
@@ -249,7 +284,7 @@ mismatch: [scalar]
 		var s string
 		val, err := provider.Get("not_there").WithDefault("something")
 		require.NoError(t, err, "couldn't set default")
-		run(TestCase{
+		run(t, TestCase{
 			Value:     val,
 			HasValue:  true,
 			Interface: "something",
@@ -262,7 +297,7 @@ mismatch: [scalar]
 		var s string
 		val, err := provider.Get("practical.honda").WithDefault("CRV")
 		require.NoError(t, err, "couldn't set default")
-		run(TestCase{
+		run(t, TestCase{
 			Value:     val,
 			HasValue:  true,
 			Interface: "civic",
@@ -276,7 +311,7 @@ mismatch: [scalar]
 		var s string
 		val, err := provider.Get("nothing").WithDefault("something")
 		require.NoError(t, err, "couldn't set default")
-		run(TestCase{
+		run(t, TestCase{
 			Value:     val,
 			HasValue:  true,
 			Interface: nil,
@@ -293,7 +328,7 @@ mismatch: [scalar]
 			"toyota": "corolla",
 		})
 		require.NoError(t, err, "couldn't set default")
-		run(TestCase{
+		run(t, TestCase{
 			Value:    val,
 			HasValue: true,
 			Interface: map[interface{}]interface{}{
@@ -316,7 +351,7 @@ mismatch: [scalar]
 		var s []string
 		val, err := provider.Get("fun").WithDefault([]string{"delorean"})
 		require.NoError(t, err, "couldn't set default")
-		run(TestCase{
+		run(t, TestCase{
 			Value:     val,
 			HasValue:  true,
 			Interface: []interface{}{"maserati", "lamborghini"},
@@ -342,7 +377,7 @@ mismatch: [scalar]
 		require.NoError(t, err, "couldn't set second default")
 
 		var s string
-		run(TestCase{
+		run(t, TestCase{
 			Value:     val,
 			HasValue:  true,
 			Interface: "bottom",
