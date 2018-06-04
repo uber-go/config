@@ -42,7 +42,9 @@ practical: &ptr
 antique_scalar: model_t
 antique_sequence:
   - model_t
-antique_mapping:
+antique_mapping_empty:  # will override with empty map
+  ford: model_t
+antique_mapping_nil:  # will override with nil
   ford: model_t
 occupants:
   honda:
@@ -62,7 +64,8 @@ practical:
   nissan: altima
 antique_scalar: ~
 antique_sequence: ~
-antique_mapping: ~
+antique_mapping_empty: {}
+antique_mapping_nil: ~
 occupants:
   honda:
     passenger: arthur
@@ -200,7 +203,7 @@ mismatch: [scalar]
 
 	t.Run("nil merged into scalar", func(t *testing.T) {
 		// Merging replaces scalars, so an explicit nil should replace
-		// lower-priority values.
+		// lower-priority values. (This matches gopkg.in/yaml.v2.)
 		t.Skip("TODO: ignores explicit nil")
 		var s string
 		run(t, TestCase{
@@ -214,7 +217,7 @@ mismatch: [scalar]
 
 	t.Run("nil merged into sequence", func(t *testing.T) {
 		// Merging replaces sequences, so an explicit nil should replace
-		// lower-priority values.
+		// lower-priority values. (This matches gopkg.in/yaml.v2.)
 		t.Skip("TODO: ignores explicit nil")
 		var s []string
 		run(t, TestCase{
@@ -227,11 +230,26 @@ mismatch: [scalar]
 	})
 
 	t.Run("nil merged into mapping", func(t *testing.T) {
-		// Merging deep-merges mappings, so an explicit nil should leave
-		// lower-priority values unchanged.
+		// Merging deep-merges mappings, but we should honor explicitly-configured
+		// nils and replace all existing configuration. (This matches
+		// gopkg.in/yaml.v2.)
+		t.Skip("TODO: ignores explicit nil")
 		var m map[string]string
 		run(t, TestCase{
-			Value:     provider.Get("antique_mapping"),
+			Value:     provider.Get("antique_mapping_nil"),
+			HasValue:  true,
+			Interface: nil,
+			Populate:  &m,
+		})
+		assert.Nil(t, m, "unexpected result after Populate")
+	})
+
+	t.Run("empty map merged into mapping", func(t *testing.T) {
+		// Merging deep-merges mappings, so merging in an empty map is a no-op.
+		// (This matches gopkg.in/yaml.v2.)
+		var m map[string]string
+		run(t, TestCase{
+			Value:     provider.Get("antique_mapping_empty"),
 			HasValue:  true,
 			Interface: map[interface{}]interface{}{"ford": "model_t"},
 			Populate:  &m,
@@ -362,28 +380,52 @@ mismatch: [scalar]
 
 	t.Run("default ignores type mismatches", func(t *testing.T) {
 		// TODO: We should return an error in strict mode.
-		// fun is a sequence, so we shouldn't be able to merge in a mapping
-		val, err := provider.Get("fun").WithDefault(map[string]string{"dodge": "viper"})
+		// Since defaults are effectively the lowest-priority config, they should
+		// control the types expected in users' config. Type mismatches are
+		// ignored.
+		t.Skip("TODO: default isn't treated as lowest-priority config source")
+		d := map[string]string{"dodge": "viper"}
+		val, err := provider.Get("fun").WithDefault(d)
 		assert.NoError(t, err, "error on type mismatch in permissive mode")
-		assert.Equal(t, []interface{}{"maserati", "lamborghini"}, val.Value(), "wrong merged output")
+		assert.Equal(t, d, val.Value(), "wrong merged output")
 	})
 
 	t.Run("chained defaults", func(t *testing.T) {
-		// Once we've set a default, the key has a value. Subsequent calls to
-		// WithDefault have no effect.
+		// Each call to WithDefault should merge all existing config into the
+		// default, then use the result. This means that repeated calls to
+		// WithDefault should deep-merge all the supplied defaults, with the last
+		// call to WithDefault having the lowest priority.
+		t.Skip("TODO: defaults aren't deep-merged")
+
+		// First, set a default.
 		val, err := provider.Get("top").WithDefault(map[string]string{"middle": "bottom"})
 		require.NoError(t, err, "couldn't set first default")
-		val, err = val.Get("middle").WithDefault("boom")
+
+		// Second, set another default with a different key. First default should
+		// be deep-merged into this one.
+		val, err = val.WithDefault(map[string]string{"other_middle": "other_bottom"})
 		require.NoError(t, err, "couldn't set second default")
 
-		var s string
+		// Last, set a default for one of the inner keys. The result of merging
+		// first and second defaults should be merged into this value, overwriting
+		// it.
+		val, err = val.Get("other_middle").WithDefault("should be overwritten")
+		require.NoError(t, err, "couldn't set third, nested default")
+
+		var m map[string]string
 		run(t, TestCase{
-			Value:     val,
-			HasValue:  true,
-			Interface: "bottom",
-			Populate:  &s,
+			Value:    val,
+			HasValue: true,
+			Interface: map[interface{}]interface{}{
+				"middle":       "bottom",
+				"other_middle": "other_bottom",
+			},
+			Populate: &m,
 		})
-		assert.Equal(t, "bottom", s, "unexpected result after populate")
+		assert.Equal(t, map[string]string{
+			"middle":       "bottom",
+			"other_middle": "other_bottom",
+		}, m, "unexpected result after populate")
 	})
 
 	t.Run("deep copy", func(t *testing.T) {
