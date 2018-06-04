@@ -28,79 +28,69 @@ import (
 )
 
 func TestValueIntegration(t *testing.T) {
-	provider, err := NewStaticProvider(map[string]interface{}{
-		"scalar":   "foo",
-		"mapping":  map[string]int{"one": 1, "two": 2},
-		"sequence": []int{1, 2},
-	})
+	// A simple configuration with a single key and a scalar value is sufficient
+	// to expose critical bugs here.
+	provider, err := NewYAMLProviderFromBytes([]byte("scalar: foo"))
 	require.NoError(t, err, "couldn't create static provider")
 
-	t.Run("source is provider name", func(t *testing.T) {
+	populated := func(t testing.TB, v Value) string {
+		var s string
+		require.NoError(t, v.Populate(&s), "couldn't populate string")
+		return s
+	}
+
+	defaulted := func(t testing.TB, v Value) string {
+		val, err := v.WithDefault("quux")
+		require.NoError(t, err, "couldn't set default")
+		return populated(t, val)
+	}
+
+	t.Run("arguments are internally consistent", func(t *testing.T) {
+		// All arguments are internally consistent: value and found match the
+		// contents of provider at key.
 		v := NewValue(
 			provider,
 			"scalar", // key
 			"foo",    // value
 			true,     // found
 		)
+
+		// Only need to test these once, since it's not critical.
 		assert.Equal(t, provider.Name(), v.Source(), "value source should be provider name")
+		assert.Equal(t, "foo", v.String(), "unexpected fmt.Stringer implementation")
+
+		assert.Equal(t, "foo", v.Value(), "unexpected Value")
+		assert.Equal(t, "foo", populated(t, v), "unexpected Populate")
+		assert.Equal(t, "foo", v.Get(Root).Value(), "unexpected Value after Get")
+		assert.Equal(t, "foo", defaulted(t, v), "unexpected Value after WithDefault")
+		assert.True(t, v.HasValue(), "unexpected HasValue")
 	})
 
-	t.Run("value can override provider", func(t *testing.T) {
+	t.Run("value doesn't match provider", func(t *testing.T) {
 		v := NewValue(
 			provider,
 			"scalar", // key
-			"quux",   // value, doesn't match provider contents
+			"baz",    // value, doesn't match provider
 			true,     // found
 		)
-		assert.Equal(t, "quux", v.String(), "unexpected string representation")
-		assert.Equal(t, "quux", v.Value(), "unexpected value")
+		assert.Equal(t, "baz", v.Value(), "unexpected Value")                         // great, using supplied value
+		assert.Equal(t, "foo", populated(t, v), "unexpected Populate")                // WAT
+		assert.Equal(t, "foo", v.Get(Root).Value(), "unexpected Value after Get")     // WAT
+		assert.Equal(t, "foo", defaulted(t, v), "unexpected Value after WithDefault") // WAT
+		assert.True(t, v.HasValue(), "unexpected HasValue")
 	})
 
-	t.Run("get re-exposes provider", func(t *testing.T) {
-		v := NewValue(
-			provider,
-			Root,    // key
-			"hello", // value, doesn't match provider contents
-			true,    // found
-		)
-		assert.Equal(t, "hello", v.Value(), "expected to use user-supplied value")
-		assert.Equal(t, "foo", v.Get("scalar").Value(), "get exposes data not in top-level value") // WAT
-	})
-
-	t.Run("found overrides provider", func(t *testing.T) {
+	t.Run("found doesn't match provider", func(t *testing.T) {
 		v := NewValue(
 			provider,
 			"scalar", // key
 			"foo",    // value
 			false,    // found, doesn't match provider
 		)
-		assert.False(t, v.HasValue(), "HasValue should be false")
-		assert.Equal(t, "foo", v.Value(), "Value should return something") // WAT
-	})
-
-	t.Run("default re-exposes provider", func(t *testing.T) {
-		v := NewValue(
-			provider,
-			"scalar", // key
-			"hello",  // value, doesn't match provider contents
-			true,     // found
-		)
-		assert.Equal(t, "hello", v.Value(), "expected to use user-supplied value")
-		defaulted, err := v.WithDefault("goodbye")
-		require.NoError(t, err, "couldn't set default")
-		assert.Equal(t, "foo", defaulted.Value(), "expected to re-expose provider") // WAT
-	})
-
-	t.Run("populate", func(t *testing.T) {
-		var s string
-		v := NewValue(
-			provider,
-			"scalar", // key
-			"bar",    // value, doesn't match provider contents
-			true,     // found
-		)
-		assert.Equal(t, "bar", v.Value(), "expected to use user-supplied value")
-		require.NoError(t, v.Populate(&s), "error on first populate")
-		assert.Equal(t, "foo", s, "expected to use provider-contained value") // WAT
+		assert.Equal(t, "foo", v.Value(), "unexpected Value")
+		assert.Equal(t, "foo", populated(t, v), "unexpected Populate")
+		assert.Equal(t, "foo", v.Get(Root).Value(), "unexpected Value after Get")
+		assert.Equal(t, "foo", defaulted(t, v), "unexpected Value after WithDefault")
+		assert.False(t, v.HasValue(), "unexpected HasValue") // WAT
 	})
 }
