@@ -49,10 +49,9 @@ type (
 //   == {"foo": [4, 5, 6]}
 //
 // In non-strict mode, duplicate map keys are allowed within a single source,
-// with later values overwriting previous ones. Similarly, attempting to merge
-// mismatched types (e.g., merging a sequence into a map) silently fails. To
-// preserve backward compatibility during type mismatches, new values replace
-// existing values.
+// with later values overwriting previous ones. Attempting to merge
+// mismatched types (e.g., merging a sequence into a map) replaces the old
+// value with the new.
 //
 // Enabling strict mode returns errors in both of the above cases.
 func YAML(sources []io.Reader, strict bool) (*bytes.Buffer, error) {
@@ -73,7 +72,7 @@ func YAML(sources []io.Reader, strict bool) (*bytes.Buffer, error) {
 		merged = pair
 	}
 
-	buf := bytes.NewBuffer(nil)
+	buf := &bytes.Buffer{}
 	enc := yaml.NewEncoder(buf)
 	if err := enc.Encode(merged); err != nil {
 		return nil, unreachable.Wrap(fmt.Errorf("couldn't re-serialize merged YAML: %v", err))
@@ -81,43 +80,43 @@ func YAML(sources []io.Reader, strict bool) (*bytes.Buffer, error) {
 	return buf, nil
 }
 
-func merge(left, right interface{}, strict bool) (interface{}, error) {
+func merge(into, from interface{}, strict bool) (interface{}, error) {
 	// It's possible to handle this with a mass of reflection, but we only need
 	// to merge whole YAML files. Since we're always unmarshaling into
 	// interface{}, we only need to handle a few types. This ends up being
 	// cleaner if we just handle each case explicitly.
-	if left == nil {
-		return right, nil
+	if into == nil {
+		return from, nil
 	}
-	if right == nil {
+	if from == nil {
 		// Allow higher-priority YAML to explicitly nil out lower-priority entries.
 		return nil, nil
 	}
-	if isScalar(left) && isScalar(right) {
-		return right, nil
+	if isScalar(into) && isScalar(from) {
+		return from, nil
 	}
-	if isSequence(left) && isSequence(right) {
-		return right, nil
+	if isSequence(into) && isSequence(from) {
+		return from, nil
 	}
-	if isMapping(left) && isMapping(right) {
-		return mergeMapping(left.(mapping), right.(mapping), strict)
+	if isMapping(into) && isMapping(from) {
+		return mergeMapping(into.(mapping), from.(mapping), strict)
 	}
 	// YAML types don't match, so no merge is possible. For backward
 	// compatibility, ignore mismatches unless we're in strict mode and return
 	// the higher-priority value.
 	if !strict {
-		return right, nil
+		return from, nil
 	}
-	return nil, fmt.Errorf("can't merge a %s and a %s", describe(left), describe(right))
+	return nil, fmt.Errorf("can't merge a %s into a %s", describe(from), describe(into))
 }
 
-func mergeMapping(left, right mapping, strict bool) (mapping, error) {
-	merged := make(mapping, len(left))
-	for k, v := range left {
+func mergeMapping(into, from mapping, strict bool) (mapping, error) {
+	merged := make(mapping, len(into))
+	for k, v := range into {
 		merged[k] = v
 	}
-	for k := range right {
-		m, err := merge(merged[k], right[k], strict)
+	for k := range from {
+		m, err := merge(merged[k], from[k], strict)
 		if err != nil {
 			return nil, err
 		}
