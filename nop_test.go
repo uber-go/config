@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Uber Technologies, Inc.
+// Copyright (c) 2018 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,58 +18,20 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package config_test
+package config
 
 import (
-	"fmt"
-	"log"
+	"testing"
 
-	"go.uber.org/config"
+	"github.com/stretchr/testify/assert"
 )
 
-func ExampleNewProviderGroup() {
-	base, err := config.NewYAMLProviderFromBytes([]byte(`
-config:
-  name: fx
-  pool: development
-  ports:
-  - 80
-  - 8080
-`))
+func TestNop(t *testing.T) {
+	p := NopProvider{}
+	assert.Equal(t, "no-op", p.Name(), "unexpected provider name")
 
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	prod, err := config.NewYAMLProviderFromBytes([]byte(`
-config:
-  pool: production
-  ports:
-  - 443
-`))
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Provider is going to keep name from the base provider,
-	// but ports and pool values will be overridden by prod.
-	p, err := config.NewProviderGroup("merge", base, prod)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var c struct {
-		Name  string
-		Pool  string
-		Ports []uint
-	}
-
-	if err := p.Get("config").Populate(&c); err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("%+v\n", c)
-	// Output:
-	// {Name:fx Pool:production Ports:[443]}
+	v := p.Get("foo")
+	assert.Equal(t, p.Name(), v.Source(), "unexpected value source")
+	assert.Equal(t, nil, v.Value(), "unexpected value contents")
+	assert.False(t, v.HasValue(), "value should be empty")
 }

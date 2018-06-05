@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Uber Technologies, Inc.
+// Copyright (c) 2017-2018 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,14 +22,62 @@ package config
 
 import (
 	"bytes"
+	"fmt"
+	"strings"
 
 	"golang.org/x/text/transform"
 )
 
+const (
+	_envSeparator = ":"
+	_emptyDefault = `""`
+)
+
+// A LookupFunc behaves like os.LookupEnv: it uses the supplied string as a
+// key into some key-value store and returns the value and whether the key was
+// present.
+type LookupFunc = func(string) (string, bool)
+
+// Given a function with the same signature as os.LookupEnv, return a function
+// that expands expressions of the form ${ENV_VAR:default_value}.
+func replace(lookUp LookupFunc) func(in string) (string, error) {
+	return func(in string) (string, error) {
+		sep := strings.Index(in, _envSeparator)
+		var key string
+		var def string
+
+		if sep == -1 {
+			// separator missing - everything is the key ${KEY}
+			key = in
+		} else {
+			// ${KEY:DEFAULT}
+			key = in[:sep]
+			def = in[sep+1:]
+		}
+
+		if envVal, ok := lookUp(key); ok {
+			return envVal, nil
+		}
+
+		if def == "" {
+			return "", fmt.Errorf(`default is empty for %q (use "" for empty string)`, key)
+		} else if def == _emptyDefault {
+			return "", nil
+		}
+
+		return def, nil
+	}
+}
+
 // expandTransformer implements transform.Transformer
 type expandTransformer struct {
 	transform.NopResetter
+
 	expand func(string) (string, error)
+}
+
+func newExpandTransformer(lookup LookupFunc) *expandTransformer {
+	return &expandTransformer{expand: replace(lookup)}
 }
 
 // First char of shell variable may be [a-zA-Z_]

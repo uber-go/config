@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Uber Technologies, Inc.
+// Copyright (c) 2018 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,17 +20,27 @@
 
 package config
 
-// NopProvider is an implementation of config provider that does nothing.
-type NopProvider struct{}
+import (
+	"errors"
+	"testing"
 
-var _ Provider = (*NopProvider)(nil)
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
-// Name is NopProvider.
-func (p NopProvider) Name() string {
-	return "NopProvider"
+type noYAML struct{}
+
+func (noYAML) MarshalYAML() (interface{}, error) {
+	return nil, errors.New("fail")
 }
 
-// Get returns an invalid Value.
-func (p NopProvider) Get(key string) Value {
-	return NewValue(p, key, nil, true)
+func TestStaticErrors(t *testing.T) {
+	t.Run("serialization panics", func(t *testing.T) {
+		assert.Panics(t, func() { NewYAML(Static(make(chan int))) })
+	})
+
+	t.Run("serialization fails", func(t *testing.T) {
+		_, err := NewYAML(Static(noYAML{}))
+		require.Error(t, err, "expected serializing value to fail")
+	})
 }

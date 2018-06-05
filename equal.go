@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Uber Technologies, Inc.
+// Copyright (c) 2018 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,19 +20,23 @@
 
 package config
 
-// valueProvider always returns the same Value.
-type valueProvider struct {
-	*NopProvider
-	Value
-}
+import (
+	"bytes"
+	"fmt"
 
-// Get returns the value this provider was created with.
-func (m *valueProvider) Get(key string) Value {
-	return m.Value
-}
+	yaml "gopkg.in/yaml.v2"
+)
 
-func newValueProvider(val interface{}) Provider {
-	p := &valueProvider{Value: Value{found: true, value: val}}
-	p.Value.root = p
-	return p
+// areSameYAML checks whether two values represent the same YAML data.
+func areSameYAML(left, right interface{}) (bool, error) {
+	l, err := yaml.Marshal(left)
+	if err != nil {
+		// unreachable with YAML provider, but possible with third-party provider
+		return false, fmt.Errorf("can't represent %#v as YAML: %v", left, err)
+	}
+	r, err := yaml.Marshal(right)
+	if err != nil {
+		return false, fmt.Errorf("can't represent %#v as YAML: %v", left, err)
+	}
+	return bytes.Equal(l, r), nil
 }
