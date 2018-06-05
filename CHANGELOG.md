@@ -1,44 +1,46 @@
 # Changelog
+All notable changes to this project will be documented in this file.
 
-## v1.2.0 (unreleased)
+The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
+and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
+
+## Unreleased
 
 - No changes yet.
 
-## v1.1.0 (2017-09-28)
+## v1.1.0 - 2017-09-28
+### Added
+- Make expand functions transform a special sequence $$ to literal $.
+- Export `Provider` constructors that take `io.Reader`.
 
-- Expand functions transform a special sequence $$ to literal $.
-- The underlying objects encapsulated by config.Value types will now
-  have the types determined by the YAML unmarshaller regardless of
-  whether expansion was performed or not.
-- Export Provider constructors that take io.Readers.
+### Fixed
+- Determine the types of objects encapsulated by `config.Value` with the YAML
+  unmarshaller regardless of whether expansion was performed or not.
 
-## v1.0.2 (2017-08-17)
+## v1.0.2 - 2017-08-17
+### Fixed
+- Fix populate panic for a nil pointer.
 
-- Fixed populate panic for a nil pointer.
+## v1.0.1 - 2017-08-04
+### Fixed
+- Fix unmarshal text on missing value.
 
-## v1.0.1 (2017-08-04)
-
-- Fixed unmarshal text on missing value.
-
-## v1.0.0 (2017-07-31)
-
-First stable release: no breaking changes will be made in the 1.x series.
-
-- **[Breaking]** `ValueType` and `GetType` functionality is removed in favor of using
-  `reflect.Kind`.
+## v1.0.0 - 2017-07-31
+### Changed
 - Skip populating function and value types instead of reporting errors.
-- **[Breaking]** `Value.Timestamp` is private, use Value.LastUpdated instead.
-- **[Breaking]** Use semantic version paths for yaml and validator packages.
-- Let user to skip loading command line provider via `commandLine` parameter.
-- **[Breaking]** Most of the `Provider` constructors return an error instead of panics.
-- **[Breaking]** `Value.WithDefault` returns an error when a default can't be used.
-- **[Breaking]** Try and As conversion helpers are removed in favor of using
-  other cast libraries.
-- **[Breaking]** Removed `Value.IsDefault` method.
-- **[Breaking]** Removed Load* functions.
-- **[Breaking]** Unexport NewYAMLProviderFromReader* functions.
-- **[Breaking]** `NewProviderGroup` returns an error.
+- Return an error from provider constructors instead of panic'ing.
+- Return an error from `Value.WithDefault` if the default is unusable.
 
-## v1.0.0-rc1 (2017-06-26)
+### Removed
+- Remove timestamps on `Value`.
+- Remove `Try` and `As` conversion helpers.
+- Remove `Value.IsDefault` method.
+- Remove `Load` family of functions.
+- Unexport `NewYAMLProviderFromReader` family of functions.
 
-- **[Breaking]** `Provider` interface was trimmed down to 2 methods: `Name` and `Get`
+### Fixed
+- Use semantic version paths for yaml and validator packages.
+
+## v1.0.0-rc1 - 2017-06-26
+### Removed
+- Trim `Provider` interface down to just `Name` and `Get`.
