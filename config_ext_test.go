@@ -28,10 +28,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	yaml "gopkg.in/yaml.v2"
 )
 
-func TestIntegration(t *testing.T) {
-	first := strings.NewReader(`
+const (
+	_base = `
 nothing: ~
 fun:
   - maserati
@@ -53,9 +54,8 @@ occupants:
 extra_practical:
   <<: *ptr
   volkswagon: jetta
-mismatch: scalar
-`)
-	second := strings.NewReader(`
+`
+	_override = `
 fun:
   - maserati
   - lamborghini
@@ -70,32 +70,28 @@ occupants:
   honda:
     passenger: arthur
     backseat: [nora]
-mismatch: [scalar]
-`)
+`
+)
 
-	provider, err := NewYAMLProviderFromReader(first, second)
-	require.NoError(t, err, "couldn't create provider")
-	assert.Equal(t, `cached "yaml"`, provider.Get(Root).Source(), "wrong source")
-	assert.Equal(t, "<nil>", provider.Get("nothing").String(), "wrong string representation")
+type testCase struct {
+	Value     Value
+	HasValue  bool
+	Interface interface{}
+	Populate  interface{}
+}
 
-	type TestCase struct {
-		Value     Value
-		HasValue  bool
-		Interface interface{}
-		Populate  interface{}
-	}
+func run(t testing.TB, tt testCase) {
+	assert.Equal(t, tt.HasValue, tt.Value.HasValue(), "unexpected result from HasValue")
+	assert.Equal(t, tt.Interface, tt.Value.Value(), "unexpected result from Value")
+	require.NoError(t, tt.Value.Populate(tt.Populate), "error populating")
+}
 
-	run := func(t testing.TB, tt TestCase) {
-		assert.Equal(t, tt.HasValue, tt.Value.HasValue(), "unexpected result from HasValue")
-		assert.Equal(t, tt.Interface, tt.Value.Value(), "unexpected result from Value")
-		require.NoError(t, tt.Value.Populate(tt.Populate), "error populating")
-	}
-
+func runCommonTests(t *testing.T, provider Provider) {
 	t.Run("missing", func(t *testing.T) {
 		var s string
 
 		t.Run("top level", func(t *testing.T) {
-			run(t, TestCase{
+			run(t, testCase{
 				Value:     provider.Get("not_a_key"),
 				HasValue:  false,
 				Interface: nil,
@@ -105,7 +101,7 @@ mismatch: [scalar]
 		})
 
 		t.Run("subkey", func(t *testing.T) {
-			run(t, TestCase{
+			run(t, testCase{
 				Value:     provider.Get("practical.cadillac"),
 				HasValue:  false,
 				Interface: nil,
@@ -114,9 +110,10 @@ mismatch: [scalar]
 			assert.Equal(t, "", s, "unexpected result after Populate")
 		})
 
-		t.Run("descend into slice", func(t *testing.T) {
-			run(t, TestCase{
-				Value:     provider.Get("fun.extra"),
+		t.Run("subkey of sequence", func(t *testing.T) {
+			// Accessing a subkey of a sequence is meaningless.
+			run(t, testCase{
+				Value:     provider.Get("fun.not_there"),
 				HasValue:  false,
 				Interface: nil,
 				Populate:  &s,
@@ -127,7 +124,7 @@ mismatch: [scalar]
 
 	t.Run("nil", func(t *testing.T) {
 		var s string
-		run(t, TestCase{
+		run(t, testCase{
 			Value:     provider.Get("nothing"),
 			HasValue:  true,
 			Interface: nil,
@@ -138,7 +135,7 @@ mismatch: [scalar]
 
 	t.Run("scalar", func(t *testing.T) {
 		var s string
-		run(t, TestCase{
+		run(t, testCase{
 			Value:     provider.Get("practical.toyota"),
 			HasValue:  true,
 			Interface: "camry",
@@ -149,7 +146,7 @@ mismatch: [scalar]
 
 	t.Run("map", func(t *testing.T) {
 		var m map[string]string
-		run(t, TestCase{
+		run(t, testCase{
 			Value:    provider.Get("practical"),
 			HasValue: true,
 			Interface: map[interface{}]interface{}{
@@ -168,7 +165,7 @@ mismatch: [scalar]
 
 	t.Run("slice", func(t *testing.T) {
 		var s []string
-		run(t, TestCase{
+		run(t, testCase{
 			Value:     provider.Get("fun"),
 			HasValue:  true,
 			Interface: []interface{}{"maserati", "lamborghini"},
@@ -184,7 +181,7 @@ mismatch: [scalar]
 			Backseat  []string
 		}
 		var o Occupants
-		run(t, TestCase{
+		run(t, testCase{
 			Value:    provider.Get("occupants.honda"),
 			HasValue: true,
 			Interface: map[interface{}]interface{}{
@@ -206,7 +203,7 @@ mismatch: [scalar]
 		// lower-priority values. (This matches gopkg.in/yaml.v2.)
 		t.Skip("TODO: ignores explicit nil")
 		var s string
-		run(t, TestCase{
+		run(t, testCase{
 			Value:     provider.Get("antique_scalar"),
 			HasValue:  true,
 			Interface: nil,
@@ -220,7 +217,7 @@ mismatch: [scalar]
 		// lower-priority values. (This matches gopkg.in/yaml.v2.)
 		t.Skip("TODO: ignores explicit nil")
 		var s []string
-		run(t, TestCase{
+		run(t, testCase{
 			Value:     provider.Get("antique_sequence"),
 			HasValue:  true,
 			Interface: nil,
@@ -235,7 +232,7 @@ mismatch: [scalar]
 		// gopkg.in/yaml.v2.)
 		t.Skip("TODO: ignores explicit nil")
 		var m map[string]string
-		run(t, TestCase{
+		run(t, testCase{
 			Value:     provider.Get("antique_mapping_nil"),
 			HasValue:  true,
 			Interface: nil,
@@ -248,7 +245,7 @@ mismatch: [scalar]
 		// Merging deep-merges mappings, so merging in an empty map is a no-op.
 		// (This matches gopkg.in/yaml.v2.)
 		var m map[string]string
-		run(t, TestCase{
+		run(t, testCase{
 			Value:     provider.Get("antique_mapping_empty"),
 			HasValue:  true,
 			Interface: map[interface{}]interface{}{"ford": "model_t"},
@@ -257,20 +254,9 @@ mismatch: [scalar]
 		assert.Equal(t, map[string]string{"ford": "model_t"}, m, "unexpected result after Populate")
 	})
 
-	t.Run("sequence merged into scalar", func(t *testing.T) {
-		var s []string
-		run(t, TestCase{
-			Value:     provider.Get("mismatch"),
-			HasValue:  true,
-			Interface: []interface{}{"scalar"},
-			Populate:  &s,
-		})
-		assert.Equal(t, []string{"scalar"}, s, "unexpected result after populate")
-	})
-
 	t.Run("anchors and native merge", func(t *testing.T) {
 		var m map[string]string
-		run(t, TestCase{
+		run(t, testCase{
 			Value:    provider.Get("extra_practical"),
 			HasValue: true,
 			Interface: map[interface{}]interface{}{
@@ -289,7 +275,7 @@ mismatch: [scalar]
 
 	t.Run("multiple gets", func(t *testing.T) {
 		var s string
-		run(t, TestCase{
+		run(t, testCase{
 			Value:     provider.Get("occupants").Get("honda").Get("driver"),
 			HasValue:  true,
 			Interface: "jane",
@@ -302,7 +288,7 @@ mismatch: [scalar]
 		var s string
 		val, err := provider.Get("not_there").WithDefault("something")
 		require.NoError(t, err, "couldn't set default")
-		run(t, TestCase{
+		run(t, testCase{
 			Value:     val,
 			HasValue:  true,
 			Interface: "something",
@@ -315,7 +301,7 @@ mismatch: [scalar]
 		var s string
 		val, err := provider.Get("practical.honda").WithDefault("CRV")
 		require.NoError(t, err, "couldn't set default")
-		run(t, TestCase{
+		run(t, testCase{
 			Value:     val,
 			HasValue:  true,
 			Interface: "civic",
@@ -329,7 +315,7 @@ mismatch: [scalar]
 		var s string
 		val, err := provider.Get("nothing").WithDefault("something")
 		require.NoError(t, err, "couldn't set default")
-		run(t, TestCase{
+		run(t, testCase{
 			Value:     val,
 			HasValue:  true,
 			Interface: nil,
@@ -339,19 +325,18 @@ mismatch: [scalar]
 	})
 
 	t.Run("default merges maps", func(t *testing.T) {
-		t.Skip("TODO: defaults aren't deep-merged")
 		var m map[string]string
 		val, err := provider.Get("practical").WithDefault(map[string]string{
-			"ford":   "fiesta",
-			"toyota": "corolla",
+			"ford":   "fiesta",  // new key
+			"toyota": "corolla", // key present and set to "camry"
 		})
 		require.NoError(t, err, "couldn't set default")
-		run(t, TestCase{
+		run(t, testCase{
 			Value:    val,
 			HasValue: true,
 			Interface: map[interface{}]interface{}{
 				"honda":  "civic",
-				"toyota": "corolla",
+				"toyota": "camry",
 				"nissan": "altima",
 				"ford":   "fiesta",
 			},
@@ -359,17 +344,17 @@ mismatch: [scalar]
 		})
 		assert.Equal(t, map[string]string{
 			"honda":  "civic",
-			"toyota": "corolla",
+			"toyota": "camry",
 			"nissan": "altima",
 			"ford":   "fiesta",
 		}, m, "unexpected result after populate")
 	})
 
-	t.Run("default doesn't merge sequences", func(t *testing.T) {
+	t.Run("default replaces sequences", func(t *testing.T) {
 		var s []string
 		val, err := provider.Get("fun").WithDefault([]string{"delorean"})
 		require.NoError(t, err, "couldn't set default")
-		run(t, TestCase{
+		run(t, testCase{
 			Value:     val,
 			HasValue:  true,
 			Interface: []interface{}{"maserati", "lamborghini"},
@@ -378,24 +363,11 @@ mismatch: [scalar]
 		assert.Equal(t, []string{"maserati", "lamborghini"}, s, "unexpected result after populate")
 	})
 
-	t.Run("default ignores type mismatches", func(t *testing.T) {
-		// TODO: We should return an error in strict mode.
-		// Since defaults are effectively the lowest-priority config, they should
-		// control the types expected in users' config. Type mismatches are
-		// ignored.
-		t.Skip("TODO: default isn't treated as lowest-priority config source")
-		d := map[string]string{"dodge": "viper"}
-		val, err := provider.Get("fun").WithDefault(d)
-		assert.NoError(t, err, "error on type mismatch in permissive mode")
-		assert.Equal(t, d, val.Value(), "wrong merged output")
-	})
-
 	t.Run("chained defaults", func(t *testing.T) {
 		// Each call to WithDefault should merge all existing config into the
 		// default, then use the result. This means that repeated calls to
 		// WithDefault should deep-merge all the supplied defaults, with the last
 		// call to WithDefault having the lowest priority.
-		t.Skip("TODO: defaults aren't deep-merged")
 
 		// First, set a default.
 		val, err := provider.Get("top").WithDefault(map[string]string{"middle": "bottom"})
@@ -406,14 +378,13 @@ mismatch: [scalar]
 		val, err = val.WithDefault(map[string]string{"other_middle": "other_bottom"})
 		require.NoError(t, err, "couldn't set second default")
 
-		// Last, set a default for one of the inner keys. The result of merging
-		// first and second defaults should be merged into this value, overwriting
-		// it.
-		val, err = val.Get("other_middle").WithDefault("should be overwritten")
-		require.NoError(t, err, "couldn't set third, nested default")
+		// Last, set a default for the new key. The result of merging first and
+		// second defaults should be merged into this value, overwriting it.
+		val, err = val.WithDefault(map[string]string{"other_middle": "should be overwritten"})
+		require.NoError(t, err, "couldn't set third default")
 
 		var m map[string]string
-		run(t, TestCase{
+		run(t, testCase{
 			Value:    val,
 			HasValue: true,
 			Interface: map[interface{}]interface{}{
@@ -430,7 +401,7 @@ mismatch: [scalar]
 
 	t.Run("deep copy", func(t *testing.T) {
 		t.Skip("TODO: mutations are visible to other callers")
-
+		// Regression test for https://github.com/uber-go/config/issues/76.
 		const key = "foobar"
 		unmarshal := func() map[interface{}]interface{} {
 			var m map[string]interface{}
@@ -447,57 +418,210 @@ mismatch: [scalar]
 	})
 
 	t.Run("named field", func(t *testing.T) {
-		type cfg struct {
-			Boring []string `yaml:"fun"`
-		}
-
-		var c cfg
-		require.NoError(t, provider.Get(Root).Populate(&c))
-		assert.Equal(t, 2, len(c.Boring), "wrong number of fun cars")
-	})
-
-	t.Run("ignored field", func(t *testing.T) {
-		type cfg struct {
-			Boring []string `yaml:"-"`
-		}
-
-		var c cfg
-		require.NoError(t, provider.Get(Root).Populate(&c))
-		assert.Empty(t, c.Boring, "wrong number of fun cars")
+		c := struct {
+			Toyota string
+			Honda  string
+			Datsun string `yaml:"nissan"`
+		}{}
+		require.NoError(t, provider.Get("practical").Populate(&c))
+		assert.Equal(t, "camry", c.Toyota, "wrong Toyota")
+		assert.Equal(t, "altima", c.Datsun, "wrong Datsun (aka Nissan)")
 	})
 
 	t.Run("omitempty field", func(t *testing.T) {
-		t.Skip("TODO: doesn't handle omitempty fields")
-		type cfg struct {
-			Fun []string `yaml:",omitempty"`
-		}
-
-		var c cfg
-		require.NoError(t, provider.Get(Root).Populate(&c))
-		assert.Equal(t, 2, len(c.Fun), "wrong number of fun cars")
+		t.Skip("TODO: doesn't handle omitempty field")
+		c := struct {
+			Toyota string
+			Honda  string
+			Nissan string `yaml:",omitempty"`
+		}{}
+		require.NoError(t, provider.Get("practical").Populate(&c))
+		assert.Equal(t, "altima", c.Nissan, "wrong Nissan")
 	})
 
 	t.Run("flow field", func(t *testing.T) {
-		t.Skip("TODO: doesn't handle flow fields")
-		type cfg struct {
-			Fun []string `yaml:",flow"`
-		}
-
-		var c cfg
-		require.NoError(t, provider.Get(Root).Populate(&c))
-		assert.Equal(t, 2, len(c.Fun), "wrong number of fun cars")
+		t.Skip("TODO: doesn't handle flow field")
+		c := struct {
+			Toyota string
+			Honda  string
+			Nissan string `yaml:",flow"`
+		}{}
+		require.NoError(t, provider.Get("practical").Populate(&c))
+		assert.Equal(t, "altima", c.Nissan, "wrong Nissan")
 	})
 
 	t.Run("inline field", func(t *testing.T) {
-		t.Skip("TODO: doesn't handle inline fields")
-		type cfg struct {
-			Things struct {
-				Fun []string
+		t.Skip("TODO: doesn't handle inline field")
+		c := struct {
+			Humans struct {
+				Driver    string
+				Passenger string
+				Backseat  []string
 			} `yaml:",inline"`
-		}
-
-		var c cfg
-		require.NoError(t, provider.Get(Root).Populate(&c))
-		assert.Equal(t, 2, len(c.Things.Fun), "wrong number of fun cars")
+		}{}
+		require.NoError(t, provider.Get("occupants.honda").Populate(&c))
+		assert.Equal(t, 1, len(c.Humans.Backseat), "wrong number of backseat occupants")
 	})
+}
+
+func TestPermissiveYAML(t *testing.T) {
+	provider, err := NewYAMLProviderFromReader(
+		strings.NewReader(_base),
+		strings.NewReader(_override),
+	)
+	require.NoError(t, err, "couldn't create provider")
+	assert.Equal(t, `cached "yaml"`, provider.Get(Root).Source(), "wrong source")
+	assert.Equal(t, "<nil>", provider.Get("nothing").String(), "wrong string representation")
+
+	runCommonTests(t, provider)
+
+	t.Run("ignore type mismatch during merge", func(t *testing.T) {
+		provider, err := NewYAMLProviderFromReader(
+			strings.NewReader("mismatch: foo"),   // scalar
+			strings.NewReader("mismatch: [foo]"), // sequence
+		)
+		require.NoError(t, err, "couldn't create permissive provider with type mismatch")
+
+		var s []string
+		run(t, testCase{
+			Value:     provider.Get("mismatch"),
+			HasValue:  true,
+			Interface: []interface{}{"foo"},
+			Populate:  &s,
+		})
+		assert.Equal(t, []string{"foo"}, s, "unexpected result after populate")
+	})
+
+	t.Run("ignores type mismatches during WithDefault", func(t *testing.T) {
+		// Since defaults are effectively the lowest-priority config, their types
+		// should be ignored when necessary.
+		provider, err := NewYAMLProviderFromReader(
+			strings.NewReader("mismatch: foo"), // scalar
+		)
+		require.NoError(t, err, "couldn't create provider")
+		val, err := provider.Get("mismatch").WithDefault([]string{"foo"}) // sequence
+		assert.NoError(t, err, "error on type mismatch in permissive mode")
+		assert.Equal(t, "foo", val.Value(), "wrong merged output")
+	})
+
+	t.Run("ignore duplicate keys", func(t *testing.T) {
+		provider, err := NewYAMLProviderFromReader(
+			strings.NewReader("dupe: foo\ndupe: bar"),
+		)
+		require.NoError(t, err, "couldn't create provider")
+
+		var s string
+		run(t, testCase{
+			Value:     provider.Get("dupe"),
+			HasValue:  true,
+			Interface: "bar",
+			Populate:  &s,
+		})
+		assert.Equal(t, "bar", s, "unexpected result after populate")
+	})
+
+	t.Run("ignores extra data during Populate", func(t *testing.T) {
+		provider, err := NewYAMLProviderFromReader(
+			strings.NewReader("foo: bar\nbaz: quux"),
+		)
+		require.NoError(t, err, "couldn't create provider")
+
+		c := struct {
+			Foo string
+		}{}
+		require.NoError(t, provider.Get(Root).Populate(&c), "populate failed")
+		assert.Equal(t, "bar", c.Foo, "unexpected value")
+	})
+
+	t.Run("may provide ignored field", func(t *testing.T) {
+		provider, err := NewYAMLProviderFromReader(
+			strings.NewReader("toyota: camry"),
+		)
+		require.NoError(t, err, "couldn't create provider")
+
+		c := struct {
+			Toyota string `yaml:"-"`
+		}{}
+		require.NoError(t, provider.Get(Root).Populate(&c))
+		assert.Empty(t, c.Toyota, "should ignore Toyota")
+	})
+}
+
+func TestStrictYAML(t *testing.T) {
+	t.Skip("TODO: no strict mode support yet")
+	provider, err := NewYAMLProviderFromReader(
+		strings.NewReader(_base),
+		strings.NewReader(_override),
+	)
+	require.NoError(t, err, "couldn't create provider")
+	assert.Equal(t, `cached "yaml"`, provider.Get(Root).Source(), "wrong source")
+	assert.Equal(t, "<nil>", provider.Get("nothing").String(), "wrong string representation")
+
+	runCommonTests(t, provider)
+
+	t.Run("fail on type mismatch during merge", func(t *testing.T) {
+		_, err := NewYAMLProviderFromReader(
+			strings.NewReader("mismatch: foo"),   // scalar
+			strings.NewReader("mismatch: [foo]"), // sequence
+		)
+		require.Error(t, err, "couldn't create permissive provider with type mismatch")
+		assert.Contains(t, err.Error(), "couldn't merge", "unexpected error message")
+	})
+
+	t.Run("fail on type mismatches during WithDefault", func(t *testing.T) {
+		provider, err := NewYAMLProviderFromReader(
+			strings.NewReader("mismatch: foo"), // scalar
+		)
+		require.NoError(t, err, "couldn't create provider")
+
+		_, err = provider.Get("mismatch").WithDefault([]string{"foo"}) // sequence
+		assert.Error(t, err, "success on type mismatch in strict mode")
+		assert.Contains(t, err.Error(), "can't merge", "unexpected error message")
+	})
+
+	t.Run("fail on duplicate keys", func(t *testing.T) {
+		_, err := NewYAMLProviderFromReader(
+			strings.NewReader("dupe: foo\ndupe: bar"),
+		)
+		require.Error(t, err, "created strict provider with type mismatch")
+		assert.Contains(t, err.Error(), `key "dupe" already set in map`, "unexpected error message")
+	})
+
+	t.Run("fail on extra data during Populate", func(t *testing.T) {
+		provider, err := NewYAMLProviderFromReader(
+			strings.NewReader("foo: bar\nbaz: quux"),
+		)
+		require.NoError(t, err, "couldn't create provider")
+
+		c := struct {
+			Foo string
+		}{}
+		err = provider.Get(Root).Populate(&c)
+		require.Error(t, err, "populate succeeded")
+		assert.Contains(t, err.Error(), "field baz not found in type struct", "unexpected error message")
+	})
+
+	t.Run("must not provide ignored fields", func(t *testing.T) {
+		provider, err := NewYAMLProviderFromReader(strings.NewReader("toyota: camry"))
+		require.NoError(t, err, "couldn't create provider")
+
+		c := struct {
+			Toyota string `yaml:"-"`
+		}{}
+		err = provider.Get(Root).Populate(&c)
+		require.Error(t, err, "expected error")
+		assert.Contains(t, err.Error(), "field toyota not found in type", "unexpected error message")
+	})
+}
+
+func TestStaticFromYAML(t *testing.T) {
+	// Since we have a common test suite, we may as well use it to exercise the
+	// static provider too.
+	var base, override interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(_base), &base), "couldn't unmarshal base YAML")
+	require.NoError(t, yaml.Unmarshal([]byte(_override), &override), "couldn't unmarshal base YAML")
+
+	t.Skip("TODO: no support for multiple sources in NewStaticProvider")
+	p := NopProvider{}
+	runCommonTests(t, p)
 }
