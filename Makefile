@@ -1,5 +1,5 @@
 PACKAGES := $(shell glide novendor)
-TEST := go test -race $(PACKAGES)
+TEST := go test -race
 
 .PHONY: install
 install:
@@ -14,8 +14,8 @@ test:
 ci: SHELL := /bin/bash
 ci:
 ifdef COVER
-	$(TEST) -coverprofile=coverage.txt -covermode=atomic -count 2
-	bash <(curl -s https://codecov.io/bash)
+	$(TEST) -cover -coverprofile=coverage.txt $(PACKAGES)
+	# bash <(curl -s https://codecov.io/bash)
 else
-	$(TEST)
+	$(TEST) $(PACKAGES)
 endif
