@@ -87,8 +87,6 @@ func (e *bufReader) Read(buf []byte) (int, error) {
 }
 
 func TestExpander(t *testing.T) {
-	t.Parallel()
-
 	r := bytes.NewReader([]byte(orig))
 
 	expand_func := func(s string) (string, error) {
@@ -128,8 +126,6 @@ func TestExpander(t *testing.T) {
 }
 
 func TestExpanderOneByteAtATime(t *testing.T) {
-	t.Parallel()
-
 	r := bytes.NewReader([]byte(orig))
 	rr := &oneByteReader{r: r}
 
@@ -151,8 +147,6 @@ func TestExpanderOneByteAtATime(t *testing.T) {
 }
 
 func TestExpanderFailingTransform(t *testing.T) {
-	t.Parallel()
-
 	r := bytes.NewReader([]byte(orig))
 
 	expand_func := func(s string) (string, error) {
@@ -171,8 +165,6 @@ func TestExpanderFailingTransform(t *testing.T) {
 }
 
 func TestExpanderMisc(t *testing.T) {
-	t.Parallel()
-
 	tests := [...]struct {
 		orig   string
 		expect string
@@ -197,7 +189,6 @@ func TestExpanderMisc(t *testing.T) {
 		tst := tst
 		t.Run(fmt.Sprintf("sub=%d", i),
 			func(t *testing.T) {
-				t.Parallel()
 				tr := transform.NewReader(
 					bytes.NewReader([]byte(tst.orig)),
 					&expandTransformer{expand: expand_func},
@@ -211,8 +202,6 @@ func TestExpanderMisc(t *testing.T) {
 }
 
 func TestExpanderLongSrc(t *testing.T) {
-	t.Parallel()
-
 	a := strings.Repeat("a", transformBufSize-1)
 
 	tests := [...]struct {
@@ -237,7 +226,6 @@ func TestExpanderLongSrc(t *testing.T) {
 		tst := tst
 		t.Run(fmt.Sprintf("sub=%d", i),
 			func(t *testing.T) {
-				t.Parallel()
 				tr := transform.NewReader(
 					&bufReader{buf: []byte(tst.orig)},
 					&expandTransformer{expand: expand_func},
@@ -251,8 +239,6 @@ func TestExpanderLongSrc(t *testing.T) {
 }
 
 func TestTransformLimit(t *testing.T) {
-	t.Parallel()
-
 	a := strings.Repeat("a", transformBufSize-1)
 
 	// The transform package uses an internal fixed-size buffer.
@@ -282,7 +268,6 @@ func TestTransformLimit(t *testing.T) {
 		tst := tst
 		t.Run(fmt.Sprintf("sub=%d", i),
 			func(t *testing.T) {
-				t.Parallel()
 				tr := transform.NewReader(
 					bytes.NewReader([]byte(tst.orig)),
 					&expandTransformer{expand: expand_func},
