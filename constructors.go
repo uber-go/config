@@ -88,9 +88,9 @@ func NewStaticProviderWithExpand(data interface{}, lookup LookupFunc) (Provider,
 }
 
 // NewYAMLProviderFromBytes merges multiple YAML-formatted byte slices into a
-// single provider. As always, later configuration blobs override earlier ones
-// using the merge logic described in the package-level documentation. To
-// preserve backward compatibility, the resulting provider disables strict
+// single provider. Later configuration blobs override earlier ones using the
+// merge logic described in the package-level documentation. To preserve
+// backward compatibility, the resulting provider disables strict
 // unmarshalling.
 //
 // Deprecated: use NewYAML with the Source and Expand options directly. This

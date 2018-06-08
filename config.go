@@ -76,7 +76,7 @@ func NewYAML(options ...YAMLOption) (y *YAML, retErr error) {
 	// On construction, go through a full merge-serialize-deserialize cycle to
 	// catch any duplicated keys as early as possible (in strict mode). It also
 	// strips comments, which stops us from attempting environment variable
-	// expansion.
+	// expansion. (We'll expand environment variables next.)
 	merged, err := merge.YAML(cfg.sources, cfg.strict)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't merge YAML sources: %v", err)
@@ -127,8 +127,8 @@ func (y *YAML) Get(key string) Value {
 }
 
 func (y *YAML) get(path []string) Value {
-	if len(path) == 1 && path[0] == "" {
-		path = nil // root node
+	if len(path) == 1 && path[0] == Root {
+		path = nil
 	}
 	return Value{
 		path:     path,
@@ -138,6 +138,9 @@ func (y *YAML) get(path []string) Value {
 
 // at returns the unmarshalled representation of the value at a given path,
 // with a bool indicating whether the value was found.
+//
+// YAML mappings are unmarshalled as map[interface{}]interface{}, sequences as
+// []interface{}, and scalars as interface{}.
 func (y *YAML) at(path []string) (interface{}, bool) {
 	cur := y.contents
 	for _, segment := range path {
@@ -238,7 +241,7 @@ func NewValue(p Provider, key string, value interface{}, found bool) Value {
 		tmpl := "inconsistent parameters: provider %s has %#v at key %q but value was %#v"
 		panic(fmt.Sprintf(tmpl, p.Name(), contents, key, value))
 	}
-	return p.Get(key)
+	return actual
 }
 
 // Source returns the name of the value's provider.

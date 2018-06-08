@@ -584,6 +584,22 @@ func TestStrictYAML(t *testing.T) {
 		assert.Contains(t, err.Error(), `key "dupe" already set in map`, "unexpected error message")
 	})
 
+	t.Run("allow missing data during Populate", func(t *testing.T) {
+		provider, err := NewYAML(
+			Source(strings.NewReader("foo: bar")),
+		)
+		require.NoError(t, err, "couldn't create provider")
+
+		c := struct {
+			Foo   string
+			Unset string
+		}{}
+		err = provider.Get(Root).Populate(&c)
+		require.NoError(t, err, "populate failed")
+		assert.Equal(t, c.Foo, "bar", "unexpected value for set field")
+		assert.Zero(t, c.Unset, "expected unset field to be zero value")
+	})
+
 	t.Run("fail on extra data during Populate", func(t *testing.T) {
 		provider, err := NewYAML(
 			Source(strings.NewReader("foo: bar\nbaz: quux")),
