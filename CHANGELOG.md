@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## v1.0.0 - 2017-07-31
 ### Changed
 - Skip populating function and value types instead of reporting errors.
-- Return an error from provider constructors instead of panic'ing.
+- Return an error from provider constructors instead of panicking.
 - Return an error from `Value.WithDefault` if the default is unusable.
 
 ### Removed
