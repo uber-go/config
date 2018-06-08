@@ -13,3 +13,6 @@ coverage:
         threshold: null        # allowed to drop X% and still result in a "success" commit status
         if_not_found: success  # if parent is not found report status as success, error, or failure
         if_ci_failed: error    # if ci fails report status as success, error, or failure
+    patch:
+      default:
+        enabled: no
