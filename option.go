@@ -47,7 +47,8 @@ func (f optionFunc) apply(c *config) { f(c) }
 // ${VAR:default}. In the first form, variable names MUST adhere to shell
 // naming rules:
 //   ...a word consisting solely of underscores, digits, and alphabetics form
-//   the portable character set. The first character of a name is not a digit.
+//   the portable character set. The first character of a name may not be a
+//   digit.
 // In this form, NewYAML returns an error if any referenced variables aren't
 // found.
 //

@@ -67,8 +67,8 @@ func ExampleValue_WithDefault() {
 	base := provider.Get(config.Root)
 
 	// Applying a default is equivalent to serializing it to YAML, writing the
-	// serialized bytes to default.yaml, and then merging default.yaml and the
-	// existing configuration. Maps are deep-merged!
+	// serialized bytes to default.yaml, and then merging the existing
+	// configuration into default.yaml. Maps are deep-merged!
 	//
 	// Since we're setting the default for a key that's not already in the
 	// configuration, new_key will now be set to new_value. From now on, it's
