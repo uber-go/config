@@ -5,8 +5,33 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Added
+- Add `NewYAML`, a new `Provider` constructor that lets callers mix Go values,
+  readers, files, and other options.
+- Add support for `gopkg.in/yaml.v2`'s strict mode. The behavior of the existing
+  constructors is unchanged, but `NewYAML` enables strict mode by default.
 
-- No changes yet.
+### Fixed
+- Fix behavior of explicit `nil`s during merges. `nil` now correctly replaces
+  any value it's merged into.
+- Fix panic when a default is set for a value explicitly set to `nil`.
+- Eliminate situations where configuration was mistakenly shallow-copied,
+  making any mutations visible to other callers.
+- Correctly handle `omitempty`, `inline`, and `flow` fields.
+- Make `NopProvider.HasValue` always return false.
+- Stop expanding environment variables in YAML comments.
+- Make `NewValue` panic when the user-supplied parameters don't match the
+  contents of the `Provider`. See the package documentation for details.
+- Remove undocumented support for the `default` struct tag, which was supposed
+  to have been removed prior to the 1.0 release. All known users of the tag were
+  migrated.
+
+### Deprecated
+- Deprecate all existing `Provider` constructors except `NewScopedProvider` in
+  favor of `NewYAML`.
+- Deprecate `NewValue` in favor of `Provider.Get`.
+- Deprecate `Value.HasValue`, `Value.Value`, and `Value.WithDefault` in favor of
+  strongly-typed approaches using `Value.Populate`.
 
 ## v1.1.0 - 2017-09-28
 ### Added
