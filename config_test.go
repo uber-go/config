@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Uber Technologies, Inc.
+// Copyright (c) 2017-2018 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,356 +21,167 @@
 package config
 
 import (
-	"bytes"
-	"io/ioutil"
+	"strings"
 	"testing"
-
-	"strconv"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-type nested struct {
-	Name string `yaml:"name" default:"default_name"`
-	ID1  int    `yaml:"id1"`
-	ID2  string `yaml:"id2"`
+func TestNewValueParameterValidation(t *testing.T) {
+	// The 1.0 release of this package included a NewValue implementation that
+	// had many, many bugs. To fix those bugs, we now validate the internal
+	// consistency of all arguments to NewValue at construction time. Because we
+	// can't change the signature of NewValue without breaking backward
+	// compatibility, the function now panics if the user-supplied parameters
+	// aren't sensible.
+	provider, err := NewYAML(Source(strings.NewReader("scalar: foo")))
+	require.NoError(t, err, "couldn't create provider")
+
+	t.Run("arguments are internally consistent", func(t *testing.T) {
+		// All arguments are internally consistent: value and found match the
+		// contents of provider at key.
+		v := NewValue(
+			provider,
+			"scalar", // key
+			"foo",    // value
+			true,     // found
+		)
+
+		assert.Equal(t, provider.Name(), v.Source(), "value source should be provider name")
+		assert.Equal(t, "foo", v.String(), "unexpected fmt.Stringer implementation")
+		assert.Equal(t, "foo", v.Value(), "unexpected Value")
+		assert.True(t, v.HasValue(), "unexpected HasValue")
+		assert.Equal(t, "foo", v.Get(Root).Value(), "unexpected Value after Get")
+
+		var s string
+		require.NoError(t, v.Populate(&s), "couldn't populate string")
+		assert.Equal(t, "foo", s, "unexpected Populate")
+
+		defaulted, err := v.WithDefault("bar")
+		require.NoError(t, err, "couldn't set default")
+		assert.Equal(t, "foo", defaulted.Value(), "unexpected Value after WithDefault")
+	})
+
+	t.Run("value doesn't match provider", func(t *testing.T) {
+		assert.Panics(t, func() {
+			NewValue(
+				provider,
+				"scalar", // key
+				"baz",    // value, doesn't match provider
+				true,     // found
+			)
+		})
+	})
+
+	t.Run("found doesn't match provider", func(t *testing.T) {
+		assert.Panics(t, func() {
+			NewValue(
+				provider,
+				"scalar", // key
+				"foo",    // value
+				false,    // found, doesn't match provider
+			)
+		})
+		assert.Panics(t, func() {
+			NewValue(
+				provider,
+				"not_present", // key
+				nil,           // value
+				true,          // found, doesn't match provider
+			)
+		})
+	})
+
+	t.Run("value isn't serializable as YAML", func(t *testing.T) {
+		assert.Panics(t, func() {
+			NewValue(
+				provider,
+				"scalar", // key
+				noYAML{}, // value, can't be serialized to YAML
+				true,     // found
+			)
+		})
+	})
 }
 
-var nest1 = []byte(`
-id1: 1
-id2: 2
-`)
-
-type root struct {
-	ID        int      `yaml:"id"`
-	Names     []string `yaml:"names"`
-	Nested    nested   `yaml:"n1"`
-	NestedPtr *nested  `yaml:"nptr"`
-}
-
-var nestedYaml = []byte(`
-id: 1234
-names:
-  - aiden
-  - shawn
-  - glib
-  - madhu
-  - anup
-n1:
-  name: struct
-  id1:	111
-  id2:  222
-nptr:
-  name: ptr
-  id1: 	1111
-  id2:  2222
-`)
-
-var structArrayYaml = []byte(`
-things:
-  - id1: 0
-  - id1: 1
-  - id1: 2
-`)
-
-var yamlConfig3 = []byte(`
-float: 1.123
-bool: true
-int: 123
-string: test string
-`)
-
-type arrayOfStructs struct {
-	Things []nested `yaml:"things"`
-}
-
-func TestRootNodeConfig(t *testing.T) {
-	t.Parallel()
-	txt := []byte(`
-one:
-  two: hello
-`)
-
-	cfg, err := NewYAMLProviderFromBytes(txt)
-	require.NoError(t, err, "Can't create a YAML provider")
-
-	assert.Equal(t, "map[one:map[two:hello]]", cfg.Get(Root).String())
-}
-
-func TestDirectAccess(t *testing.T) {
-	t.Parallel()
-
-	p, err := NewYAMLProviderFromBytes(nestedYaml)
-	require.NoError(t, err, "Can't create a YAML provider")
-
-	provider, err := NewProviderGroup("test", p)
-	require.NoError(t, err)
-
-	v, err := provider.Get("n1.id1").WithDefault("xxx")
-	require.NoError(t, err, "Can't create a default value")
-
-	assert.True(t, v.HasValue())
-	assert.Equal(t, 111, v.Value())
-}
-
-func TestScopedAccess(t *testing.T) {
-	t.Parallel()
-
-	p, err := NewYAMLProviderFromBytes(nestedYaml)
-	require.NoError(t, err, "Can't create a YAML provider")
-	provider, err := NewProviderGroup("test", p)
-	require.NoError(t, err)
-
-	p1 := provider.Get("n1")
-
-	v1 := p1.Get("id1")
-	v2, err := p1.Get("idx").WithDefault("nope")
-	require.NoError(t, err)
-
-	assert.True(t, v1.HasValue())
-	assert.Equal(t, 111, v1.Value())
-	assert.True(t, v2.HasValue())
-	assert.Equal(t, v2.String(), "nope")
-}
-
-func TestSimpleConfigValues(t *testing.T) {
-	t.Parallel()
-
-	p, err := NewYAMLProviderFromBytes(yamlConfig3)
-	require.NoError(t, err, "Can't create a YAML provider")
-
-	provider, err := NewProviderGroup("test", p)
-	require.NoError(t, err)
-
-	assert.Equal(t, 123, provider.Get("int").Value())
-	assert.Equal(t, "test string", provider.Get("string").String())
-
-	_, err = strconv.ParseBool(provider.Get("nonexisting").String())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid syntax")
-
-	assert.Equal(t, true, provider.Get("bool").Value())
-	assert.Equal(t, 1.123, provider.Get("float").Value())
-
-	nested := &nested{}
-	v := provider.Get("nonexisting")
-	assert.NoError(t, v.Populate(nested))
-}
-
-func TestNestedStructs(t *testing.T) {
-	t.Parallel()
-
-	p, err := NewYAMLProviderFromBytes(nestedYaml)
-	require.NoError(t, err, "Can't create a YAML provider")
-
-	provider, err := NewProviderGroup("test", p)
-	require.NoError(t, err)
-
-	str := &root{}
-
-	v := provider.Get(Root)
-
-	assert.True(t, v.HasValue())
-	require.NoError(t, v.Populate(str), "Can't populate struct")
-
-	assert.Equal(t, 1234, str.ID)
-	assert.Equal(t, 1111, str.NestedPtr.ID1)
-	assert.Equal(t, "2222", str.NestedPtr.ID2)
-	assert.Equal(t, 111, str.Nested.ID1)
-	assert.Equal(t, "aiden", str.Names[0])
-	assert.Equal(t, "shawn", str.Names[1])
-}
-
-func TestArrayOfStructs(t *testing.T) {
-	t.Parallel()
-
-	p, err := NewYAMLProviderFromBytes(structArrayYaml)
-	require.NoError(t, err, "Can't create a YAML provider")
-
-	provider, err := NewProviderGroup("test", p)
-	require.NoError(t, err)
-
-	target := &arrayOfStructs{}
-
-	v := provider.Get(Root)
-
-	assert.True(t, v.HasValue())
-	assert.NoError(t, v.Populate(target))
-	assert.Equal(t, 0, target.Things[0].ID1)
-	assert.Equal(t, 2, target.Things[2].ID1)
-}
-
-func TestDefault(t *testing.T) {
-	t.Parallel()
-
-	p, err := NewYAMLProviderFromBytes(nest1)
-	require.NoError(t, err, "Can't create a YAML provider")
-
-	provider, err := NewProviderGroup("test", p)
-	require.NoError(t, err)
-
-	target := &nested{}
-	v := provider.Get(Root)
-	assert.True(t, v.HasValue())
-	assert.NoError(t, v.Populate(target))
-	assert.Equal(t, "default_name", target.Name)
-}
-
-func TestInvalidConfigFailures(t *testing.T) {
-	t.Parallel()
-
-	valueType := []byte(`
-id: xyz
-boolean: hooli
-`)
-
-	_, err := NewYAMLProviderFromBytes([]byte("bytes: \n\x010"))
-	require.Error(t, err, "Can't parse invalid YAML")
-	assert.Contains(t, err.Error(), "yaml: control characters are not allowed")
-
-	_, err = NewYAMLProviderFromBytes(valueType)
-	require.NoError(t, err, "Can't create a YAML provider")
-}
-
-func TestNopProvider_Get(t *testing.T) {
-	t.Parallel()
-
+func TestUnserializableDefault(t *testing.T) {
 	p := NopProvider{}
-	assert.Equal(t, "NopProvider", p.Name())
-
-	v := p.Get("randomKey")
-	assert.Equal(t, "NopProvider", v.Source())
-	assert.True(t, v.HasValue())
-	assert.Nil(t, v.Value())
+	_, err := p.Get(Root).WithDefault(noYAML{})
+	require.Error(t, err, "expected setting default to fail")
 }
 
-func TestPointerIntField(t *testing.T) {
-	t.Parallel()
+func TestScopedProvider(t *testing.T) {
+	p, err := NewYAML(Source(strings.NewReader("foo: {bar: baz}")))
+	require.NoError(t, err, "couldn't construct provider")
 
-	type pointerFieldStruct struct {
-		Name  string
-		Value *int
-	}
+	t.Run("prefix", func(t *testing.T) {
+		s := NewScopedProvider("foo", p)
+		assert.Equal(t, "baz", s.Get("bar").Value(), "unexpected value")
+	})
 
-	var ptrYaml = `
-ps:
-  name: Hello
-  value: 123
-`
-	p, err := NewYAMLProviderFromBytes([]byte(ptrYaml))
-	require.NoError(t, err, "Can't create a YAML provider")
-
-	cfg := &pointerFieldStruct{Name: "xxx"}
-	v := p.Get("ps")
-
-	require.NoError(t, v.Populate(cfg))
+	t.Run("no prefix", func(t *testing.T) {
+		s := NewScopedProvider("", p)
+		assert.Equal(t, "baz", s.Get("foo.bar").Value(), "unexpected value")
+	})
 }
 
-func TestPointerTypedField(t *testing.T) {
-	t.Parallel()
+func TestProviderGroup(t *testing.T) {
+	first, err := NewYAML(Source(strings.NewReader("key: {foo: bar}")))
+	require.NoError(t, err, "couldn't construct first provider")
+	second, err := NewYAML(Source(strings.NewReader("key: {baz: quux}")))
+	require.NoError(t, err, "couldn't construct second provider")
 
-	type pointerFieldStruct struct {
-		Name  string
-		Value *int
-	}
+	p, err := NewProviderGroup("group", first, second)
+	require.NoError(t, err, "couldn't group providers")
+	assert.Equal(t, "group", p.Name(), "unexpected name")
 
-	var ptrPort = `
-ps:
-  name: Hello
-  port: 123
-`
-	p, err := NewYAMLProviderFromBytes([]byte(ptrPort))
-	require.NoError(t, err, "Can't create a YAML provider")
-
-	cfg := &pointerFieldStruct{Name: "xxx"}
-	v := p.Get("ps")
-
-	require.NoError(t, v.Populate(cfg))
+	var cfg map[string]string
+	require.NoError(t, p.Get("key").Populate(&cfg), "couldn't populate map")
+	assert.Equal(t, map[string]string{
+		"foo": "bar",
+		"baz": "quux",
+	}, cfg, "expected to deep-merge providers")
 }
 
-func TestPointerChildTypedField(t *testing.T) {
-	t.Parallel()
-
-	type Port int
-	type childPort struct {
-		Port *Port
-	}
-
-	type portChildStruct struct {
-		Name     string
-		Child    *childPort
-		Children []childPort
-	}
-
-	var ptrChildPort = `
-ps:
-  name: Hello
-  child:
-    port: 123
-  children:
-    - port: 321
-`
-
-	p, err := NewYAMLProviderFromBytes([]byte(ptrChildPort))
-	require.NoError(t, err, "Can't create a YAML provider")
-
-	cfg := &portChildStruct{Name: "xxx"}
-	v := p.Get("ps")
-
-	require.NoError(t, v.Populate(cfg))
-	require.Equal(t, 123, int(*cfg.Child.Port))
-}
-
-func TestRPCPortField(t *testing.T) {
-	t.Parallel()
-
-	type Port int
-	type TChannelOutbound struct {
-		Port *Port `yaml:"port"`
-	}
-
-	type Outbound struct {
-		// Only one of the following must be set.
-		TChannel *TChannelOutbound `yaml:"tchannel"`
-	}
-
-	type Outbounds []Outbound
-
-	// Config is the YARPC YAML configuration.
-	type YARPCConfig struct {
-		// Name of the service.
-		Name  string `yaml:"name"`
-		Stuff int    `yaml:"stuff"`
-		// Outbounds specifies how this service sends requests to other services.
-		Outbounds Outbounds `yaml:"outbounds"`
-	}
-
-	var rpc = `
-rpc:
-  name: my-cool-service
-  stuff: 999
-  outbounds:
-    - services:
-        - buffetpushgateway
-      tchannel:
-        host: 127.0.0.1
-        port: ${COMPANY_TCHANNEL_PORT:321}
-`
+func TestSingleProviders(t *testing.T) {
+	environment := map[string]string{"FOO": "bar"}
 	lookup := func(key string) (string, bool) {
-		require.Equal(t, "COMPANY_TCHANNEL_PORT", key)
-		return "4324", true
+		s, ok := environment[key]
+		return s, ok
+	}
+	run := func(t testing.TB, p Provider, err error) {
+		require.NoError(t, err, "couldn't construct provider")
+		assert.Equal(t, "bar", p.Get("foo").Value(), "unexpected value")
 	}
 
-	p, err := NewYAMLProviderFromReaderWithExpand(
-		lookup,
-		ioutil.NopCloser(bytes.NewBufferString(rpc)))
+	t.Run("expanded static", func(t *testing.T) {
+		p, err := NewStaticProviderWithExpand(map[string]string{
+			"foo": "$FOO",
+		}, lookup)
+		run(t, p, err)
+	})
 
-	require.NoError(t, err, "Can't create a YAML provider")
+	t.Run("static", func(t *testing.T) {
+		p, err := NewStaticProvider(map[string]string{
+			"foo": "bar",
+		})
+		run(t, p, err)
+	})
 
-	cfg := &YARPCConfig{}
-	v := p.Get("rpc")
+	t.Run("files present", func(t *testing.T) {
+		p, err := NewYAMLProviderWithExpand(lookup, "testdata/config.yaml")
+		run(t, p, err)
+	})
 
-	require.NoError(t, v.Populate(cfg))
-	require.Equal(t, 4324, int(*cfg.Outbounds[0].TChannel.Port))
+	t.Run("files missing", func(t *testing.T) {
+		_, err := NewYAMLProviderFromFiles("testdata/not_there.yaml")
+		require.Error(t, err, "expected error reading nonexistent file")
+		assert.Contains(t, err.Error(), "no such file or directory", "unexpected error message")
+	})
+
+	t.Run("bytes", func(t *testing.T) {
+		p, err := NewYAMLProviderFromBytes([]byte("foo: bar"))
+		run(t, p, err)
+	})
 }

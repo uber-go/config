@@ -1,14 +1,14 @@
-hash: 9ba73b2bd54e6fa5de114c720462021f1a7cf09bf503cd51a62707de322e992d
-updated: 2018-05-23T16:23:57.197906692-07:00
+hash: 1502c8645933f33059ffcd596037752761c6e699ab48670884682171a73f3985
+updated: 2018-06-05T10:31:27.997230302-07:00
 imports:
-- name: github.com/pkg/errors
-  version: 645ef00459ed84a119197bfb8d8205042c6df63d
+- name: go.uber.org/atomic
+  version: 1ea20fb1cbb1cc08cbd0d913a96dead89aa18289
+- name: go.uber.org/multierr
+  version: 3c4937480c32f4c13a875a1829af76c98ca3d40a
 - name: golang.org/x/text
   version: f21a4dfb5e38f5895301dc265a8def02365cc3d0
   subpackages:
   - transform
-- name: gopkg.in/validator.v2
-  version: 135c24b11c19e52befcae2ec3fca5d9b78c4e98e
 - name: gopkg.in/yaml.v2
   version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
 testImports:
@@ -16,14 +16,10 @@ testImports:
   version: 8991bc29aa16c548c550c7ff78260e27b9ab7c73
   subpackages:
   - spew
-- name: github.com/google/gofuzz
-  version: 24818f796faf91cd76ec7bddd72458fbced7a6c1
 - name: github.com/pmezard/go-difflib
   version: 792786c7400a136282c1664665ae0a8db921c6c2
   subpackages:
   - difflib
-- name: github.com/spf13/cast
-  version: 8965335b8c7107321228e3e3702cab9832751bac
 - name: github.com/stretchr/testify
   version: 12b6f73e6084dad08a7c6e575284b177ecafbc71
   subpackages:

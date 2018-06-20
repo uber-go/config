@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Uber Technologies, Inc.
+// Copyright (c) 2018 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,19 +20,18 @@
 
 package config
 
-// valueProvider always returns the same Value.
-type valueProvider struct {
-	*NopProvider
-	Value
-}
+import (
+	"testing"
 
-// Get returns the value this provider was created with.
-func (m *valueProvider) Get(key string) Value {
-	return m.Value
-}
+	"github.com/stretchr/testify/assert"
+)
 
-func newValueProvider(val interface{}) Provider {
-	p := &valueProvider{Value: Value{found: true, value: val}}
-	p.Value.root = p
-	return p
+func TestNop(t *testing.T) {
+	p := NopProvider{}
+	assert.Equal(t, "no-op", p.Name(), "unexpected provider name")
+
+	v := p.Get("foo")
+	assert.Equal(t, p.Name(), v.Source(), "unexpected value source")
+	assert.Equal(t, nil, v.Value(), "unexpected value contents")
+	assert.False(t, v.HasValue(), "value should be empty")
 }

@@ -20,5 +20,5 @@
 
 package config // import "go.uber.org/config"
 
-// Version is the current version of config.
+// Version is the current semantic version.
 const Version = "1.2.0"

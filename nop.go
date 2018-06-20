@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Uber Technologies, Inc.
+// Copyright (c) 2017-2018 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,53 +20,18 @@
 
 package config
 
-import (
-	"errors"
-	"fmt"
-	"sync"
-)
+// NopProvider is a no-op provider.
+type NopProvider struct{}
 
-type cachedProvider struct {
-	sync.RWMutex
-	cache map[string]Value
+var _ Provider = NopProvider{}
 
-	Provider
+// Name implements Provider.
+func (NopProvider) Name() string {
+	return "no-op"
 }
 
-// newCachedProvider returns a concurrent safe provider,
-// that caches values of the underlying provider.
-func newCachedProvider(p Provider) (Provider, error) {
-	if p == nil {
-		return nil, errors.New("received a nil provider")
-	}
-
-	return &cachedProvider{
-		Provider: p,
-		cache:    make(map[string]Value),
-	}, nil
-}
-
-// Name returns a name of the underlying provider.
-func (p *cachedProvider) Name() string {
-	return fmt.Sprintf("cached %q", p.Provider.Name())
-}
-
-// Get retrieves a Value and caches it internally.
-// The value is cached only if it is found.
-func (p *cachedProvider) Get(key string) Value {
-	p.RLock()
-	if v, ok := p.cache[key]; ok {
-		p.RUnlock()
-		return v
-	}
-
-	p.RUnlock()
-
-	v := p.Provider.Get(key)
-	v.provider = p
-	p.Lock()
-	p.cache[key] = v
-	p.Unlock()
-
-	return v
+// Get returns a value with no configuration available.
+func (n NopProvider) Get(_ string) Value {
+	p, _ := NewYAML(Name(n.Name()))
+	return p.Get("not_there") // Root is always present, making HasValue true
 }

@@ -201,7 +201,6 @@ func runCommonTests(t *testing.T, provider Provider) {
 	t.Run("nil merged into scalar", func(t *testing.T) {
 		// Merging replaces scalars, so an explicit nil should replace
 		// lower-priority values. (This matches gopkg.in/yaml.v2.)
-		t.Skip("TODO: ignores explicit nil")
 		var s string
 		run(t, testCase{
 			Value:     provider.Get("antique_scalar"),
@@ -215,7 +214,6 @@ func runCommonTests(t *testing.T, provider Provider) {
 	t.Run("nil merged into sequence", func(t *testing.T) {
 		// Merging replaces sequences, so an explicit nil should replace
 		// lower-priority values. (This matches gopkg.in/yaml.v2.)
-		t.Skip("TODO: ignores explicit nil")
 		var s []string
 		run(t, testCase{
 			Value:     provider.Get("antique_sequence"),
@@ -230,7 +228,6 @@ func runCommonTests(t *testing.T, provider Provider) {
 		// Merging deep-merges mappings, but we should honor explicitly-configured
 		// nils and replace all existing configuration. (This matches
 		// gopkg.in/yaml.v2.)
-		t.Skip("TODO: ignores explicit nil")
 		var m map[string]string
 		run(t, testCase{
 			Value:     provider.Get("antique_mapping_nil"),
@@ -311,7 +308,6 @@ func runCommonTests(t *testing.T, provider Provider) {
 	})
 
 	t.Run("default overriden by nil", func(t *testing.T) {
-		t.Skip("TODO: panics")
 		var s string
 		val, err := provider.Get("nothing").WithDefault("something")
 		require.NoError(t, err, "couldn't set default")
@@ -400,7 +396,6 @@ func runCommonTests(t *testing.T, provider Provider) {
 	})
 
 	t.Run("deep copy", func(t *testing.T) {
-		t.Skip("TODO: mutations are visible to other callers")
 		// Regression test for https://github.com/uber-go/config/issues/76.
 		const key = "foobar"
 		unmarshal := func() map[interface{}]interface{} {
@@ -429,7 +424,6 @@ func runCommonTests(t *testing.T, provider Provider) {
 	})
 
 	t.Run("omitempty field", func(t *testing.T) {
-		t.Skip("TODO: doesn't handle omitempty field")
 		c := struct {
 			Toyota string
 			Honda  string
@@ -440,7 +434,6 @@ func runCommonTests(t *testing.T, provider Provider) {
 	})
 
 	t.Run("flow field", func(t *testing.T) {
-		t.Skip("TODO: doesn't handle flow field")
 		c := struct {
 			Toyota string
 			Honda  string
@@ -451,7 +444,6 @@ func runCommonTests(t *testing.T, provider Provider) {
 	})
 
 	t.Run("inline field", func(t *testing.T) {
-		t.Skip("TODO: doesn't handle inline field")
 		c := struct {
 			Humans struct {
 				Driver    string
@@ -465,20 +457,22 @@ func runCommonTests(t *testing.T, provider Provider) {
 }
 
 func TestPermissiveYAML(t *testing.T) {
-	provider, err := NewYAMLProviderFromReader(
-		strings.NewReader(_base),
-		strings.NewReader(_override),
+	provider, err := NewYAML(
+		Source(strings.NewReader(_base)),
+		Source(strings.NewReader(_override)),
+		Permissive(),
 	)
 	require.NoError(t, err, "couldn't create provider")
-	assert.Equal(t, `cached "yaml"`, provider.Get(Root).Source(), "wrong source")
+	assert.Equal(t, "YAML", provider.Get(Root).Source(), "wrong source")
 	assert.Equal(t, "<nil>", provider.Get("nothing").String(), "wrong string representation")
 
 	runCommonTests(t, provider)
 
 	t.Run("ignore type mismatch during merge", func(t *testing.T) {
-		provider, err := NewYAMLProviderFromReader(
-			strings.NewReader("mismatch: foo"),   // scalar
-			strings.NewReader("mismatch: [foo]"), // sequence
+		provider, err := NewYAML(
+			Source(strings.NewReader("mismatch: foo")),   // scalar
+			Source(strings.NewReader("mismatch: [foo]")), // sequence
+			Permissive(),
 		)
 		require.NoError(t, err, "couldn't create permissive provider with type mismatch")
 
@@ -495,8 +489,9 @@ func TestPermissiveYAML(t *testing.T) {
 	t.Run("ignores type mismatches during WithDefault", func(t *testing.T) {
 		// Since defaults are effectively the lowest-priority config, their types
 		// should be ignored when necessary.
-		provider, err := NewYAMLProviderFromReader(
-			strings.NewReader("mismatch: foo"), // scalar
+		provider, err := NewYAML(
+			Source(strings.NewReader("mismatch: foo")), // scalar
+			Permissive(),
 		)
 		require.NoError(t, err, "couldn't create provider")
 		val, err := provider.Get("mismatch").WithDefault([]string{"foo"}) // sequence
@@ -505,8 +500,9 @@ func TestPermissiveYAML(t *testing.T) {
 	})
 
 	t.Run("ignore duplicate keys", func(t *testing.T) {
-		provider, err := NewYAMLProviderFromReader(
-			strings.NewReader("dupe: foo\ndupe: bar"),
+		provider, err := NewYAML(
+			Source(strings.NewReader("dupe: foo\ndupe: bar")),
+			Permissive(),
 		)
 		require.NoError(t, err, "couldn't create provider")
 
@@ -521,8 +517,9 @@ func TestPermissiveYAML(t *testing.T) {
 	})
 
 	t.Run("ignores extra data during Populate", func(t *testing.T) {
-		provider, err := NewYAMLProviderFromReader(
-			strings.NewReader("foo: bar\nbaz: quux"),
+		provider, err := NewYAML(
+			Source(strings.NewReader("foo: bar\nbaz: quux")),
+			Permissive(),
 		)
 		require.NoError(t, err, "couldn't create provider")
 
@@ -534,8 +531,9 @@ func TestPermissiveYAML(t *testing.T) {
 	})
 
 	t.Run("may provide ignored field", func(t *testing.T) {
-		provider, err := NewYAMLProviderFromReader(
-			strings.NewReader("toyota: camry"),
+		provider, err := NewYAML(
+			Source(strings.NewReader("toyota: camry")),
+			Permissive(),
 		)
 		require.NoError(t, err, "couldn't create provider")
 
@@ -548,29 +546,28 @@ func TestPermissiveYAML(t *testing.T) {
 }
 
 func TestStrictYAML(t *testing.T) {
-	t.Skip("TODO: no strict mode support yet")
-	provider, err := NewYAMLProviderFromReader(
-		strings.NewReader(_base),
-		strings.NewReader(_override),
+	provider, err := NewYAML(
+		Source(strings.NewReader(_base)),
+		Source(strings.NewReader(_override)),
 	)
 	require.NoError(t, err, "couldn't create provider")
-	assert.Equal(t, `cached "yaml"`, provider.Get(Root).Source(), "wrong source")
+	assert.Equal(t, "YAML", provider.Get(Root).Source(), "wrong source")
 	assert.Equal(t, "<nil>", provider.Get("nothing").String(), "wrong string representation")
 
 	runCommonTests(t, provider)
 
 	t.Run("fail on type mismatch during merge", func(t *testing.T) {
-		_, err := NewYAMLProviderFromReader(
-			strings.NewReader("mismatch: foo"),   // scalar
-			strings.NewReader("mismatch: [foo]"), // sequence
+		_, err := NewYAML(
+			Source(strings.NewReader("mismatch: foo")),   // scalar
+			Source(strings.NewReader("mismatch: [foo]")), // sequence
 		)
 		require.Error(t, err, "couldn't create permissive provider with type mismatch")
 		assert.Contains(t, err.Error(), "couldn't merge", "unexpected error message")
 	})
 
 	t.Run("fail on type mismatches during WithDefault", func(t *testing.T) {
-		provider, err := NewYAMLProviderFromReader(
-			strings.NewReader("mismatch: foo"), // scalar
+		provider, err := NewYAML(
+			Source(strings.NewReader("mismatch: foo")), // scalar
 		)
 		require.NoError(t, err, "couldn't create provider")
 
@@ -580,16 +577,32 @@ func TestStrictYAML(t *testing.T) {
 	})
 
 	t.Run("fail on duplicate keys", func(t *testing.T) {
-		_, err := NewYAMLProviderFromReader(
-			strings.NewReader("dupe: foo\ndupe: bar"),
+		_, err := NewYAML(
+			Source(strings.NewReader("dupe: foo\ndupe: bar")),
 		)
 		require.Error(t, err, "created strict provider with type mismatch")
 		assert.Contains(t, err.Error(), `key "dupe" already set in map`, "unexpected error message")
 	})
 
+	t.Run("allow missing data during Populate", func(t *testing.T) {
+		provider, err := NewYAML(
+			Source(strings.NewReader("foo: bar")),
+		)
+		require.NoError(t, err, "couldn't create provider")
+
+		c := struct {
+			Foo   string
+			Unset string
+		}{}
+		err = provider.Get(Root).Populate(&c)
+		require.NoError(t, err, "populate failed")
+		assert.Equal(t, c.Foo, "bar", "unexpected value for set field")
+		assert.Zero(t, c.Unset, "expected unset field to be zero value")
+	})
+
 	t.Run("fail on extra data during Populate", func(t *testing.T) {
-		provider, err := NewYAMLProviderFromReader(
-			strings.NewReader("foo: bar\nbaz: quux"),
+		provider, err := NewYAML(
+			Source(strings.NewReader("foo: bar\nbaz: quux")),
 		)
 		require.NoError(t, err, "couldn't create provider")
 
@@ -602,7 +615,7 @@ func TestStrictYAML(t *testing.T) {
 	})
 
 	t.Run("must not provide ignored fields", func(t *testing.T) {
-		provider, err := NewYAMLProviderFromReader(strings.NewReader("toyota: camry"))
+		provider, err := NewYAML(Source(strings.NewReader("toyota: camry")))
 		require.NoError(t, err, "couldn't create provider")
 
 		c := struct {
@@ -621,7 +634,7 @@ func TestStaticFromYAML(t *testing.T) {
 	require.NoError(t, yaml.Unmarshal([]byte(_base), &base), "couldn't unmarshal base YAML")
 	require.NoError(t, yaml.Unmarshal([]byte(_override), &override), "couldn't unmarshal base YAML")
 
-	t.Skip("TODO: no support for multiple sources in NewStaticProvider")
-	p := NopProvider{}
+	p, err := NewYAML(Static(base), Static(override))
+	require.NoError(t, err, "couldn't construct provider")
 	runCommonTests(t, p)
 }

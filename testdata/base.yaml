@@ -1,9 +1,0 @@
-value: base_only
-value_override: base_setting
-a-bool: true
-a-empty: ""
-a-float: 3.14
-a-int: 3
-a-nil:
-a-null: null
-a-string: "3.14"

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Uber Technologies, Inc.
+// Copyright (c) 2018 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,58 +18,28 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package config_test
+package config
 
 import (
+	"bytes"
 	"fmt"
-	"log"
 
-	"go.uber.org/config"
+	yaml "gopkg.in/yaml.v2"
 )
 
-func ExampleNewProviderGroup() {
-	base, err := config.NewYAMLProviderFromBytes([]byte(`
-config:
-  name: fx
-  pool: development
-  ports:
-  - 80
-  - 8080
-`))
-
+// areSameYAML checks whether two values represent the same YAML data. It's
+// only called from NewValue, where we must validate that the user-supplied
+// value matches the contents of the user-supplied provider.
+func areSameYAML(fromProvider, fromUser interface{}) (bool, error) {
+	p, err := yaml.Marshal(fromProvider)
 	if err != nil {
-		log.Fatal(err)
+		// Unreachable with YAML provider, but possible if the provider is a
+		// third-party implementation.
+		return false, fmt.Errorf("can't represent %#v as YAML: %v", fromProvider, err)
 	}
-
-	prod, err := config.NewYAMLProviderFromBytes([]byte(`
-config:
-  pool: production
-  ports:
-  - 443
-`))
-
+	u, err := yaml.Marshal(fromUser)
 	if err != nil {
-		log.Fatal(err)
+		return false, fmt.Errorf("can't represent %#v as YAML: %v", fromUser, err)
 	}
-
-	// Provider is going to keep name from the base provider,
-	// but ports and pool values will be overridden by prod.
-	p, err := config.NewProviderGroup("merge", base, prod)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var c struct {
-		Name  string
-		Pool  string
-		Ports []uint
-	}
-
-	if err := p.Get("config").Populate(&c); err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("%+v\n", c)
-	// Output:
-	// {Name:fx Pool:production Ports:[443]}
+	return bytes.Equal(p, u), nil
 }

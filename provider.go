@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Uber Technologies, Inc.
+// Copyright (c) 2017-2018 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,45 +20,14 @@
 
 package config
 
-// Root marks the root node in a Provider.
+// Root is a virtual key that accesses the entire configuration. Using it as
+// the key when calling Provider.Get or Value.Get returns the whole
+// configuration.
 const Root = ""
 
-// A Provider provides a unified interface to accessing configuration systems.
+// Provider is an abstraction over a configuration store, such as a collection
+// of merged YAML, JSON, or TOML files.
 type Provider interface {
-	// the Name of the provider (YAML, Env, etc)
-	Name() string
-	// Get pulls a config value
-	Get(key string) Value
-}
-
-// scopedProvider defines recursive interface of providers based on the prefix.
-type scopedProvider struct {
-	Provider
-
-	prefix string
-}
-
-// NewScopedProvider creates a child provider with a prefix.
-func NewScopedProvider(prefix string, provider Provider) Provider {
-	if prefix == "" {
-		return provider
-	}
-
-	return &scopedProvider{
-		Provider: provider,
-		prefix:   prefix,
-	}
-}
-
-func (sp scopedProvider) addPrefix(key string) string {
-	if key == "" {
-		return sp.prefix
-	}
-
-	return sp.prefix + "." + key
-}
-
-// Get returns the configuration value found at key.
-func (sp scopedProvider) Get(key string) Value {
-	return sp.Provider.Get(sp.addPrefix(key))
+	Name() string         // name of the configuration store
+	Get(key string) Value // retrieves a portion of the configuration
 }

@@ -18,8 +18,95 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-// Package config allows users to get components working with minimal
-// configuration and override any field if the default doesn't make
-// sense for their use case.
+// Package config is an encoding-agnostic configuration abstraction. It
+// supports merging multiple configuration files, expanding environment
+// variables, and a variety of other small niceties. It currently supports
+// YAML, but may be extended in the future to support more restrictive
+// encodings like JSON or TOML.
 //
+// Merging Configuration
+//
+// It's often convenient to separate configuration into multiple files; for
+// example, an application may want to first load some universally-applicable
+// configuration and then merge in some environment-specific overrides. This
+// package supports this pattern in a variety of ways, all of which use the
+// same merge logic.
+//
+// Simple types (numbers, strings, dates, and anything else YAML would
+// consider a scalar) are merged by replacing lower-priority values with
+// higher-priority overrides. For example, consider this merge of base.yaml
+// and override.yaml:
+//   # base.yaml
+//   some_key: foo
+//
+//   # override.yaml
+//   some_key: bar
+//
+//   # merged result
+//   some_key: bar
+//
+// Slices, arrays, and anything else YAML would consider a sequence are also
+// replaced. Again merging base.yaml and override.yaml:
+//   # base.yaml
+//   some_key: [foo, bar]
+//
+//   # override.yaml
+//   some_key: [baz, quux]
+//
+//   # merged output
+//   some_key: [baz, quux]
+//
+// Maps are recursively deep-merged, handling scalars and sequences as
+// described above. Consider a merge between a more complex set of YAML files:
+//   # base.yaml
+//   some_key:
+//     foo: bar
+//     foos: [1, 2]
+//
+//   # override.yaml
+//   some_key:
+//     baz: quux
+//     foos: [3, 4]
+//
+//  # merged output
+//	some_key:
+//	  foo: bar      # from base.yaml
+//	  baz: quux     # from override.yaml
+//	  foos: [3, 4]  # from override.yaml
+//
+// In all cases, explicit nils (represented in YAML with a tilde) override any
+// pre-existing configuration. For example,
+//   # base.yaml
+//   foo: {bar: baz}
+//
+//   # override.yaml
+//   foo: ~
+//
+//   # merged output
+//   foo: ~
+//
+// Strict Unmarshalling
+//
+// By default, the NewYAML constructor enables gopkg.in/yaml.v2's strict
+// unmarshalling mode. This prevents a variety of common programmer errors,
+// especially when deep-merging loosely-typed YAML files. In strict mode,
+// providers throw errors if keys are duplicated in the same configuration
+// source, all keys aren't used when populating a struct, or a merge
+// encounters incompatible data types. This behavior can be disabled with the
+// Permissive option.
+//
+// To maintain backward compatibility, all other constructors default to
+// permissive unmarshalling.
+//
+// Backward Compatibility & Deprecated APIs
+//
+// Unfortunately, this package was released with a variety of bugs and an
+// overly large API. The internals of the configuration provider have been
+// completely reworked and all known bugs have been addressed, but many
+// duplicative exported functions were retained to preserve backward
+// compatibility. New users should rely on the NewYAML constructor. In
+// particular, avoid NewValue - it's unnecessary, complex, and may panic.
+//
+// Deprecated functions are documented in the format expected by the
+// staticcheck linter, available at https://staticcheck.io/.
 package config
