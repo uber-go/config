@@ -91,16 +91,13 @@ func newYAMLProviderCore(files ...io.Reader) (*yamlConfigProvider, error) {
 //
 // In all the remaining cases B will overwrite A.
 func mergeMaps(dst interface{}, src interface{}) (interface{}, error) {
-	if dst == nil {
-		return src, nil
-	}
-
-	if src == nil {
-		return dst, nil
-	}
-
 	switch s := src.(type) {
 	case map[interface{}]interface{}:
+
+		if dst == nil {
+			dst = make(map[interface{}]interface{})
+		}
+
 		dstMap, ok := dst.(map[interface{}]interface{})
 		if !ok {
 			return nil, fmt.Errorf(
@@ -111,17 +108,12 @@ func mergeMaps(dst interface{}, src interface{}) (interface{}, error) {
 		}
 
 		for k, v := range s {
-			oldVal := dstMap[k]
-			if oldVal == nil {
-				dstMap[k] = v
-			} else {
-				tmp, err := mergeMaps(oldVal, v)
-				if err != nil {
-					return nil, err
-				}
-
-				dstMap[k] = tmp
+			tmp, err := mergeMaps(dstMap[k], v)
+			if err != nil {
+				return nil, err
 			}
+
+			dstMap[k] = tmp
 		}
 	default:
 		dst = src
