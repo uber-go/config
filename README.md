@@ -12,7 +12,7 @@ Note that config only supports the two most recent minor versions of Go.
 
 ## Quick Start
 
-```
+```golang
 // Model your application's configuration using a Go struct.
 type cfg struct {
     Parameter string
@@ -26,12 +26,12 @@ override := strings.NewReader("module: {parameter: bar}")
 // See the top-level package documentation for details on the merging logic.
 provider, err := config.NewYAML(config.Source(base), config.Source(override))
 if err != nil {
-    panic(err) // don't do this in production
+    panic(err) // handle error
 }
 
 var c cfg
 if err := provider.Get("module").Populate(&c); err != nil {
-  panic(err) // don't do this in production
+  panic(err) // handle error
 }
 
 fmt.Printf("%+v\n", c)
@@ -45,7 +45,7 @@ All APIs are finalized, and no breaking changes will be made in the 1.x series
 of releases. Users of semver-aware dependency management systems should pin
 config to `^1`.
 
-<hr>
+---
 
 Released under the [MIT License](LICENSE.txt).
 
