@@ -21,9 +21,11 @@
 package merge
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
+	"strings"
 
 	"go.uber.org/config/internal/unreachable"
 
@@ -37,6 +39,35 @@ type (
 	sequence = []interface{}
 	scalar   = interface{}
 )
+
+// To distinguish between empty readers and explicit nils, we need to know
+// whether a reader has any non-comment content.
+//
+// FIXME
+func hasValues(content []byte) (bool, error) {
+	var found bool
+	scanner := bufio.NewScanner(bytes.NewBuffer(content))
+	for scanner.Scan() && !found {
+		line := strings.TrimSpace(scanner.Text())
+		// http://yaml.org/spec/1.2/spec.html#comment: outside scalar content,
+		// whitespace-only lines are treated as comments. Since starting a block
+		// of scalar content requires some non-comment text, we can skip
+		// whitespace-only lines here.
+		if len(line) == 0 {
+			continue
+		}
+		// http://yaml.org/spec/1.2/spec.html#comment: all full-line comments
+		// start with # and there are no block comments.
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+		found = true
+	}
+	if err := scanner.Err(); err != nil {
+		return false, unreachable.Wrap(err)
+	}
+	return found, nil
+}
 
 // YAML deep-merges any number of YAML sources, with later sources taking
 // priority over earlier ones.
@@ -56,15 +87,21 @@ type (
 // Enabling strict mode returns errors in both of the above cases.
 func YAML(sources []io.Reader, strict bool) (*bytes.Buffer, error) {
 	var merged interface{}
+	var hasContent bool
 	for _, r := range sources {
 		d := yaml.NewDecoder(r)
 		d.SetStrict(strict)
 
 		var contents interface{}
-		if err := d.Decode(&contents); err != nil {
+		if err := d.Decode(&contents); err == io.EOF {
+			// Skip empty sources, which we should handle differently from explicit
+			// nils.
+			continue
+		} else if err != nil {
 			return nil, fmt.Errorf("couldn't decode source: %v", err)
 		}
 
+		hasContent = true
 		pair, err := merge(merged, contents, strict)
 		if err != nil {
 			return nil, err // error is already descriptive enough
@@ -73,6 +110,11 @@ func YAML(sources []io.Reader, strict bool) (*bytes.Buffer, error) {
 	}
 
 	buf := &bytes.Buffer{}
+	if !hasContent {
+		// No sources had any content. To distinguish this from a source with just
+		// a top-level nil, return an empty buffer.
+		return buf, nil
+	}
 	enc := yaml.NewEncoder(buf)
 	if err := enc.Encode(merged); err != nil {
 		return nil, unreachable.Wrap(fmt.Errorf("couldn't re-serialize merged YAML: %v", err))

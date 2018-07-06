@@ -95,6 +95,8 @@ func NewYAML(options ...YAMLOption) (y *YAML, retErr error) {
 	dec := yaml.NewDecoder(merged)
 	dec.SetStrict(cfg.strict)
 	if err := dec.Decode(&contents); err != nil {
+		// Decoding can't return EOF, since merging is guaranteed to return a
+		// non-empty reader.
 		return nil, fmt.Errorf("couldn't decode merged YAML: %v", err)
 	}
 
@@ -174,6 +176,8 @@ func (y *YAML) populate(path []string, i interface{}) error {
 	}
 	dec := yaml.NewDecoder(buf)
 	dec.SetStrict(y.strict)
+	// Decoding can't ever return EOF, since encoding any value is guaranteed to
+	// produce non-empty YAML.
 	return dec.Decode(i)
 }
 
@@ -196,6 +200,8 @@ func (y *YAML) withDefault(d interface{}) (*YAML, error) {
 	dec := yaml.NewDecoder(merged)
 	dec.SetStrict(y.strict)
 	if err := dec.Decode(&contents); err != nil {
+		// Decoding can't return EOF, since merging is guaranteed to return a
+		// non-empty reader.
 		return nil, fmt.Errorf("unmarshaling merged YAML failed: %v", err)
 	}
 	return &YAML{

@@ -21,12 +21,54 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestEmptySources(t *testing.T) {
+	const (
+		key = "foo"
+		val = "bar"
+	)
+	full := fmt.Sprintf("%s: %s", key, val)
+	empty := ""
+	comment := "# just a comment"
+
+	tests := []struct {
+		desc    string
+		sources []string
+		expect  interface{}
+	}{
+		{"no sources", []string{}, nil},
+		{"empty base", []string{empty, full}, val},
+		{"empty override", []string{full, empty}, val},
+		{"empty base and override", []string{empty, empty}, nil},
+		{"comment-only base", []string{comment, full}, val},
+		{"comment-only override", []string{full, comment}, val},
+		{"empty base and comment-only override", []string{empty, comment}, nil},
+		{"comment-only base and empty override", []string{comment, empty}, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			opts := make([]YAMLOption, len(tt.sources))
+			for i := range tt.sources {
+				opts[i] = Source(strings.NewReader(tt.sources[i]))
+			}
+			p, err := NewYAML(opts...)
+			require.NoError(t, err, "failed to create provider")
+			assert.Equal(t, tt.expect, p.Get("foo").Value(), "incorrect merged result")
+
+			d, err := p.Get("not_there").WithDefault(42)
+			require.NoError(t, err, "failed to set default")
+			assert.Equal(t, 42, d.Value(), "incorrect defaulted value")
+		})
+	}
+}
 
 func TestNewValueParameterValidation(t *testing.T) {
 	// The 1.0 release of this package included a NewValue implementation that

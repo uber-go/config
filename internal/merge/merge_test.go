@@ -90,6 +90,20 @@ func fails(t testing.TB, strict bool, left, right string) {
 	assert.Error(t, err, "merge succeeded")
 }
 
+func TestExplore(t *testing.T) {
+	// FIXME
+	rs := []string{
+		"",
+		"# comment",
+	}
+
+	for _, r := range rs {
+		var i interface{}
+		d := yaml.NewDecoder(strings.NewReader(r))
+		require.Equal(t, io.EOF, d.Decode(&i), r)
+	}
+}
+
 func TestIntegration(t *testing.T) {
 	base := mustRead(t, "testdata/base.yaml")
 	prod := mustRead(t, "testdata/production.yaml")
@@ -103,6 +117,32 @@ func TestIntegration(t *testing.T) {
 
 	if !assert.Equal(t, string(expect), merged.String(), "unexpected contents") {
 		dump(t, merged.String(), string(expect))
+	}
+}
+
+func TestEmpty(t *testing.T) {
+	full := []byte("foo: bar\n")
+
+	tests := []struct {
+		desc    string
+		sources [][]byte
+		expect  string
+	}{
+		{"empty base", [][]byte{nil, full}, string(full)},
+		{"empty override", [][]byte{full, nil}, string(full)},
+		{"both empty", [][]byte{nil, nil}, "null\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			readers := make([]io.Reader, len(tt.sources))
+			for i := range tt.sources {
+				readers[i] = bytes.NewReader(tt.sources[i])
+			}
+			merged, err := YAML(readers, true /* strict */)
+			require.NoError(t, err, "merge failed")
+			assert.Equal(t, tt.expect, merged.String(), "wrong contents after merge")
+		})
 	}
 }
 
