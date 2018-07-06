@@ -98,7 +98,28 @@
 // To maintain backward compatibility, all other constructors default to
 // permissive unmarshalling.
 //
-// Backward Compatibility & Deprecated APIs
+// Quote Strings
+//
+// YAML allows strings to appear quoted or unquoted, so these two lines are
+// identical:
+//   foo: bar
+//   "foo": "bar"
+//
+// However, the YAML specification special-cases some unquoted strings. Most
+// obviously, true and false are interpreted as Booleans (unless quoted). Less
+// obviously, yes, no, on, off, and many variants of these words are also
+// treated as Booleans (see http://yaml.org/type/bool.html for the complete
+// specification).
+//
+// Correctly deep-merging sources requires this package to unmarshal and then
+// remarshal all YAML, which implicitly converts these special-cased unquoted
+// strings to their canonical representation. For example,
+//   foo: yes  # before merge
+//   foo: true # after merge
+//
+// Quoting special-cased strings prevents this surprising behavior.
+//
+// Deprecated APIs
 //
 // Unfortunately, this package was released with a variety of bugs and an
 // overly large API. The internals of the configuration provider have been
