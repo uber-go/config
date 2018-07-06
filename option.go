@@ -110,11 +110,14 @@ func File(name string) YAMLOption {
 	}
 	all, err := ioutil.ReadAll(f)
 	if err != nil {
+		err = multierr.Append(err, f.Close())
+		return failed(err)
+	}
+	if err := f.Close(); err != nil {
 		return failed(err)
 	}
 	return optionFunc(func(c *config) {
 		c.sources = append(c.sources, all)
-		c.closers = append(c.closers, f)
 	})
 }
 
@@ -141,15 +144,6 @@ type config struct {
 	name    string
 	strict  bool
 	sources [][]byte
-	closers []io.Closer
 	lookup  LookupFunc
 	err     error
-}
-
-func (c *config) close() error {
-	var err error
-	for _, c := range c.closers {
-		err = multierr.Append(err, c.Close())
-	}
-	return err
 }

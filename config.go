@@ -30,7 +30,6 @@ import (
 	"go.uber.org/config/internal/merge"
 	"go.uber.org/config/internal/unreachable"
 
-	"go.uber.org/multierr"
 	"golang.org/x/text/transform"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -57,14 +56,11 @@ type YAML struct {
 
 // NewYAML constructs a YAML provider. See the various YAMLOptions for
 // available tweaks to the default behavior.
-func NewYAML(options ...YAMLOption) (y *YAML, retErr error) {
+func NewYAML(options ...YAMLOption) (*YAML, error) {
 	cfg := &config{
 		strict: true,
 		name:   "YAML",
 	}
-	defer func() {
-		retErr = multierr.Append(retErr, cfg.close())
-	}()
 	for _, o := range options {
 		o.apply(cfg)
 	}
