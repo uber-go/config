@@ -21,8 +21,8 @@
 package config
 
 import (
-	"bytes"
 	"io"
+	"io/ioutil"
 	"os"
 
 	"go.uber.org/multierr"
@@ -91,8 +91,12 @@ func Name(name string) YAMLOption {
 // Source adds a source of YAML configuration. Later sources override earlier
 // ones using the merge logic described in the package-level documentation.
 func Source(r io.Reader) YAMLOption {
+	all, err := ioutil.ReadAll(r)
+	if err != nil {
+		return failed(err)
+	}
 	return optionFunc(func(c *config) {
-		c.sources = append(c.sources, r)
+		c.sources = append(c.sources, all)
 	})
 }
 
@@ -104,8 +108,12 @@ func File(name string) YAMLOption {
 	if err != nil {
 		return failed(err)
 	}
+	all, err := ioutil.ReadAll(f)
+	if err != nil {
+		return failed(err)
+	}
 	return optionFunc(func(c *config) {
-		c.sources = append(c.sources, f)
+		c.sources = append(c.sources, all)
 		c.closers = append(c.closers, f)
 	})
 }
@@ -118,7 +126,9 @@ func Static(val interface{}) YAMLOption {
 	if err != nil {
 		return failed(err)
 	}
-	return Source(bytes.NewReader(bs))
+	return optionFunc(func(c *config) {
+		c.sources = append(c.sources, bs)
+	})
 }
 
 func failed(err error) YAMLOption {
@@ -130,7 +140,7 @@ func failed(err error) YAMLOption {
 type config struct {
 	name    string
 	strict  bool
-	sources []io.Reader
+	sources [][]byte
 	closers []io.Closer
 	lookup  LookupFunc
 	err     error

@@ -54,17 +54,23 @@ type (
 // value with the new.
 //
 // Enabling strict mode returns errors in both of the above cases.
-func YAML(sources []io.Reader, strict bool) (*bytes.Buffer, error) {
+func YAML(sources [][]byte, strict bool) (*bytes.Buffer, error) {
 	var merged interface{}
+	var hasContent bool
 	for _, r := range sources {
-		d := yaml.NewDecoder(r)
+		d := yaml.NewDecoder(bytes.NewReader(r))
 		d.SetStrict(strict)
 
 		var contents interface{}
-		if err := d.Decode(&contents); err != nil {
+		if err := d.Decode(&contents); err == io.EOF {
+			// Skip empty and comment-only sources, which we should handle
+			// differently from explicit nils.
+			continue
+		} else if err != nil {
 			return nil, fmt.Errorf("couldn't decode source: %v", err)
 		}
 
+		hasContent = true
 		pair, err := merge(merged, contents, strict)
 		if err != nil {
 			return nil, err // error is already descriptive enough
@@ -73,6 +79,11 @@ func YAML(sources []io.Reader, strict bool) (*bytes.Buffer, error) {
 	}
 
 	buf := &bytes.Buffer{}
+	if !hasContent {
+		// No sources had any content. To distinguish this from a source with just
+		// an explicit top-level null, return an empty buffer.
+		return buf, nil
+	}
 	enc := yaml.NewEncoder(buf)
 	if err := enc.Encode(merged); err != nil {
 		return nil, unreachable.Wrap(fmt.Errorf("couldn't re-serialize merged YAML: %v", err))

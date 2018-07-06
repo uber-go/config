@@ -22,7 +22,6 @@ package merge
 
 import (
 	"bytes"
-	"io"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -95,14 +94,38 @@ func TestIntegration(t *testing.T) {
 	prod := mustRead(t, "testdata/production.yaml")
 	expect := mustRead(t, "testdata/expect.yaml")
 
-	merged, err := YAML([]io.Reader{
-		bytes.NewReader(base),
-		bytes.NewReader(prod),
-	}, true /* strict */)
+	merged, err := YAML([][]byte{base, prod}, true /* strict */)
 	require.NoError(t, err, "merge failed")
 
 	if !assert.Equal(t, string(expect), merged.String(), "unexpected contents") {
 		dump(t, merged.String(), string(expect))
+	}
+}
+
+func TestEmpty(t *testing.T) {
+	full := []byte("foo: bar\n")
+	null := []byte("~")
+
+	tests := []struct {
+		desc    string
+		sources [][]byte
+		expect  string
+	}{
+		{"empty base", [][]byte{nil, full}, string(full)},
+		{"empty override", [][]byte{full, nil}, string(full)},
+		{"both empty", [][]byte{nil, nil}, ""},
+		{"null base", [][]byte{null, full}, string(full)},
+		{"null override", [][]byte{full, null}, "null\n"},
+		{"empty base and null override", [][]byte{nil, null}, "null\n"},
+		{"null base and empty override", [][]byte{null, nil}, "null\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			merged, err := YAML(tt.sources, true /* strict */)
+			require.NoError(t, err, "merge failed")
+			assert.Equal(t, tt.expect, merged.String(), "wrong contents after merge")
+		})
 	}
 }
 
@@ -130,29 +153,25 @@ occupants:
 }
 
 func TestErrors(t *testing.T) {
-	check := func(t testing.TB, strict bool, sources ...string) error {
-		readers := make([]io.Reader, len(sources))
-		for i, src := range sources {
-			readers[i] = strings.NewReader(src)
-		}
-		_, err := YAML(readers, strict)
+	check := func(t testing.TB, strict bool, sources ...[]byte) error {
+		_, err := YAML(sources, strict)
 		return err
 	}
 	t.Run("tabs in source", func(t *testing.T) {
-		src := "foo:\n\tbar:baz"
+		src := []byte("foo:\n\tbar:baz")
 		assert.Error(t, check(t, false, src), "expected error in permissive mode")
 		assert.Error(t, check(t, true, src), "expected error in strict mode")
 	})
 
 	t.Run("duplicated keys", func(t *testing.T) {
-		src := `{foo: bar, foo: baz}`
+		src := []byte("{foo: bar, foo: baz}")
 		assert.NoError(t, check(t, false, src), "expected success in permissive mode")
 		assert.Error(t, check(t, true, src), "expected error in permissive mode")
 	})
 
 	t.Run("merge error", func(t *testing.T) {
-		left := "foo: [1, 2]"
-		right := "foo: {bar: baz}"
+		left := []byte("foo: [1, 2]")
+		right := []byte("foo: {bar: baz}")
 		assert.NoError(t, check(t, false, left, right), "expected success in permissive mode")
 		assert.Error(t, check(t, true, left, right), "expected error in strict mode")
 	})
