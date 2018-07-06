@@ -30,7 +30,6 @@ import (
 	"go.uber.org/config/internal/merge"
 	"go.uber.org/config/internal/unreachable"
 
-	"go.uber.org/multierr"
 	"golang.org/x/text/transform"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -50,21 +49,18 @@ const _separator = "."
 // https://godoc.org/gopkg.in/yaml.v2#Marshal for details.
 type YAML struct {
 	name     string
-	raw      []byte
+	raw      [][]byte
 	contents interface{}
 	strict   bool
 }
 
 // NewYAML constructs a YAML provider. See the various YAMLOptions for
 // available tweaks to the default behavior.
-func NewYAML(options ...YAMLOption) (y *YAML, retErr error) {
+func NewYAML(options ...YAMLOption) (*YAML, error) {
 	cfg := &config{
 		strict: true,
 		name:   "YAML",
 	}
-	defer func() {
-		retErr = multierr.Append(retErr, cfg.close())
-	}()
 	for _, o := range options {
 		o.apply(cfg)
 	}
@@ -90,17 +86,16 @@ func NewYAML(options ...YAMLOption) (y *YAML, retErr error) {
 		merged = bytes.NewBuffer(exp)
 	}
 
-	raw := merged.Bytes() // helpful for WithDefault later on
 	var contents interface{}
 	dec := yaml.NewDecoder(merged)
 	dec.SetStrict(cfg.strict)
-	if err := dec.Decode(&contents); err != nil {
+	if err := dec.Decode(&contents); err != nil && err != io.EOF {
 		return nil, fmt.Errorf("couldn't decode merged YAML: %v", err)
 	}
 
 	return &YAML{
 		name:     cfg.name,
-		raw:      raw,
+		raw:      cfg.sources,
 		contents: contents,
 		strict:   cfg.strict,
 	}, nil
@@ -174,6 +169,8 @@ func (y *YAML) populate(path []string, i interface{}) error {
 	}
 	dec := yaml.NewDecoder(buf)
 	dec.SetStrict(y.strict)
+	// Decoding can't ever return EOF, since encoding any value is guaranteed to
+	// produce non-empty YAML.
 	return dec.Decode(i)
 }
 
@@ -182,7 +179,16 @@ func (y *YAML) withDefault(d interface{}) (*YAML, error) {
 	if err := yaml.NewEncoder(rawDefault).Encode(d); err != nil {
 		return nil, fmt.Errorf("can't marshal default to YAML: %v", err)
 	}
-	sources := []io.Reader{rawDefault, bytes.NewBuffer(y.raw)}
+	// It's possible that one of the sources used when initially configuring the
+	// provider was nothing but a top-level null, but that a higher-priority
+	// source included some additional data. In that case, the result of merging
+	// all the sources is non-null. However, the explicitly-null source should
+	// override all data provided by withDefault. To handle this correctly, we
+	// must use the new defaults as the lowest-priority source and re-merge the
+	// original sources.
+	sources := make([][]byte, 0, len(y.raw)+1)
+	sources = append(sources, rawDefault.Bytes())
+	sources = append(sources, y.raw...)
 	merged, err := merge.YAML(sources, y.strict)
 	if err != nil {
 		// The defaults and the existing config don't agree on the type of a value
@@ -190,17 +196,16 @@ func (y *YAML) withDefault(d interface{}) (*YAML, error) {
 		// sense).
 		return nil, fmt.Errorf("merging default and existing YAML failed: %v", err)
 	}
-	rawMerged := merged.Bytes()
 
 	var contents interface{}
 	dec := yaml.NewDecoder(merged)
 	dec.SetStrict(y.strict)
-	if err := dec.Decode(&contents); err != nil {
+	if err := dec.Decode(&contents); err != nil && err != io.EOF {
 		return nil, fmt.Errorf("unmarshaling merged YAML failed: %v", err)
 	}
 	return &YAML{
 		name:     y.name,
-		raw:      rawMerged,
+		raw:      sources,
 		contents: contents,
 		strict:   y.strict,
 	}, nil
@@ -313,8 +318,9 @@ func (v Value) Value() interface{} {
 }
 
 // WithDefault supplies a default configuration for the value. The default is
-// serialized to YAML, and then the existing configuration is deep-merged into
-// it using the merge logic described in the package-level documentation.
+// serialized to YAML, and then the existing configuration sources are
+// deep-merged into it using the merge logic described in the package-level
+// documentation.
 //
 // Deprecated: the deep-merging behavior of WithDefault is complex, especially
 // when applied multiple times. Instead, create a Go struct, set any defaults

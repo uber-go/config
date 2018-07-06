@@ -22,6 +22,8 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -90,4 +92,22 @@ func TestName(t *testing.T) {
 	require.NoError(t, err, "couldn't construct provider")
 	assert.Equal(t, name, p.Name(), "unexpected provider name")
 	assert.Equal(t, name, p.Get(Root).Source(), "unexpected value source")
+}
+
+func TestSourceErrors(t *testing.T) {
+	f, err := ioutil.TempFile("" /* dir */, "test-source-errors" /* prefix */)
+	require.NoError(t, err, "couldn't create temporary file")
+	// Make reads fail by deleting file.
+	require.NoError(t, f.Close(), "couldn't delete temporary file")
+	require.NoError(t, os.Remove(f.Name()), "couldn't delete temporary file")
+
+	t.Run("source", func(t *testing.T) {
+		_, err = NewYAML(Source(f))
+		require.Error(t, err)
+	})
+
+	t.Run("file", func(t *testing.T) {
+		_, err = NewYAML(File(f.Name()))
+		require.Error(t, err)
+	})
 }

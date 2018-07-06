@@ -21,6 +21,7 @@
 package config_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -637,4 +638,82 @@ func TestStaticFromYAML(t *testing.T) {
 	p, err := NewYAML(Static(base), Static(override))
 	require.NoError(t, err, "couldn't construct provider")
 	runCommonTests(t, p)
+}
+
+func TestEmptySources(t *testing.T) {
+	const (
+		key = "foo"
+		val = "bar"
+	)
+	full := fmt.Sprintf("%s: %s", key, val)
+	empty := ""
+	comment := "# just a comment"
+
+	tests := []struct {
+		desc    string
+		sources []string
+		expect  interface{}
+	}{
+		{"no sources", []string{}, nil},
+		{"empty base", []string{empty, full}, val},
+		{"empty override", []string{full, empty}, val},
+		{"empty base and override", []string{empty, empty}, nil},
+		{"comment-only base", []string{comment, full}, val},
+		{"comment-only override", []string{full, comment}, val},
+		{"empty base and comment-only override", []string{empty, comment}, nil},
+		{"comment-only base and empty override", []string{comment, empty}, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			opts := make([]YAMLOption, len(tt.sources))
+			for i := range tt.sources {
+				opts[i] = Source(strings.NewReader(tt.sources[i]))
+			}
+			p, err := NewYAML(opts...)
+			require.NoError(t, err, "failed to create provider")
+			assert.Equal(t, tt.expect, p.Get("foo").Value(), "incorrect merged result")
+
+			d, err := p.Get("not_there").WithDefault(42)
+			require.NoError(t, err, "failed to set default")
+			assert.Equal(t, 42, d.Value(), "incorrect defaulted value")
+		})
+	}
+}
+
+func TestNullSources(t *testing.T) {
+	const (
+		key = "foo"
+		val = "bar"
+	)
+	full := fmt.Sprintf("%s: %s", key, val)
+	empty := ""
+	null := "~"
+
+	tests := []struct {
+		desc    string
+		sources []string
+		expect  interface{}
+	}{
+		{"null base", []string{null, empty, full}, val},
+		{"null override", []string{full, empty, null}, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			opts := make([]YAMLOption, len(tt.sources))
+			for i := range tt.sources {
+				opts[i] = Source(strings.NewReader(tt.sources[i]))
+			}
+			p, err := NewYAML(opts...)
+			require.NoError(t, err, "failed to create provider")
+			assert.Equal(t, tt.expect, p.Get("foo").Value(), "incorrect merged result")
+
+			d, err := p.Get("not_there").WithDefault(42)
+			require.NoError(t, err, "failed to set default")
+			// Since there's an explicit nil in the initial sources, calls to
+			// WithDefault should have no effect.
+			assert.Equal(t, nil, d.Value(), "default should have no effect")
+		})
+	}
 }
