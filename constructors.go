@@ -58,7 +58,9 @@ func NewProviderGroup(name string, providers ...Provider) (Provider, error) {
 	opts := make([]YAMLOption, 0, len(providers)+2)
 	opts = append(opts, Name(name), Permissive())
 	for _, p := range providers {
-		opts = append(opts, Static(p.Get(Root).Value()))
+		if v := p.Get(Root); v.HasValue() {
+			opts = append(opts, Static(v.Value()))
+		}
 	}
 	return NewYAML(opts...)
 }
