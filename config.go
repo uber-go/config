@@ -52,6 +52,7 @@ type YAML struct {
 	raw      [][]byte
 	contents interface{}
 	strict   bool
+	empty    bool
 }
 
 // NewYAML constructs a YAML provider. See the various YAMLOptions for
@@ -86,19 +87,22 @@ func NewYAML(options ...YAMLOption) (*YAML, error) {
 		merged = bytes.NewBuffer(exp)
 	}
 
-	var contents interface{}
-	dec := yaml.NewDecoder(merged)
-	dec.SetStrict(cfg.strict)
-	if err := dec.Decode(&contents); err != nil && err != io.EOF {
-		return nil, fmt.Errorf("couldn't decode merged YAML: %v", err)
+	y := &YAML{
+		name:   cfg.name,
+		raw:    cfg.sources,
+		strict: cfg.strict,
 	}
 
-	return &YAML{
-		name:     cfg.name,
-		raw:      cfg.sources,
-		contents: contents,
-		strict:   cfg.strict,
-	}, nil
+	dec := yaml.NewDecoder(merged)
+	dec.SetStrict(cfg.strict)
+	if err := dec.Decode(&y.contents); err != nil {
+		if err != io.EOF {
+			return nil, fmt.Errorf("couldn't decode merged YAML: %v", err)
+		}
+		y.empty = true
+	}
+
+	return y, nil
 }
 
 // Name returns the name of the provider. It defaults to "YAML".
@@ -137,6 +141,10 @@ func (y *YAML) get(path []string) Value {
 // YAML mappings are unmarshalled as map[interface{}]interface{}, sequences as
 // []interface{}, and scalars as interface{}.
 func (y *YAML) at(path []string) (interface{}, bool) {
+	if y.empty {
+		return nil, false
+	}
+
 	cur := y.contents
 	for _, segment := range path {
 		m, ok := cur.(map[interface{}]interface{})
@@ -197,18 +205,22 @@ func (y *YAML) withDefault(d interface{}) (*YAML, error) {
 		return nil, fmt.Errorf("merging default and existing YAML failed: %v", err)
 	}
 
-	var contents interface{}
+	newY := &YAML{
+		name:   y.name,
+		raw:    sources,
+		strict: y.strict,
+	}
+
 	dec := yaml.NewDecoder(merged)
 	dec.SetStrict(y.strict)
-	if err := dec.Decode(&contents); err != nil && err != io.EOF {
-		return nil, fmt.Errorf("unmarshaling merged YAML failed: %v", err)
+	if err := dec.Decode(&newY.contents); err != nil {
+		if err != io.EOF {
+			return nil, fmt.Errorf("unmarshaling merged YAML failed: %v", err)
+		}
+		newY.empty = true
 	}
-	return &YAML{
-		name:     y.name,
-		raw:      sources,
-		contents: contents,
-		strict:   y.strict,
-	}, nil
+
+	return newY, nil
 }
 
 // A Value is a subset of a provider's configuration.

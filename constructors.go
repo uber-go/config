@@ -51,14 +51,16 @@ func NewScopedProvider(prefix string, provider Provider) Provider {
 // documentation. To preserve backward compatibility, the resulting provider
 // disables strict unmarshalling.
 //
-// Deprecated: compose multiple sources of configuration using NewYAML and the
-// Static, File, and/or Source options directly. This enables strict
-// unmarshalling by default and allows use of other options at the same time.
+// Prefer using NewYAML instead of this where possible. NewYAML gives you
+// strict unmarshalling by default and allows use of other options at the same
+// time.
 func NewProviderGroup(name string, providers ...Provider) (Provider, error) {
 	opts := make([]YAMLOption, 0, len(providers)+2)
 	opts = append(opts, Name(name), Permissive())
 	for _, p := range providers {
-		opts = append(opts, Static(p.Get(Root).Value()))
+		if v := p.Get(Root); v.HasValue() {
+			opts = append(opts, Static(v.Value()))
+		}
 	}
 	return NewYAML(opts...)
 }
