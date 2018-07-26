@@ -763,3 +763,31 @@ func TestNullSources(t *testing.T) {
 		})
 	})
 }
+
+func TestRawSources(t *testing.T) {
+	env := map[string]string{
+		"ZONE": "west1",
+	}
+	lookup := func(k string) (string, bool) {
+		v, ok := env[k]
+		return v, ok
+	}
+
+	base := `zone: $ZONE`
+	secrets := `secret: abc$ZONE`
+
+	cfg := struct {
+		Zone   string
+		Secret string
+	}{}
+
+	provider, err := NewYAML(
+		Source(strings.NewReader(base)),
+		RawSource(strings.NewReader(secrets)),
+		Expand(lookup),
+	)
+	require.NoError(t, err, "failed to create provider")
+	assert.NoError(t, provider.Get(Root).Populate(&cfg), "failed to populate config struct")
+	assert.Equal(t, "west1", cfg.Zone, "unexpected zone")
+	assert.Equal(t, "abc$ZONE", cfg.Secret, "unexpected secret")
+}

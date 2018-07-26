@@ -70,11 +70,25 @@ func NewYAML(options ...YAMLOption) (*YAML, error) {
 		return nil, fmt.Errorf("error applying options: %v", cfg.err)
 	}
 
+	// Some sources shouldn't have environment variables expanded; protect those
+	// sources by escaping the contents. (Expanding before merging re-exposes a
+	// number of bugs, so we can't just selectively expand sources before
+	// merging.)
+	sourceBytes := make([][]byte, len(cfg.sources))
+	for i := range cfg.sources {
+		s := cfg.sources[i]
+		if !s.raw {
+			sourceBytes[i] = s.bytes
+			continue
+		}
+		sourceBytes[i] = escapeVariables(s.bytes)
+	}
+
 	// On construction, go through a full merge-serialize-deserialize cycle to
 	// catch any duplicated keys as early as possible (in strict mode). It also
 	// strips comments, which stops us from attempting environment variable
 	// expansion. (We'll expand environment variables next.)
-	merged, err := merge.YAML(cfg.sources, cfg.strict)
+	merged, err := merge.YAML(sourceBytes, cfg.strict)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't merge YAML sources: %v", err)
 	}
@@ -89,7 +103,7 @@ func NewYAML(options ...YAMLOption) (*YAML, error) {
 
 	y := &YAML{
 		name:   cfg.name,
-		raw:    cfg.sources,
+		raw:    sourceBytes,
 		strict: cfg.strict,
 	}
 
