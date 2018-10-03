@@ -161,14 +161,32 @@ func (y *YAML) at(path []string) (interface{}, bool) {
 
 	cur := y.contents
 	for _, segment := range path {
+		// Cast to a mapping type. If this fails, then we ended up on a path
+		// that didn't terminate on a sequence or a scalar.
 		m, ok := cur.(map[interface{}]interface{})
 		if !ok {
 			return nil, false
 		}
+
+		// Try resolving the segment as a string and then unmarshal the path
+		// segment for a comparable key. After all, YAML scalar types are more
+		// than strings (boolean, integer, etc). We'll prefer a string form to
+		// resolve ambiguous paths.
 		if _, ok := m[segment]; !ok {
-			return nil, false
+			var key interface{}
+			if err := yaml.Unmarshal([]byte(segment), &key); err != nil {
+				return nil, false
+			}
+			if !merge.IsScalar(key) {
+				return nil, false
+			}
+			if _, ok := m[key]; !ok {
+				return nil, false
+			}
+			cur = m[key]
+		} else {
+			cur = m[segment]
 		}
-		cur = m[segment]
 	}
 	return cur, true
 }
