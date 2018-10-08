@@ -24,13 +24,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	"go.uber.org/config/internal/merge"
 	"go.uber.org/config/internal/unreachable"
 
-	"golang.org/x/text/transform"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -50,6 +48,7 @@ const _separator = "."
 type YAML struct {
 	name     string
 	raw      [][]byte
+	lookup   LookupFunc // see withDefault
 	contents interface{}
 	strict   bool
 	empty    bool
@@ -93,17 +92,16 @@ func NewYAML(options ...YAMLOption) (*YAML, error) {
 		return nil, fmt.Errorf("couldn't merge YAML sources: %v", err)
 	}
 
-	if cfg.lookup != nil {
-		exp, err := ioutil.ReadAll(transform.NewReader(merged, newExpandTransformer(cfg.lookup)))
-		if err != nil {
-			return nil, fmt.Errorf("couldn't expand environment: %v", err)
-		}
-		merged = bytes.NewBuffer(exp)
+	// Expand environment variables.
+	merged, err = expandVariables(cfg.lookup, merged)
+	if err != nil {
+		return nil, err
 	}
 
 	y := &YAML{
 		name:   cfg.name,
 		raw:    sourceBytes,
+		lookup: cfg.lookup,
 		strict: cfg.strict,
 	}
 
@@ -219,9 +217,19 @@ func (y *YAML) withDefault(d interface{}) (*YAML, error) {
 		return nil, fmt.Errorf("merging default and existing YAML failed: %v", err)
 	}
 
+	// Since we've gone back to working with the original input sources, we also
+	// need to re-expand environment variables. Since we only need to do this to
+	// support this deprecated method, keep things simple and reach out into the
+	// environment again.
+	merged, err = expandVariables(y.lookup, merged)
+	if err != nil {
+		return nil, err
+	}
+
 	newY := &YAML{
 		name:   y.name,
 		raw:    sources,
+		lookup: y.lookup,
 		strict: y.strict,
 	}
 
@@ -346,7 +354,9 @@ func (v Value) Value() interface{} {
 // WithDefault supplies a default configuration for the value. The default is
 // serialized to YAML, and then the existing configuration sources are
 // deep-merged into it using the merge logic described in the package-level
-// documentation.
+// documentation. Note that applying defaults requires re-expanding
+// environment variables, which may have unexpected results if the environment
+// changes after provider construction.
 //
 // Deprecated: the deep-merging behavior of WithDefault is complex, especially
 // when applied multiple times. Instead, create a Go struct, set any defaults

@@ -764,14 +764,17 @@ func TestNullSources(t *testing.T) {
 	})
 }
 
-func TestRawSources(t *testing.T) {
-	env := map[string]string{
-		"ZONE": "west1",
-	}
-	lookup := func(k string) (string, bool) {
-		v, ok := env[k]
+func environment(vars map[string]string) LookupFunc {
+	return func(k string) (string, bool) {
+		v, ok := vars[k]
 		return v, ok
 	}
+}
+
+func TestRawSources(t *testing.T) {
+	lookup := environment(map[string]string{
+		"ZONE": "west1",
+	})
 
 	base := `zone: $ZONE`
 	secrets := `secret: abc$ZONE`
@@ -790,4 +793,28 @@ func TestRawSources(t *testing.T) {
 	assert.NoError(t, provider.Get(Root).Populate(&cfg), "failed to populate config struct")
 	assert.Equal(t, "west1", cfg.Zone, "unexpected zone")
 	assert.Equal(t, "abc$ZONE", cfg.Secret, "unexpected secret")
+}
+
+func TestEnvironmentExpansion(t *testing.T) {
+	const expect = "west1"
+	lookup := environment(map[string]string{
+		"ZONE": expect,
+	})
+
+	base := `zone: unknown`
+	override := `zone: $ZONE`
+
+	provider, err := NewYAML(
+		Source(strings.NewReader(base)),
+		Source(strings.NewReader(override)),
+		Expand(lookup),
+	)
+	require.NoError(t, err, "failed to create provider")
+
+	zone := provider.Get("zone")
+	assert.Equal(t, expect, zone.String(), "wrong zone")
+
+	defaulted, err := zone.WithDefault("default")
+	require.NoError(t, err, "failed to set default")
+	assert.Equal(t, expect, defaulted.String(), "wrong zone after default")
 }
