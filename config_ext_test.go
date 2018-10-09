@@ -796,13 +796,15 @@ func TestRawSources(t *testing.T) {
 }
 
 func TestEnvironmentExpansion(t *testing.T) {
-	const expect = "west1"
+	const expectZone = "west1"
+	const expectMeta = "$ZONE"
 	lookup := environment(map[string]string{
-		"ZONE": expect,
+		"ZONE": expectZone,
+		"META": expectMeta,
 	})
 
-	base := `zone: unknown`
-	override := `zone: $ZONE`
+	base := `{zone: $ZONE}`
+	override := `{zone: $ZONE, meta: $META}`
 
 	provider, err := NewYAML(
 		Source(strings.NewReader(base)),
@@ -812,9 +814,15 @@ func TestEnvironmentExpansion(t *testing.T) {
 	require.NoError(t, err, "failed to create provider")
 
 	zone := provider.Get("zone")
-	assert.Equal(t, expect, zone.String(), "wrong zone")
+	assert.Equal(t, expectZone, zone.String(), "wrong zone")
+	meta := provider.Get("meta")
+	assert.Equal(t, expectMeta, meta.String(), "wrong meta")
 
-	defaulted, err := zone.WithDefault("default")
-	require.NoError(t, err, "failed to set default")
-	assert.Equal(t, expect, defaulted.String(), "wrong zone after default")
+	defaultedZone, err := zone.WithDefault("default")
+	require.NoError(t, err, "failed to set default for zone")
+	defaultedMeta, err := meta.WithDefault("default")
+	require.NoError(t, err, "failed to set default for meta")
+
+	assert.Equal(t, expectZone, defaultedZone.String(), "wrong zone after default")
+	assert.Equal(t, expectMeta, defaultedMeta.String(), "wrong meta after default")
 }
