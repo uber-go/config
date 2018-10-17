@@ -103,13 +103,13 @@ func merge(into, from interface{}, strict bool) (interface{}, error) {
 		// Allow higher-priority YAML to explicitly nil out lower-priority entries.
 		return nil, nil
 	}
-	if isScalar(into) && isScalar(from) {
+	if IsScalar(into) && IsScalar(from) {
 		return from, nil
 	}
-	if isSequence(into) && isSequence(from) {
+	if IsSequence(into) && IsSequence(from) {
 		return from, nil
 	}
-	if isMapping(into) && isMapping(from) {
+	if IsMapping(into) && IsMapping(from) {
 		return mergeMapping(into.(mapping), from.(mapping), strict)
 	}
 	// YAML types don't match, so no merge is possible. For backward
@@ -136,25 +136,25 @@ func mergeMapping(into, from mapping, strict bool) (mapping, error) {
 	return merged, nil
 }
 
-func isMapping(i interface{}) bool {
+func IsMapping(i interface{}) bool {
 	_, is := i.(mapping)
 	return is
 }
 
-func isSequence(i interface{}) bool {
+func IsSequence(i interface{}) bool {
 	_, is := i.(sequence)
 	return is
 }
 
-func isScalar(i interface{}) bool {
-	return !isMapping(i) && !isSequence(i)
+func IsScalar(i interface{}) bool {
+	return !IsMapping(i) && !IsSequence(i)
 }
 
 func describe(i interface{}) string {
-	if isMapping(i) {
+	if IsMapping(i) {
 		return "mapping"
 	}
-	if isSequence(i) {
+	if IsSequence(i) {
 		return "sequence"
 	}
 	return "scalar"

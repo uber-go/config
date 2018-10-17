@@ -55,6 +55,12 @@ occupants:
 extra_practical:
   <<: *ptr
   volkswagon: jetta
+1: car
+two:
+  "2": two cars
+  2: 2 cars
+~: no car
+no: car unavailable
 `
 	_override = `
 fun:
@@ -400,7 +406,7 @@ func runCommonTests(t *testing.T, provider Provider) {
 		// Regression test for https://github.com/uber-go/config/issues/76.
 		const key = "foobar"
 		unmarshal := func() map[interface{}]interface{} {
-			var m map[string]interface{}
+			var m map[interface{}]interface{}
 			require.NoError(t, provider.Get(Root).Populate(&m), "Populate failed")
 			return m["practical"].(map[interface{}]interface{})
 		}
@@ -454,6 +460,59 @@ func runCommonTests(t *testing.T, provider Provider) {
 		}{}
 		require.NoError(t, provider.Get("occupants.honda").Populate(&c))
 		assert.Equal(t, 1, len(c.Humans.Backseat), "wrong number of backseat occupants")
+	})
+
+	t.Run("non-string scalar keys", func(t *testing.T) {
+		t.Run("numeric key", func(t *testing.T) {
+			var val string
+			run(t, testCase{
+				Value:     provider.Get("1"),
+				HasValue:  true,
+				Interface: "car",
+				Populate:  &val,
+			})
+		})
+
+		t.Run("nil key", func(t *testing.T) {
+			var val string
+			run(t, testCase{
+				Value:     provider.Get("~"),
+				HasValue:  true,
+				Interface: "no car",
+				Populate:  &val,
+			})
+		})
+
+		t.Run("boolean key", func(t *testing.T) {
+			// This lookup will appear to be a string key.
+			var val string
+			run(t, testCase{
+				Value:     provider.Get("no"),
+				HasValue:  true,
+				Interface: "car unavailable",
+				Populate:  &val,
+			})
+
+			// Yet in reality it is a boolean key.
+			run(t, testCase{
+				Value:     provider.Get("false"),
+				HasValue:  true,
+				Interface: "car unavailable",
+				Populate:  &val,
+			})
+		})
+	})
+
+	t.Run("string scalar keys which look like non-string", func(t *testing.T) {
+		t.Run("numeric prefers string variant", func(t *testing.T) {
+			var val string
+			run(t, testCase{
+				Value:     provider.Get("two.2"),
+				HasValue:  true,
+				Interface: "two cars",
+				Populate:  &val,
+			})
+		})
 	})
 }
 
@@ -625,6 +684,11 @@ func TestStrictYAML(t *testing.T) {
 		err = provider.Get(Root).Populate(&c)
 		require.Error(t, err, "expected error")
 		assert.Contains(t, err.Error(), "field toyota not found in type", "unexpected error message")
+	})
+
+	t.Run("non-unique keys in a map[string] context", func(t *testing.T) {
+		var m map[string]interface{}
+		assert.Error(t, provider.Get("two").Populate(&m), "Populate succeeded")
 	})
 }
 
