@@ -28,7 +28,6 @@ import (
 
 	"go.uber.org/config/internal/merge"
 	"go.uber.org/config/internal/unreachable"
-
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -199,6 +198,7 @@ func (y *YAML) withDefault(d interface{}) (*YAML, error) {
 	if err := yaml.NewEncoder(rawDefault).Encode(d); err != nil {
 		return nil, fmt.Errorf("can't marshal default to YAML: %v", err)
 	}
+
 	// It's possible that one of the sources used when initially configuring the
 	// provider was nothing but a top-level null, but that a higher-priority
 	// source included some additional data. In that case, the result of merging
@@ -206,43 +206,18 @@ func (y *YAML) withDefault(d interface{}) (*YAML, error) {
 	// override all data provided by withDefault. To handle this correctly, we
 	// must use the new defaults as the lowest-priority source and re-merge the
 	// original sources.
-	sources := make([][]byte, 0, len(y.raw)+1)
-	sources = append(sources, rawDefault.Bytes())
-	sources = append(sources, y.raw...)
-	merged, err := merge.YAML(sources, y.strict)
-	if err != nil {
-		// The defaults and the existing config don't agree on the type of a value
-		// (e.g., we're defaulting a mapping to a sequence, which doesn't make
-		// sense).
-		return nil, fmt.Errorf("merging default and existing YAML failed: %v", err)
+	opts := []YAMLOption{
+		Name(y.name),
+		Expand(y.lookup),
+		Source(rawDefault),
+		// y.raw contains the original sources with escaping for RawSources so
+		// appendSourcs won't double-expand them.
+		appendSources(y.raw),
 	}
-
-	// Since we've gone back to working with the original input sources, we also
-	// need to re-expand environment variables. Since we only need to do this to
-	// support this deprecated method, keep things simple and reach out into the
-	// environment again.
-	merged, err = expandVariables(y.lookup, merged)
-	if err != nil {
-		return nil, err
+	if !y.strict {
+		opts = append(opts, Permissive())
 	}
-
-	newY := &YAML{
-		name:   y.name,
-		raw:    sources,
-		lookup: y.lookup,
-		strict: y.strict,
-	}
-
-	dec := yaml.NewDecoder(merged)
-	dec.SetStrict(y.strict)
-	if err := dec.Decode(&newY.contents); err != nil {
-		if err != io.EOF {
-			return nil, fmt.Errorf("unmarshaling merged YAML failed: %v", err)
-		}
-		newY.empty = true
-	}
-
-	return newY, nil
+	return NewYAML(opts...)
 }
 
 // A Value is a subset of a provider's configuration.

@@ -156,6 +156,16 @@ func Static(val interface{}) YAMLOption {
 	})
 }
 
+// appendSources appends the given list of YAML sources as-is. Variable
+// expansion will be performed on all passed sources.
+func appendSources(srcs [][]byte) YAMLOption {
+	return optionFunc(func(c *config) {
+		for _, src := range srcs {
+			c.sources = append(c.sources, source{bytes: src})
+		}
+	})
+}
+
 func failed(err error) YAMLOption {
 	return optionFunc(func(c *config) {
 		c.err = multierr.Append(c.err, err)
