@@ -23,6 +23,7 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"strings"
 
 	"golang.org/x/text/transform"
@@ -37,6 +38,17 @@ const (
 // key into some key-value store and returns the value and whether the key was
 // present.
 type LookupFunc = func(string) (string, bool)
+
+func expandVariables(f LookupFunc, buf *bytes.Buffer) (*bytes.Buffer, error) {
+	if f == nil {
+		return buf, nil
+	}
+	exp, err := ioutil.ReadAll(transform.NewReader(buf, newExpandTransformer(f)))
+	if err != nil {
+		return nil, fmt.Errorf("couldn't expand environment: %v", err)
+	}
+	return bytes.NewBuffer(exp), nil
+}
 
 // Given a function with the same signature as os.LookupEnv, return a function
 // that expands expressions of the form ${ENV_VAR:default_value}.

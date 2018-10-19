@@ -24,13 +24,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	"go.uber.org/config/internal/merge"
 	"go.uber.org/config/internal/unreachable"
-
-	"golang.org/x/text/transform"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -50,6 +47,7 @@ const _separator = "."
 type YAML struct {
 	name     string
 	raw      [][]byte
+	lookup   LookupFunc // see withDefault
 	contents interface{}
 	strict   bool
 	empty    bool
@@ -93,17 +91,16 @@ func NewYAML(options ...YAMLOption) (*YAML, error) {
 		return nil, fmt.Errorf("couldn't merge YAML sources: %v", err)
 	}
 
-	if cfg.lookup != nil {
-		exp, err := ioutil.ReadAll(transform.NewReader(merged, newExpandTransformer(cfg.lookup)))
-		if err != nil {
-			return nil, fmt.Errorf("couldn't expand environment: %v", err)
-		}
-		merged = bytes.NewBuffer(exp)
+	// Expand environment variables.
+	merged, err = expandVariables(cfg.lookup, merged)
+	if err != nil {
+		return nil, err
 	}
 
 	y := &YAML{
 		name:   cfg.name,
 		raw:    sourceBytes,
+		lookup: cfg.lookup,
 		strict: cfg.strict,
 	}
 
@@ -219,6 +216,7 @@ func (y *YAML) withDefault(d interface{}) (*YAML, error) {
 	if err := yaml.NewEncoder(rawDefault).Encode(d); err != nil {
 		return nil, fmt.Errorf("can't marshal default to YAML: %v", err)
 	}
+
 	// It's possible that one of the sources used when initially configuring the
 	// provider was nothing but a top-level null, but that a higher-priority
 	// source included some additional data. In that case, the result of merging
@@ -226,33 +224,18 @@ func (y *YAML) withDefault(d interface{}) (*YAML, error) {
 	// override all data provided by withDefault. To handle this correctly, we
 	// must use the new defaults as the lowest-priority source and re-merge the
 	// original sources.
-	sources := make([][]byte, 0, len(y.raw)+1)
-	sources = append(sources, rawDefault.Bytes())
-	sources = append(sources, y.raw...)
-	merged, err := merge.YAML(sources, y.strict)
-	if err != nil {
-		// The defaults and the existing config don't agree on the type of a value
-		// (e.g., we're defaulting a mapping to a sequence, which doesn't make
-		// sense).
-		return nil, fmt.Errorf("merging default and existing YAML failed: %v", err)
+	opts := []YAMLOption{
+		Name(y.name),
+		Expand(y.lookup),
+		Source(rawDefault),
+		// y.raw contains the original sources with escaping for RawSources so
+		// appendSourcs won't double-expand them.
+		appendSources(y.raw),
 	}
-
-	newY := &YAML{
-		name:   y.name,
-		raw:    sources,
-		strict: y.strict,
+	if !y.strict {
+		opts = append(opts, Permissive())
 	}
-
-	dec := yaml.NewDecoder(merged)
-	dec.SetStrict(y.strict)
-	if err := dec.Decode(&newY.contents); err != nil {
-		if err != io.EOF {
-			return nil, fmt.Errorf("unmarshaling merged YAML failed: %v", err)
-		}
-		newY.empty = true
-	}
-
-	return newY, nil
+	return NewYAML(opts...)
 }
 
 // A Value is a subset of a provider's configuration.
@@ -364,7 +347,9 @@ func (v Value) Value() interface{} {
 // WithDefault supplies a default configuration for the value. The default is
 // serialized to YAML, and then the existing configuration sources are
 // deep-merged into it using the merge logic described in the package-level
-// documentation.
+// documentation. Note that applying defaults requires re-expanding
+// environment variables, which may have unexpected results if the environment
+// changes after provider construction.
 //
 // Deprecated: the deep-merging behavior of WithDefault is complex, especially
 // when applied multiple times. Instead, create a Go struct, set any defaults

@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Fixed
+- Fix environment variable interpolation when `WithDefault` is used.
 - Fix support for non-scalar keys in YAML mappings (eg: "1: car").
 
 ## 1.3.0 - 2018-07-30
