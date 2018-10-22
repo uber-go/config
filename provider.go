@@ -29,5 +29,5 @@ const Root = ""
 // of merged YAML, JSON, or TOML files.
 type Provider interface {
 	Name() string         // name of the configuration store
-	Get(key string) Value // retrieves a portion of the configuration
+	Get(key string) Value // retrieves a portion of the configuration, see Value for details
 }
