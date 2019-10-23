@@ -44,7 +44,7 @@ func TestStatic(t *testing.T) {
 }
 
 func TestExpand(t *testing.T) {
-	environment := map[string]string{"FOO": "bar"}
+	environment := map[string]string{"FOO": "bar", "BAR": "@bar"}
 	lookup := func(key string) (string, bool) {
 		s, ok := environment[key]
 		return s, ok
@@ -60,6 +60,7 @@ func TestExpand(t *testing.T) {
 		{"present bracketed", "${FOO:baz}", false, "bar"},
 		{"absent bracketed", "${NOT_THERE:baz}", false, "baz"},
 		{"absent bracketed no default", `${NOT_THERE:""}`, false, nil},
+		{"present bracketed quoted value", "${BAR}", false, "@bar"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {

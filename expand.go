@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"golang.org/x/text/transform"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const (
@@ -68,7 +69,11 @@ func replace(lookUp LookupFunc) func(in string) (string, error) {
 		}
 
 		if envVal, ok := lookUp(key); ok {
-			return envVal, nil
+			buf, err := yaml.Marshal(envVal)
+			if err != nil {
+				return "", fmt.Errorf("unable to marshal value of %q to YAML: %v", key, err)
+			}
+			return string(buf), nil
 		}
 
 		if def == "" {
