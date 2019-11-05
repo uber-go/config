@@ -1,15 +1,26 @@
 language: go
 sudo: false
 go_import_path: go.uber.org/config
-go:
-  - 1.9.x
-  - 1.10.x
+
+env:
+  global:
+    - GO111MODULE=on
+
 matrix:
-  # Necessary until we only support Go 1.10 and above.
   include:
-  - go: 1.10.x
-    env: COVER=true
+  - go: 1.12.x
+  - go: 1.13.x
+
+before_install:
+  - go version
+
+# Download modules to the cache.
 install:
-  - make install
+  - go mod download
+
 script:
-  - make ci
+  - make test
+
+after_success:
+  - make cover
+  - bash <(curl -s https://codecov.io/bash)

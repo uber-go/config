@@ -1,20 +1,16 @@
-SHELL := /usr/bin/env bash
-TEST := go test -race
+GO_FILES := $(shell \
+	find . '(' -path '*/.*' -o -path './vendor' ')' -prune \
+	-o -name '*.go' -print | cut -b3-)
 
-.PHONY: install
-install:
-	glide --version || go get github.com/Masterminds/glide
-	glide install
+.PHONY: build
+build:
+	go build ./...
 
 .PHONY: test
 test:
-	$(TEST) ./...
+	go test -race ./...
 
-.PHONY: ci
-ci:
-ifdef COVER
-	$(TEST) -cover -coverprofile=coverage.txt ./...
-	bash <(curl -s https://codecov.io/bash)
-else
-	$(TEST) ./...
-endif
+.PHONY: cover
+cover:
+	go test -coverprofile=cover.out -coverpkg=./... -v ./...
+	go tool cover -html=cover.out -o cover.html
