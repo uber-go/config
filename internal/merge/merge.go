@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -136,16 +136,21 @@ func mergeMapping(into, from mapping, strict bool) (mapping, error) {
 	return merged, nil
 }
 
+// IsMapping reports whether a type is a mapping in YAML, represented as a
+// map[interface{}]interface{}.
 func IsMapping(i interface{}) bool {
 	_, is := i.(mapping)
 	return is
 }
 
+// IsSequence reports whether a type is a sequence in YAML, represented as an
+// []interface{}.
 func IsSequence(i interface{}) bool {
 	_, is := i.(sequence)
 	return is
 }
 
+// IsScalar reports whether a type is a scalar value in YAML.
 func IsScalar(i interface{}) bool {
 	return !IsMapping(i) && !IsSequence(i)
 }

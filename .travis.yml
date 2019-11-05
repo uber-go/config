@@ -10,6 +10,7 @@ matrix:
   include:
   - go: 1.12.x
   - go: 1.13.x
+    env: LINT=1
 
 before_install:
   - go version
@@ -19,6 +20,7 @@ install:
   - go mod download
 
 script:
+  - test -z "$LINT" || make lint
   - make test
 
 after_success:

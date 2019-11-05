@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Uber Technologies, Inc.
+// Copyright (c) 2019 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -47,12 +47,12 @@ const expected = `This is a test$. $ This is a $test.
 	$$$$
 ${parti`
 
-const ends_in_dollar = `There is a dollar at the end$`
-const ends_in_ddollar = `There is a dollar at the end$$`
-const many_dollars_orig = `$$$$$$$`
-const many_dollars_expect = `$$$$`
-const ends_in_var = `There is a test at the end: $t3sT`
-const ends_in_var_expect = `There is a test at the end: test`
+const endsInDollar = `There is a dollar at the end$`
+const endsInDoubleDollar = `There is a dollar at the end$$`
+const manyDollarsOrig = `$$$$$$$`
+const manyDollarsExpect = `$$$$`
+const endsInVar = `There is a test at the end: $t3sT`
+const endsInVarExpect = `There is a test at the end: test`
 
 type oneByteReader struct {
 	r io.Reader
@@ -89,7 +89,7 @@ func (e *bufReader) Read(buf []byte) (int, error) {
 func TestExpander(t *testing.T) {
 	r := bytes.NewReader([]byte(orig))
 
-	expand_func := func(s string) (string, error) {
+	expandFunc := func(s string) (string, error) {
 		switch s {
 		case "t3sT":
 			return "test", nil
@@ -101,7 +101,7 @@ func TestExpander(t *testing.T) {
 	}
 
 	// Parse whole string
-	tr := transform.NewReader(r, &expandTransformer{expand: expand_func})
+	tr := transform.NewReader(r, &expandTransformer{expand: expandFunc})
 	actual, err := ioutil.ReadAll(tr)
 	require.NoError(t, err)
 	assert.Exactly(t, expected, string(actual))
@@ -111,7 +111,7 @@ func TestExpander(t *testing.T) {
 
 	// Partial parse
 	var partial [11]byte
-	tr = transform.NewReader(r, &expandTransformer{expand: expand_func})
+	tr = transform.NewReader(r, &expandTransformer{expand: expandFunc})
 	n, err := tr.Read(partial[:])
 	require.NoError(t, err)
 	assert.Exactly(t, n, len(partial))
@@ -119,7 +119,7 @@ func TestExpander(t *testing.T) {
 
 	// Empty string
 	r = bytes.NewReader([]byte{})
-	tr = transform.NewReader(r, &expandTransformer{expand: expand_func})
+	tr = transform.NewReader(r, &expandTransformer{expand: expandFunc})
 	actual, err = ioutil.ReadAll(tr)
 	require.NoError(t, err)
 	assert.Exactly(t, "", string(actual))
@@ -129,7 +129,7 @@ func TestExpanderOneByteAtATime(t *testing.T) {
 	r := bytes.NewReader([]byte(orig))
 	rr := &oneByteReader{r: r}
 
-	expand_func := func(s string) (string, error) {
+	expandFunc := func(s string) (string, error) {
 		switch s {
 		case "t3sT":
 			return "test", nil
@@ -140,7 +140,7 @@ func TestExpanderOneByteAtATime(t *testing.T) {
 		return "NOMATCH", errors.New("No Match")
 	}
 
-	tr := transform.NewReader(rr, &expandTransformer{expand: expand_func})
+	tr := transform.NewReader(rr, &expandTransformer{expand: expandFunc})
 	actual, err := ioutil.ReadAll(tr)
 	require.NoError(t, err)
 	assert.Exactly(t, expected, string(actual))
@@ -149,7 +149,7 @@ func TestExpanderOneByteAtATime(t *testing.T) {
 func TestExpanderFailingTransform(t *testing.T) {
 	r := bytes.NewReader([]byte(orig))
 
-	expand_func := func(s string) (string, error) {
+	expandFunc := func(s string) (string, error) {
 		switch s {
 		case "t3sT":
 			return "test", nil
@@ -159,7 +159,7 @@ func TestExpanderFailingTransform(t *testing.T) {
 		return "NOMATCH", errors.New("No Match")
 	}
 
-	tr := transform.NewReader(r, &expandTransformer{expand: expand_func})
+	tr := transform.NewReader(r, &expandTransformer{expand: expandFunc})
 	_, err := ioutil.ReadAll(tr)
 	require.Error(t, err)
 }
@@ -169,13 +169,13 @@ func TestExpanderMisc(t *testing.T) {
 		orig   string
 		expect string
 	}{
-		{ends_in_dollar, ends_in_dollar},
-		{ends_in_ddollar, ends_in_dollar},
-		{ends_in_var, ends_in_var_expect},
-		{many_dollars_orig, many_dollars_expect},
+		{endsInDollar, endsInDollar},
+		{endsInDoubleDollar, endsInDollar},
+		{endsInVar, endsInVarExpect},
+		{manyDollarsOrig, manyDollarsExpect},
 	}
 
-	expand_func := func(s string) (string, error) {
+	expandFunc := func(s string) (string, error) {
 		switch s {
 		case "t3sT":
 			return "test", nil
@@ -191,7 +191,7 @@ func TestExpanderMisc(t *testing.T) {
 			func(t *testing.T) {
 				tr := transform.NewReader(
 					bytes.NewReader([]byte(tst.orig)),
-					&expandTransformer{expand: expand_func},
+					&expandTransformer{expand: expandFunc},
 				)
 				actual, err := ioutil.ReadAll(tr)
 				require.NoError(t, err)
@@ -213,7 +213,7 @@ func TestExpanderLongSrc(t *testing.T) {
 		{"$a${", a + "${"},
 	}
 
-	expand_func := func(s string) (string, error) {
+	expandFunc := func(s string) (string, error) {
 		switch s {
 		case "a":
 			return a, nil
@@ -228,7 +228,7 @@ func TestExpanderLongSrc(t *testing.T) {
 			func(t *testing.T) {
 				tr := transform.NewReader(
 					&bufReader{buf: []byte(tst.orig)},
-					&expandTransformer{expand: expand_func},
+					&expandTransformer{expand: expandFunc},
 				)
 				actual, err := ioutil.ReadAll(tr)
 				require.NoError(t, err)
@@ -253,7 +253,7 @@ func TestTransformLimit(t *testing.T) {
 		{"$" + a, transform.ErrShortSrc},
 	}
 
-	expand_func := func(s string) (string, error) {
+	expandFunc := func(s string) (string, error) {
 		switch s {
 		case "a":
 			return a + "aa", nil
@@ -270,7 +270,7 @@ func TestTransformLimit(t *testing.T) {
 			func(t *testing.T) {
 				tr := transform.NewReader(
 					bytes.NewReader([]byte(tst.orig)),
-					&expandTransformer{expand: expand_func},
+					&expandTransformer{expand: expandFunc},
 				)
 				_, err := ioutil.ReadAll(tr)
 				require.EqualError(t, err, tst.err.Error())
