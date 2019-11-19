@@ -11,3 +11,6 @@ coverage.txt
 *.pprof
 /.bin
 /.cache
+/bin
+cover.out
+cover.html
