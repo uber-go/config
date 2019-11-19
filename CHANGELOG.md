@@ -4,31 +4,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [Unreleased]
 ### Changed
 - Migrate to Go modules.
 
-## 1.3.1 - 2018-10-22
+## [1.3.1] - 2018-10-22
 ### Fixed
 - Fix environment variable interpolation when `WithDefault` is used.
 - Fix support for non-scalar keys in YAML mappings (eg: "1: car").
 
-## 1.3.0 - 2018-07-30
+## [1.3.0] - 2018-07-30
 ### Added
 - Add a `RawSource` option that selectively disables variable expansion.
 
-## 1.2.2 - 2018-07-12
+## [1.2.2] - 2018-07-12
 ### Changed
 - Undo deprecation of `NewProviderGroup`.
 
 ### Fixed
 - Handle empty sources correctly in `NewProviderGroup`.
 
-## 1.2.1 - 2018-07-06
+## [1.2.1] - 2018-07-06
 ### Fixed
 - Handle empty sources and top-level nulls correctly.
 
-## v1.2.0 - 2018-06-28
+## [1.2.0] - 2018-06-28
 ### Added
 - Add `NewYAML`, a new `Provider` constructor that lets callers mix Go values,
   readers, files, and other options.
@@ -57,7 +57,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Deprecate `Value.HasValue`, `Value.Value`, and `Value.WithDefault` in favor of
   strongly-typed approaches using `Value.Populate`.
 
-## v1.1.0 - 2017-09-28
+## [1.1.0] - 2017-09-28
 ### Added
 - Make expand functions transform a special sequence $$ to literal $.
 - Export `Provider` constructors that take `io.Reader`.
@@ -66,15 +66,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Determine the types of objects encapsulated by `config.Value` with the YAML
   unmarshaller regardless of whether expansion was performed or not.
 
-## v1.0.2 - 2017-08-17
+## [1.0.2] - 2017-08-17
 ### Fixed
 - Fix populate panic for a nil pointer.
 
-## v1.0.1 - 2017-08-04
+## [1.0.1] - 2017-08-04
 ### Fixed
 - Fix unmarshal text on missing value.
 
-## v1.0.0 - 2017-07-31
+## [1.0.0] - 2017-07-31
 ### Changed
 - Skip populating function and value types instead of reporting errors.
 - Return an error from provider constructors instead of panicking.
@@ -90,6 +90,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 - Use semantic version paths for yaml and validator packages.
 
-## v1.0.0-rc1 - 2017-06-26
+## 1.0.0-rc1 - 2017-06-26
 ### Removed
 - Trim `Provider` interface down to just `Name` and `Get`.
+
+[Unreleased]: https://github.com/uber-go/config/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/uber-go/config/compare/v1.3.0...v1.3.1
+[1.3.0]: https://github.com/uber-go/config/compare/v1.2.2...v1.3.0
+[1.2.2]: https://github.com/uber-go/config/compare/v1.2.1...v1.2.2
+[1.2.1]: https://github.com/uber-go/config/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/uber-go/config/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/uber-go/config/compare/v1.0.2...v1.1.0
+[1.0.2]: https://github.com/uber-go/config/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/uber-go/config/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/uber-go/config/compare/v1.0.0-rc1...v1.0.0
