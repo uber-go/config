@@ -21,4 +21,4 @@
 package config // import "go.uber.org/config"
 
 // Version is the current semantic version.
-const Version = "1.4.0"
+const Version = "1.5.0"
