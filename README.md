@@ -52,8 +52,8 @@ Released under the [MIT License](LICENSE.txt).
 [doc-img]: http://img.shields.io/badge/GoDoc-Reference-blue.svg
 [doc]: https://godoc.org/go.uber.org/config
 
-[ci-img]: https://img.shields.io/travis/uber-go/config/master.svg
-[ci]: https://travis-ci.com/uber-go/config/branches
+[ci-img]: https://github.com/uber-go/config/actions/workflows/go.yml/badge.svg
+[ci]: https://github.com/uber-go/config/actions/workflows/go.yml
 
 [cov-img]: https://codecov.io/gh/uber-go/config/branch/master/graph/badge.svg
 [cov]: https://codecov.io/gh/uber-go/config/branch/master
