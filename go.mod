@@ -7,7 +7,7 @@ require (
 	go.uber.org/multierr v1.4.0
 	golang.org/x/lint v0.0.0-20190930215403-16217165b5de
 	golang.org/x/text v0.3.2
-	gopkg.in/yaml.v2 v2.2.5
+	gopkg.in/yaml.v2 v2.2.8
 )
 
 require (
