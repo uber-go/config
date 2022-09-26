@@ -6,7 +6,7 @@ require (
 	github.com/stretchr/testify v1.4.0
 	go.uber.org/multierr v1.4.0
 	golang.org/x/lint v0.0.0-20190930215403-16217165b5de
-	golang.org/x/text v0.3.2
+	golang.org/x/text v0.3.7
 	gopkg.in/yaml.v2 v2.2.8
 )
 
