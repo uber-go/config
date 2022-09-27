@@ -124,11 +124,14 @@ func (y *YAML) Name() string {
 // Get retrieves a value from the configuration. The supplied key is treated
 // as a period-separated path, with each path segment used as a map key. For
 // example, if the provider contains the YAML
-//   foo:
-//     bar:
-//       baz: hello
+//
+//	foo:
+//	  bar:
+//	    baz: hello
+//
 // then Get("foo.bar") returns a value holding
-//   baz: hello
+//
+//	baz: hello
 //
 // To get a value holding the entire configuration, use the Root constant as
 // the key.
@@ -293,11 +296,14 @@ func (v Value) Populate(target interface{}) error {
 // values. The supplied path is split on periods, and each segment is treated
 // as a nested map key. For example, if the current value holds the YAML
 // configuration
-//   foo:
-//     bar:
-//       baz: quux
+//
+//	foo:
+//	  bar:
+//	    baz: quux
+//
 // then a call to Get("foo.bar") will hold the YAML mapping
-//   baz: quux
+//
+//	baz: quux
 func (v Value) Get(path string) Value {
 	if path == Root {
 		return v

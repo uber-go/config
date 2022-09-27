@@ -42,11 +42,14 @@ type (
 // priority over earlier ones.
 //
 // Maps are deep-merged. For example,
-//   {"one": 1, "two": 2} + {"one": 42, "three": 3}
-//   == {"one": 42, "two": 2, "three": 3}
+//
+//	{"one": 1, "two": 2} + {"one": 42, "three": 3}
+//	== {"one": 42, "two": 2, "three": 3}
+//
 // Sequences are replaced. For example,
-//   {"foo": [1, 2, 3]} + {"foo": [4, 5, 6]}
-//   == {"foo": [4, 5, 6]}
+//
+//	{"foo": [1, 2, 3]} + {"foo": [4, 5, 6]}
+//	== {"foo": [4, 5, 6]}
 //
 // In non-strict mode, duplicate map keys are allowed within a single source,
 // with later values overwriting previous ones. Attempting to merge
