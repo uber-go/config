@@ -23,7 +23,6 @@ package config
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"strings"
 
 	"golang.org/x/text/transform"
@@ -43,7 +42,10 @@ func expandVariables(f LookupFunc, buf *bytes.Buffer) (*bytes.Buffer, error) {
 	if f == nil {
 		return buf, nil
 	}
-	exp, err := ioutil.ReadAll(transform.NewReader(buf, newExpandTransformer(f)))
+	// when a single ${VAR} expands to a string larger than the reader's fixed dst buffer,
+	// transform.Bytes will grow the dst buffer automatically, unlike f.e.
+	// transform.NewReader + ReadAll, which will return ErrShortDst.
+	exp, _, err := transform.Bytes(newExpandTransformer(f), buf.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("couldn't expand environment: %v", err)
 	}

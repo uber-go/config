@@ -238,6 +238,22 @@ func TestExpanderLongSrc(t *testing.T) {
 	}
 }
 
+func TestExpandVariablesLargeReplacement(t *testing.T) {
+	// Regression: transform.Reader fails with ErrShortDst when the replacement
+	// is larger than transform's internal destination buffer and sits at the
+	// start of the input (Reader requires nDst!=0 || nSrc!=0 to retry).
+	output := strings.Repeat("a", transformBufSize-1) + "aa"
+	lookup := func(key string) (string, bool) {
+		if key == "a" {
+			return output, true
+		}
+		return "", false
+	}
+	out, err := expandVariables(lookup, bytes.NewBufferString("$a"))
+	require.NoError(t, err)
+	assert.Equal(t, output, out.String())
+}
+
 func TestTransformLimit(t *testing.T) {
 	a := strings.Repeat("a", transformBufSize-1)
 
