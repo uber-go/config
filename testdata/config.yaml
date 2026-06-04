@@ -1,0 +1,2 @@
+# for TestSingleProvider/files_present
+foo: $FOO
