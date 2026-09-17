@@ -24,13 +24,13 @@ import (
 	"bytes"
 	"fmt"
 
-	yaml "gopkg.in/yaml.v2"
+	yaml "go.yaml.in/yaml/v3"
 )
 
 // areSameYAML checks whether two values represent the same YAML data. It's
 // only called from NewValue, where we must validate that the user-supplied
 // value matches the contents of the user-supplied provider.
-func areSameYAML(fromProvider, fromUser interface{}) (bool, error) {
+func areSameYAML(fromProvider, fromUser any) (bool, error) {
 	p, err := yaml.Marshal(fromProvider)
 	if err != nil {
 		// Unreachable with YAML provider, but possible if the provider is a

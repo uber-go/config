@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Changed
+- **Breaking**: Replace the YAML backend `gopkg.in/yaml.v2` with
+  `go.yaml.in/yaml/v3`. Because v3 follows the YAML 1.2 core schema, several
+  parsing behaviors change:
+  - Only `true`/`false` (and the `True`/`TRUE`/`False`/`FALSE` variants) are
+    parsed as Booleans. The YAML 1.1 spellings `yes`, `no`, `on`, and `off`
+    (and their variants) are now plain strings.
+  - Duplicate keys within a single source are always rejected, even in
+    permissive mode (previously permissive mode allowed them, with later values
+    winning). Two scalar keys with the same textual form — for example `2` and
+    `"2"` — now count as duplicates.
+  - Merged output is re-serialized by `go.yaml.in/yaml/v3`: sequence elements
+    are indented beneath their key, and scalars that would be ambiguous under
+    YAML 1.1 (such as `yes`) are emitted quoted.
+  - Mappings are now represented as `map[string]interface{}` (v3's native type)
+    rather than `map[interface{}]interface{}`; this is what `Value.Value()`
+    returns. Non-string scalar keys are rendered in their canonical string form
+    (`1` becomes `"1"`, a nil `~` key becomes `"null"`), so a mapping with
+    non-string keys can no longer be populated into a Go map with non-string
+    keys such as `map[int]string`. Access via `Get`/`Populate` is otherwise
+    unchanged.
+
+  These are backward-incompatible behavior changes and warrant a major version
+  release (module path `go.uber.org/config/v2`).
+
 ## [1.4.1] - 2026-05-12
 ### Fixed
 - Fix parsing large environment variables from throwing short destination buffer error.

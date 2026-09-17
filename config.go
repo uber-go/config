@@ -28,7 +28,7 @@ import (
 
 	"go.uber.org/config/internal/merge"
 	"go.uber.org/config/internal/unreachable"
-	yaml "gopkg.in/yaml.v2"
+	yaml "go.yaml.in/yaml/v3"
 )
 
 const _separator = "."
@@ -38,17 +38,17 @@ const _separator = "."
 // options.
 //
 // By default, the YAML provider attempts to proactively catch common mistakes
-// by enabling gopkg.in/yaml.v2's strict mode. See the package-level
-// documentation on strict unmarshalling for details.
+// by enabling strict unmarshalling. See the package-level documentation on
+// strict unmarshalling for details.
 //
 // When populating Go structs, values produced by the YAML provider correctly
-// handle all struct tags supported by gopkg.in/yaml.v2. See
-// https://godoc.org/gopkg.in/yaml.v2#Marshal for details.
+// handle all struct tags supported by go.yaml.in/yaml/v3. See
+// https://pkg.go.dev/go.yaml.in/yaml/v3#Marshal for details.
 type YAML struct {
 	name     string
 	raw      [][]byte
 	lookup   LookupFunc // see withDefault
-	contents interface{}
+	contents any
 	strict   bool
 	empty    bool
 }
@@ -105,7 +105,7 @@ func NewYAML(options ...YAMLOption) (*YAML, error) {
 	}
 
 	dec := yaml.NewDecoder(merged)
-	dec.SetStrict(cfg.strict)
+	dec.KnownFields(cfg.strict)
 	if err := dec.Decode(&y.contents); err != nil {
 		if err != io.EOF {
 			return nil, fmt.Errorf("couldn't decode merged YAML: %v", err)
@@ -152,9 +152,9 @@ func (y *YAML) get(path []string) Value {
 // at returns the unmarshalled representation of the value at a given path,
 // with a bool indicating whether the value was found.
 //
-// YAML mappings are unmarshalled as map[interface{}]interface{}, sequences as
-// []interface{}, and scalars as interface{}.
-func (y *YAML) at(path []string) (interface{}, bool) {
+// YAML mappings are unmarshalled as map[string]any, sequences as []any, and
+// scalars as any.
+func (y *YAML) at(path []string) (any, bool) {
 	if y.empty {
 		return nil, false
 	}
@@ -163,35 +163,35 @@ func (y *YAML) at(path []string) (interface{}, bool) {
 	for _, segment := range path {
 		// Cast to a mapping type. If this fails, then we ended up on a path
 		// that didn't terminate on a sequence or a scalar.
-		m, ok := cur.(map[interface{}]interface{})
+		m, ok := cur.(map[string]any)
 		if !ok {
 			return nil, false
 		}
 
-		// Try resolving the segment as a string and then unmarshal the path
-		// segment for a comparable key. After all, YAML scalar types are more
-		// than strings (boolean, integer, etc). We'll prefer a string form to
-		// resolve ambiguous paths.
-		if _, ok := m[segment]; !ok {
-			var key interface{}
-			if err := yaml.Unmarshal([]byte(segment), &key); err != nil {
-				return nil, false
-			}
-			if !merge.IsScalar(key) {
-				return nil, false
-			}
-			if _, ok := m[key]; !ok {
-				return nil, false
-			}
-			cur = m[key]
-		} else {
-			cur = m[segment]
+		// Prefer a direct string lookup. Non-string scalar keys (for example 1
+		// or ~) are stored under their canonical string form, so fall back to
+		// resolving the segment as YAML and matching that form.
+		if v, ok := m[segment]; ok {
+			cur = v
+			continue
 		}
+		var key any
+		if err := yaml.Unmarshal([]byte(segment), &key); err != nil {
+			return nil, false
+		}
+		if !merge.IsScalar(key) {
+			return nil, false
+		}
+		v, ok := m[merge.StringifyKey(key)]
+		if !ok {
+			return nil, false
+		}
+		cur = v
 	}
 	return cur, true
 }
 
-func (y *YAML) populate(path []string, i interface{}) error {
+func (y *YAML) populate(path []string, i any) error {
 	val, ok := y.at(path)
 	if !ok {
 		return nil
@@ -208,13 +208,13 @@ func (y *YAML) populate(path []string, i interface{}) error {
 		return unreachable.Wrap(err)
 	}
 	dec := yaml.NewDecoder(buf)
-	dec.SetStrict(y.strict)
+	dec.KnownFields(y.strict)
 	// Decoding can't ever return EOF, since encoding any value is guaranteed to
 	// produce non-empty YAML.
 	return dec.Decode(i)
 }
 
-func (y *YAML) withDefault(d interface{}) (*YAML, error) {
+func (y *YAML) withDefault(d any) (*YAML, error) {
 	rawDefault := &bytes.Buffer{}
 	if err := yaml.NewEncoder(rawDefault).Encode(d); err != nil {
 		return nil, fmt.Errorf("can't marshal default to YAML: %v", err)
@@ -256,7 +256,7 @@ type Value struct {
 // surprising. To guarantee sane behavior without changing the function
 // signature, input validation and panics were added in version 1.2. In all
 // cases, it's both safer and less verbose to use Provider.Get directly.
-func NewValue(p Provider, key string, value interface{}, found bool) Value {
+func NewValue(p Provider, key string, value any, found bool) Value {
 	actual := p.Get(key)
 	if has := actual.HasValue(); has != found {
 		var tmpl string
@@ -288,7 +288,7 @@ func (v Value) Source() string {
 // json.Unmarshal or yaml.Unmarshal. When populating a struct with some fields
 // already set, data is deep-merged as described in the package-level
 // documentation.
-func (v Value) Populate(target interface{}) error {
+func (v Value) Populate(target any) error {
 	return v.provider.populate(v.path, target)
 }
 
@@ -332,15 +332,15 @@ func (v Value) String() string {
 	return fmt.Sprint(v.Value())
 }
 
-// Value unmarshals the configuration into interface{}.
+// Value unmarshals the configuration into any.
 //
 // Deprecated: in a strongly-typed language, unmarshaling configuration into
-// interface{} isn't helpful. It's safer and easier to use Populate with a
+// any isn't helpful. It's safer and easier to use Populate with a
 // strongly-typed struct.
-func (v Value) Value() interface{} {
+func (v Value) Value() any {
 	// Simplest way to ensure that the caller can't mutate the configuration is
 	// to deep-copy with Populate.
-	var i interface{}
+	var i any
 	if err := v.Populate(&i); err != nil {
 		// Unreachable, since we've already ensured that the underlying YAML is
 		// valid. Can't alter this signature to include an error without breaking
@@ -360,10 +360,10 @@ func (v Value) Value() interface{} {
 // Deprecated: the deep-merging behavior of WithDefault is complex, especially
 // when applied multiple times. Instead, create a Go struct, set any defaults
 // directly on the struct, then call Populate.
-func (v Value) WithDefault(d interface{}) (Value, error) {
+func (v Value) WithDefault(d any) (Value, error) {
 	fallback := d
 	for i := len(v.path) - 1; i >= 0; i-- {
-		fallback = map[string]interface{}{v.path[i]: fallback}
+		fallback = map[string]any{v.path[i]: fallback}
 	}
 	p, err := v.provider.withDefault(fallback)
 	if err != nil {

@@ -6,8 +6,8 @@ import:
   version: ~0.3.0
   subpackages:
   - transform
-- package: gopkg.in/yaml.v2
-  version: ^2.2.1
+- package: go.yaml.in/yaml/v3
+  version: ^3.0.0
 testImport:
 - package: github.com/stretchr/testify
   version: ^1.2.1

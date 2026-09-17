@@ -24,18 +24,21 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strings"
 
 	"go.uber.org/config/internal/unreachable"
 
-	yaml "gopkg.in/yaml.v2"
+	yaml "go.yaml.in/yaml/v3"
 )
 
 type (
-	// YAML has three fundamental types. When unmarshaled into interface{},
-	// they're represented like this.
-	mapping  = map[interface{}]interface{}
-	sequence = []interface{}
-	scalar   = interface{}
+	// YAML has three fundamental types. When unmarshaled into any, they're
+	// represented like this. Mappings always use string keys: Normalize renders
+	// any non-string key produced by go.yaml.in/yaml/v3 in its canonical string
+	// form.
+	mapping  = map[string]any
+	sequence = []any
+	scalar   = any
 )
 
 // YAML deep-merges any number of YAML sources, with later sources taking
@@ -51,20 +54,19 @@ type (
 //	{"foo": [1, 2, 3]} + {"foo": [4, 5, 6]}
 //	== {"foo": [4, 5, 6]}
 //
-// In non-strict mode, duplicate map keys are allowed within a single source,
-// with later values overwriting previous ones. Attempting to merge
-// mismatched types (e.g., merging a sequence into a map) replaces the old
-// value with the new.
-//
-// Enabling strict mode returns errors in both of the above cases.
+// Attempting to merge mismatched types (e.g., merging a sequence into a map)
+// replaces the old value with the new. Enabling strict mode returns an error
+// instead.
 func YAML(sources [][]byte, strict bool) (*bytes.Buffer, error) {
-	var merged interface{}
+	var merged any
 	var hasContent bool
 	for _, r := range sources {
 		d := yaml.NewDecoder(bytes.NewReader(r))
-		d.SetStrict(strict)
+		// Unlike gopkg.in/yaml.v2's SetStrict, go.yaml.in/yaml/v3 always
+		// rejects duplicate mapping keys, even in permissive mode. The strict
+		// flag now only governs type-mismatch handling during the merge below.
 
-		var contents interface{}
+		var contents any
 		if err := d.Decode(&contents); err == io.EOF {
 			// Skip empty and comment-only sources, which we should handle
 			// differently from explicit nils.
@@ -72,6 +74,11 @@ func YAML(sources [][]byte, strict bool) (*bytes.Buffer, error) {
 		} else if err != nil {
 			return nil, fmt.Errorf("couldn't decode source: %v", err)
 		}
+
+		// go.yaml.in/yaml/v3 decodes mappings as map[string]any (or map[any]any
+		// when a key isn't a string); Normalize collapses both to the
+		// map[string]any form the merge logic below expects.
+		contents = Normalize(contents)
 
 		hasContent = true
 		pair, err := merge(merged, contents, strict)
@@ -88,17 +95,23 @@ func YAML(sources [][]byte, strict bool) (*bytes.Buffer, error) {
 		return buf, nil
 	}
 	enc := yaml.NewEncoder(buf)
+	// Match the two-space indentation historically produced by
+	// gopkg.in/yaml.v2; go.yaml.in/yaml/v3 defaults to four.
+	enc.SetIndent(2)
 	if err := enc.Encode(merged); err != nil {
+		return nil, unreachable.Wrap(fmt.Errorf("couldn't re-serialize merged YAML: %v", err))
+	}
+	if err := enc.Close(); err != nil {
 		return nil, unreachable.Wrap(fmt.Errorf("couldn't re-serialize merged YAML: %v", err))
 	}
 	return buf, nil
 }
 
-func merge(into, from interface{}, strict bool) (interface{}, error) {
+func merge(into, from any, strict bool) (any, error) {
 	// It's possible to handle this with a mass of reflection, but we only need
-	// to merge whole YAML files. Since we're always unmarshaling into
-	// interface{}, we only need to handle a few types. This ends up being
-	// cleaner if we just handle each case explicitly.
+	// to merge whole YAML files. Since we're always unmarshaling into any, we
+	// only need to handle a few types. This ends up being cleaner if we just
+	// handle each case explicitly.
 	if into == nil {
 		return from, nil
 	}
@@ -139,26 +152,26 @@ func mergeMapping(into, from mapping, strict bool) (mapping, error) {
 	return merged, nil
 }
 
-// IsMapping reports whether a type is a mapping in YAML, represented as a
-// map[interface{}]interface{}.
-func IsMapping(i interface{}) bool {
+// IsMapping reports whether a value is a mapping in YAML, represented as a
+// map[string]any.
+func IsMapping(i any) bool {
 	_, is := i.(mapping)
 	return is
 }
 
-// IsSequence reports whether a type is a sequence in YAML, represented as an
-// []interface{}.
-func IsSequence(i interface{}) bool {
+// IsSequence reports whether a value is a sequence in YAML, represented as a
+// []any.
+func IsSequence(i any) bool {
 	_, is := i.(sequence)
 	return is
 }
 
-// IsScalar reports whether a type is a scalar value in YAML.
-func IsScalar(i interface{}) bool {
+// IsScalar reports whether a value is a scalar in YAML.
+func IsScalar(i any) bool {
 	return !IsMapping(i) && !IsSequence(i)
 }
 
-func describe(i interface{}) string {
+func describe(i any) string {
 	if IsMapping(i) {
 		return "mapping"
 	}
@@ -166,4 +179,48 @@ func describe(i interface{}) string {
 		return "sequence"
 	}
 	return "scalar"
+}
+
+// Normalize recursively rewrites the values decoded by go.yaml.in/yaml/v3 into
+// this package's canonical representation: every mapping becomes a
+// map[string]any. go.yaml.in/yaml/v3 decodes a mapping as map[string]any when
+// its keys are all strings and as map[any]any otherwise; Normalize converts the
+// latter, rendering each non-string key via StringifyKey.
+func Normalize(val any) any {
+	switch v := val.(type) {
+	case map[string]any:
+		for k, e := range v {
+			v[k] = Normalize(e)
+		}
+		return v
+	case map[any]any:
+		m := make(mapping, len(v))
+		for k, e := range v {
+			m[StringifyKey(k)] = Normalize(e)
+		}
+		return m
+	case []any:
+		for i, e := range v {
+			v[i] = Normalize(e)
+		}
+		return v
+	default:
+		return v
+	}
+}
+
+// StringifyKey renders a scalar mapping key as the canonical string used by
+// Normalize. Strings are returned unchanged; other scalars (integers, nil,
+// Booleans, ...) are rendered in their canonical YAML form, so 1 becomes "1"
+// and a nil key becomes "null".
+func StringifyKey(key any) string {
+	if s, ok := key.(string); ok {
+		return s
+	}
+	bs, err := yaml.Marshal(key)
+	if err != nil {
+		// Unreachable for scalar keys, which always marshal cleanly.
+		return fmt.Sprint(key)
+	}
+	return strings.TrimSpace(string(bs))
 }

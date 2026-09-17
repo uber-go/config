@@ -53,7 +53,7 @@ func TestExpand(t *testing.T) {
 		desc      string
 		template  string
 		expectErr bool
-		expectVal interface{}
+		expectVal any
 	}{
 		{"present unbracketed", "$FOO", false, "bar"},
 		{"absent unbracketed", "$NOT_THERE", true, ""},
