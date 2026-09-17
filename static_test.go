@@ -30,7 +30,7 @@ import (
 
 type noYAML struct{}
 
-func (noYAML) MarshalYAML() (interface{}, error) {
+func (noYAML) MarshalYAML() (any, error) {
 	return nil, errors.New("fail")
 }
 

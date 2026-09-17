@@ -28,7 +28,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	yaml "gopkg.in/yaml.v2"
+	yaml "go.yaml.in/yaml/v3"
 )
 
 func mustRead(t testing.TB, fname string) []byte {
@@ -54,7 +54,7 @@ func strip(s string) string {
 
 func canonicalize(t testing.TB, s string) string {
 	// round-trip to canonicalize formatting
-	var i interface{}
+	var i any
 	require.NoError(t,
 		yaml.Unmarshal([]byte(strip(s)), &i),
 		"canonicalize: couldn't unmarshal YAML",
@@ -64,10 +64,13 @@ func canonicalize(t testing.TB, s string) string {
 	return string(bytes.TrimSpace(formatted))
 }
 
-func unmarshal(t testing.TB, s string) interface{} {
-	var i interface{}
+func unmarshal(t testing.TB, s string) any {
+	var i any
 	require.NoError(t, yaml.Unmarshal([]byte(strip(s)), &i), "unmarshaling failed")
-	return i
+	// merge operates on the map[string]any representation, so
+	// normalize the map[string]any values produced by
+	// go.yaml.in/yaml/v3 exactly as (merge.)YAML does before merging.
+	return Normalize(i)
 }
 
 func succeeds(t testing.TB, strict bool, left, right, expect string) {
@@ -164,9 +167,10 @@ func TestErrors(t *testing.T) {
 	})
 
 	t.Run("duplicated keys", func(t *testing.T) {
+		// go.yaml.in/yaml/v3 rejects duplicate keys in both modes.
 		src := []byte("{foo: bar, foo: baz}")
-		assert.NoError(t, check(t, false, src), "expected success in permissive mode")
-		assert.Error(t, check(t, true, src), "expected error in permissive mode")
+		assert.Error(t, check(t, false, src), "expected error in permissive mode")
+		assert.Error(t, check(t, true, src), "expected error in strict mode")
 	})
 
 	t.Run("merge error", func(t *testing.T) {
@@ -200,18 +204,23 @@ func TestMismatchedTypes(t *testing.T) {
 }
 
 func TestBooleans(t *testing.T) {
-	// YAML helpfully interprets many strings as Booleans.
+	// Under the YAML 1.2 core schema used by go.yaml.in/yaml/v3, only true and
+	// false (and their all-caps/title-case variants) are Booleans. The YAML 1.1
+	// spellings yes/no/on/off are now plain strings and survive a merge
+	// unchanged (though they're quoted on output to stay unambiguous).
 	tests := []struct {
 		in, out string
 	}{
-		{"yes", "true"},
-		{"YES", "true"},
-		{"on", "true"},
-		{"ON", "true"},
-		{"no", "false"},
-		{"NO", "false"},
-		{"off", "false"},
-		{"OFF", "false"},
+		{"true", "true"},
+		{"True", "true"},
+		{"TRUE", "true"},
+		{"false", "false"},
+		{"False", "false"},
+		{"FALSE", "false"},
+		{"yes", "yes"},
+		{"no", "no"},
+		{"on", "on"},
+		{"off", "off"},
 	}
 
 	for _, tt := range tests {

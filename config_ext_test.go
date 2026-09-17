@@ -29,7 +29,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	yaml "gopkg.in/yaml.v2"
+	yaml "go.yaml.in/yaml/v3"
 )
 
 const (
@@ -58,7 +58,6 @@ extra_practical:
 1: car
 two:
   "2": two cars
-  2: 2 cars
 ~: no car
 no: car unavailable
 `
@@ -83,8 +82,8 @@ occupants:
 type testCase struct {
 	Value     Value
 	HasValue  bool
-	Interface interface{}
-	Populate  interface{}
+	Interface any
+	Populate  any
 }
 
 func run(t testing.TB, tt testCase) {
@@ -156,7 +155,7 @@ func runCommonTests(t *testing.T, provider Provider) {
 		run(t, testCase{
 			Value:    provider.Get("practical"),
 			HasValue: true,
-			Interface: map[interface{}]interface{}{
+			Interface: map[string]any{
 				"toyota": "camry",
 				"honda":  "civic",
 				"nissan": "altima",
@@ -175,7 +174,7 @@ func runCommonTests(t *testing.T, provider Provider) {
 		run(t, testCase{
 			Value:     provider.Get("fun"),
 			HasValue:  true,
-			Interface: []interface{}{"maserati", "lamborghini"},
+			Interface: []any{"maserati", "lamborghini"},
 			Populate:  &s,
 		})
 		assert.Equal(t, []string{"maserati", "lamborghini"}, s, "unexpected result after populate")
@@ -191,10 +190,10 @@ func runCommonTests(t *testing.T, provider Provider) {
 		run(t, testCase{
 			Value:    provider.Get("occupants.honda"),
 			HasValue: true,
-			Interface: map[interface{}]interface{}{
+			Interface: map[string]any{
 				"driver":    "jane",
 				"passenger": "arthur",
-				"backseat":  []interface{}{"nora"},
+				"backseat":  []any{"nora"},
 			},
 			Populate: &o,
 		})
@@ -252,7 +251,7 @@ func runCommonTests(t *testing.T, provider Provider) {
 		run(t, testCase{
 			Value:     provider.Get("antique_mapping_empty"),
 			HasValue:  true,
-			Interface: map[interface{}]interface{}{"ford": "model_t"},
+			Interface: map[string]any{"ford": "model_t"},
 			Populate:  &m,
 		})
 		assert.Equal(t, map[string]string{"ford": "model_t"}, m, "unexpected result after Populate")
@@ -263,7 +262,7 @@ func runCommonTests(t *testing.T, provider Provider) {
 		run(t, testCase{
 			Value:    provider.Get("extra_practical"),
 			HasValue: true,
-			Interface: map[interface{}]interface{}{
+			Interface: map[string]any{
 				"toyota":     "camry",
 				"honda":      "accord",
 				"volkswagon": "jetta",
@@ -337,7 +336,7 @@ func runCommonTests(t *testing.T, provider Provider) {
 		run(t, testCase{
 			Value:    val,
 			HasValue: true,
-			Interface: map[interface{}]interface{}{
+			Interface: map[string]any{
 				"honda":  "civic",
 				"toyota": "camry",
 				"nissan": "altima",
@@ -360,7 +359,7 @@ func runCommonTests(t *testing.T, provider Provider) {
 		run(t, testCase{
 			Value:     val,
 			HasValue:  true,
-			Interface: []interface{}{"maserati", "lamborghini"},
+			Interface: []any{"maserati", "lamborghini"},
 			Populate:  &s,
 		})
 		assert.Equal(t, []string{"maserati", "lamborghini"}, s, "unexpected result after populate")
@@ -390,7 +389,7 @@ func runCommonTests(t *testing.T, provider Provider) {
 		run(t, testCase{
 			Value:    val,
 			HasValue: true,
-			Interface: map[interface{}]interface{}{
+			Interface: map[string]any{
 				"middle":       "bottom",
 				"other_middle": "other_bottom",
 			},
@@ -405,10 +404,10 @@ func runCommonTests(t *testing.T, provider Provider) {
 	t.Run("deep copy", func(t *testing.T) {
 		// Regression test for https://github.com/uber-go/config/issues/76.
 		const key = "foobar"
-		unmarshal := func() map[interface{}]interface{} {
-			var m map[interface{}]interface{}
+		unmarshal := func() map[string]any {
+			var m map[string]any
 			require.NoError(t, provider.Get(Root).Populate(&m), "Populate failed")
-			return m["practical"].(map[interface{}]interface{})
+			return m["practical"].(map[string]any)
 		}
 
 		before := unmarshal()
@@ -483,8 +482,9 @@ func runCommonTests(t *testing.T, provider Provider) {
 			})
 		})
 
-		t.Run("boolean key", func(t *testing.T) {
-			// This lookup will appear to be a string key.
+		t.Run("string key that looks boolean", func(t *testing.T) {
+			// Under the YAML 1.2 core schema used by go.yaml.in/yaml/v3, "no" is
+			// a plain string, not the Boolean false.
 			var val string
 			run(t, testCase{
 				Value:     provider.Get("no"),
@@ -493,18 +493,13 @@ func runCommonTests(t *testing.T, provider Provider) {
 				Populate:  &val,
 			})
 
-			// Yet in reality it is a boolean key.
-			run(t, testCase{
-				Value:     provider.Get("false"),
-				HasValue:  true,
-				Interface: "car unavailable",
-				Populate:  &val,
-			})
+			// It is not accessible as the Boolean false.
+			assert.False(t, provider.Get("false").HasValue(), `"no" should not be a boolean key`)
 		})
 	})
 
 	t.Run("string scalar keys which look like non-string", func(t *testing.T) {
-		t.Run("numeric prefers string variant", func(t *testing.T) {
+		t.Run("numeric-looking string key", func(t *testing.T) {
 			var val string
 			run(t, testCase{
 				Value:     provider.Get("two.2"),
@@ -540,7 +535,7 @@ func TestPermissiveYAML(t *testing.T) {
 		run(t, testCase{
 			Value:     provider.Get("mismatch"),
 			HasValue:  true,
-			Interface: []interface{}{"foo"},
+			Interface: []any{"foo"},
 			Populate:  &s,
 		})
 		assert.Equal(t, []string{"foo"}, s, "unexpected result after populate")
@@ -559,21 +554,15 @@ func TestPermissiveYAML(t *testing.T) {
 		assert.Equal(t, "foo", val.Value(), "wrong merged output")
 	})
 
-	t.Run("ignore duplicate keys", func(t *testing.T) {
-		provider, err := NewYAML(
+	t.Run("duplicate keys fail even in permissive mode", func(t *testing.T) {
+		// go.yaml.in/yaml/v3 always rejects duplicate keys, so permissive mode
+		// can no longer tolerate them (unlike the gopkg.in/yaml.v2 behavior).
+		_, err := NewYAML(
 			Source(strings.NewReader("dupe: foo\ndupe: bar")),
 			Permissive(),
 		)
-		require.NoError(t, err, "couldn't create provider")
-
-		var s string
-		run(t, testCase{
-			Value:     provider.Get("dupe"),
-			HasValue:  true,
-			Interface: "bar",
-			Populate:  &s,
-		})
-		assert.Equal(t, "bar", s, "unexpected result after populate")
+		require.Error(t, err, "duplicate keys should fail even in permissive mode")
+		assert.Contains(t, err.Error(), `key "dupe" already defined`, "unexpected error message")
 	})
 
 	t.Run("ignores extra data during Populate", func(t *testing.T) {
@@ -641,7 +630,7 @@ func TestStrictYAML(t *testing.T) {
 			Source(strings.NewReader("dupe: foo\ndupe: bar")),
 		)
 		require.Error(t, err, "created strict provider with type mismatch")
-		assert.Contains(t, err.Error(), `key "dupe" already set in map`, "unexpected error message")
+		assert.Contains(t, err.Error(), `key "dupe" already defined`, "unexpected error message")
 	})
 
 	t.Run("allow missing data during Populate", func(t *testing.T) {
@@ -685,17 +674,12 @@ func TestStrictYAML(t *testing.T) {
 		require.Error(t, err, "expected error")
 		assert.Contains(t, err.Error(), "field toyota not found in type", "unexpected error message")
 	})
-
-	t.Run("non-unique keys in a map[string] context", func(t *testing.T) {
-		var m map[string]interface{}
-		assert.Error(t, provider.Get("two").Populate(&m), "Populate succeeded")
-	})
 }
 
 func TestStaticFromYAML(t *testing.T) {
 	// Since we have a common test suite, we may as well use it to exercise the
 	// static provider too.
-	var base, override interface{}
+	var base, override any
 	require.NoError(t, yaml.Unmarshal([]byte(_base), &base), "couldn't unmarshal base YAML")
 	require.NoError(t, yaml.Unmarshal([]byte(_override), &override), "couldn't unmarshal base YAML")
 
@@ -717,7 +701,7 @@ func TestEmptySources(t *testing.T) {
 		tests := []struct {
 			desc    string
 			sources []string
-			expect  interface{}
+			expect  any
 		}{
 			{"no sources", []string{}, nil},
 			{"empty base", []string{empty, full}, val},
@@ -781,7 +765,7 @@ func TestNullSources(t *testing.T) {
 		tests := []struct {
 			desc    string
 			sources []string
-			expect  interface{}
+			expect  any
 		}{
 			{"null base", []string{null, empty, full}, val},
 			{"null override", []string{full, empty, null}, nil},

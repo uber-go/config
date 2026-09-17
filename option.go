@@ -26,7 +26,7 @@ import (
 	"os"
 
 	"go.uber.org/multierr"
-	yaml "gopkg.in/yaml.v2"
+	yaml "go.yaml.in/yaml/v3"
 )
 
 // A YAMLOption alters the default configuration of the YAML configuration
@@ -70,16 +70,18 @@ func Expand(lookup LookupFunc) YAMLOption {
 	})
 }
 
-// Permissive disables gopkg.in/yaml.v2's strict mode. It's provided for
+// Permissive disables the YAML provider's strict mode. It's provided for
 // backward compatibility; to avoid a variety of common mistakes, most users
 // should leave YAML providers in the default strict mode.
 //
-// In permissive mode, duplicate keys in the same source file are allowed.
-// Later values override earlier ones (note that duplicates are NOT merged,
-// unlike all other merges in this package). Calls to Populate that don't use
-// all keys present in the YAML are allowed. Finally, type conflicts are
-// allowed when merging source files, with later values replacing earlier
-// ones.
+// In permissive mode, calls to Populate that don't use all keys present in the
+// YAML are allowed, and type conflicts are allowed when merging source files
+// (with later values replacing earlier ones).
+//
+// Note that go.yaml.in/yaml/v3 always rejects duplicate keys within a single
+// source, even in permissive mode. (In older releases, backed by
+// gopkg.in/yaml.v2, permissive mode allowed duplicate keys and later values
+// overrode earlier ones.)
 func Permissive() YAMLOption {
 	return optionFunc(func(c *config) {
 		c.strict = false
@@ -148,7 +150,7 @@ func File(name string) YAMLOption {
 // Static serializes a Go data structure to YAML and uses the result as a
 // source. If serialization fails, provider construction will return an error.
 // Priority, merge, and expansion logic are identical to Source.
-func Static(val interface{}) YAMLOption {
+func Static(val any) YAMLOption {
 	bs, err := yaml.Marshal(val)
 	if err != nil {
 		return failed(err)

@@ -71,7 +71,7 @@ func NewProviderGroup(name string, providers ...Provider) (Provider, error) {
 //
 // Deprecated: use NewYAML and the Static option directly. This enables strict
 // unmarshalling by default and allows use of other options at the same time.
-func NewStaticProvider(data interface{}) (Provider, error) {
+func NewStaticProvider(data any) (Provider, error) {
 	return NewStaticProviderWithExpand(data, nil)
 }
 
@@ -85,7 +85,7 @@ func NewStaticProvider(data interface{}) (Provider, error) {
 // Deprecated: use NewYAML and the Static and Expand options directly. This
 // enables strict unmarshalling by default and allows use of other options at
 // the same time.
-func NewStaticProviderWithExpand(data interface{}, lookup LookupFunc) (Provider, error) {
+func NewStaticProviderWithExpand(data any, lookup LookupFunc) (Provider, error) {
 	return NewYAML(Static(data), Expand(lookup), Permissive())
 }
 

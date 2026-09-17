@@ -1,10 +1,10 @@
 fun:
-- lamborghini
-- porsche
+  - lamborghini
+  - porsche
 occupants:
   honda:
     backseat:
-    - nora
+      - nora
     driver: jane
     passenger: arthur
 practical:

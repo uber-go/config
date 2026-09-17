@@ -91,13 +91,16 @@
 //
 // # Strict Unmarshalling
 //
-// By default, the NewYAML constructor enables gopkg.in/yaml.v2's strict
-// unmarshalling mode. This prevents a variety of common programmer errors,
-// especially when deep-merging loosely-typed YAML files. In strict mode,
-// providers throw errors if keys are duplicated in the same configuration
-// source, all keys aren't used when populating a struct, or a merge
-// encounters incompatible data types. This behavior can be disabled with the
-// Permissive option.
+// By default, the NewYAML constructor enables strict unmarshalling. This
+// prevents a variety of common programmer errors, especially when deep-merging
+// loosely-typed YAML files. In strict mode, providers throw errors if all keys
+// aren't used when populating a struct or a merge encounters incompatible data
+// types. Most of this behavior can be disabled with the Permissive option.
+//
+// Regardless of mode, providers reject sources that contain duplicate keys
+// within a single mapping; this is enforced by go.yaml.in/yaml/v3 and can't be
+// disabled. (Older releases, backed by gopkg.in/yaml.v2, allowed duplicate
+// keys in permissive mode.)
 //
 // To maintain backward compatibility, all other constructors default to
 // permissive unmarshalling.
@@ -111,19 +114,20 @@
 //	"foo": "bar"
 //
 // However, the YAML specification special-cases some unquoted strings. Most
-// obviously, true and false are interpreted as Booleans (unless quoted). Less
-// obviously, yes, no, on, off, and many variants of these words are also
-// treated as Booleans (see http://yaml.org/type/bool.html for the complete
-// specification).
+// obviously, true and false (along with the variants True, TRUE, False, and
+// FALSE) are interpreted as Booleans unless quoted.
 //
 // Correctly deep-merging sources requires this package to unmarshal and then
-// remarshal all YAML, which implicitly converts these special-cased unquoted
-// strings to their canonical representation. For example,
+// remarshal all YAML. To keep this round-trip lossless, go.yaml.in/yaml/v3
+// quotes any scalar that would otherwise be ambiguous. For example, the YAML
+// 1.1 Boolean spellings yes, no, on, and off are plain strings under the YAML
+// 1.2 core schema, so they're quoted on output to keep older parsers from
+// misinterpreting them:
 //
-//	foo: yes  # before merge
-//	foo: true # after merge
+//	foo: yes    # before merge
+//	foo: "yes"  # after merge
 //
-// Quoting special-cased strings prevents this surprising behavior.
+// Quoting special-cased strings yourself prevents any surprises.
 //
 // # Deprecated APIs
 //
