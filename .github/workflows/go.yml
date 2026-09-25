@@ -13,22 +13,22 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ["1.20.x", "1.21.x"]
+        go: ["1.26.x", "1.27.x"]
         include:
-        - go: 1.21.x
+        - go: 1.27.x
           latest: true
 
     steps:
     - name: Setup Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version: ${{ matrix.go }}
 
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Load cached dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/go/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
@@ -46,4 +46,4 @@ jobs:
       run: make cover
 
     - name: Upload coverage to codecov.io
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
