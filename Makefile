@@ -1,6 +1,6 @@
 export GOBIN ?= $(shell pwd)/bin
 
-GOLINT = $(GOBIN)/golint
+STATICCHECK = $(GOBIN)/staticcheck
 
 GO_FILES := $(shell \
 	find . '(' -path '*/.*' -o -path './vendor' ')' -prune \
@@ -20,9 +20,10 @@ cover:
 	go tool cover -html=cover.out -o cover.html
 
 .PHONY: lint
-lint: gofmt govet golint
+lint: gofmt govet staticcheck
 
 .PHONY: govet
+govet:
 	@echo "Running govet"
 	@go vet ./...
 
@@ -33,11 +34,11 @@ gofmt:
 	@gofmt -e -s -l $(GO_FILES) > $(FMT_LOG) || true
 	@[ ! -s "$(FMT_LOG)" ] || (echo "gofmt failed:" | cat - $(FMT_LOG) && false)
 
-.PHONY: golint
-golint: $(GOLINT)
-	@echo "Running golint"
-	@$(GOLINT) ./...
+.PHONY: staticcheck
+staticcheck: $(STATICCHECK)
+	@echo "Running staticcheck"
+	@$(STATICCHECK) ./...
 
-$(GOLINT):
-	@echo "Installing golint"
-	@go install golang.org/x/lint/golint
+$(STATICCHECK):
+	@echo "Installing staticcheck"
+	@cd tools && go install honnef.co/go/tools/cmd/staticcheck

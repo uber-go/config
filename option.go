@@ -22,7 +22,6 @@ package config
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 
 	"go.uber.org/multierr"
@@ -99,7 +98,7 @@ func Name(name string) YAMLOption {
 // Sources are subject to variable expansion (via the Expand option). To
 // provide a source that remains unexpanded, use the RawSource option.
 func Source(r io.Reader) YAMLOption {
-	all, err := ioutil.ReadAll(r)
+	all, err := io.ReadAll(r)
 	if err != nil {
 		return failed(err)
 	}
@@ -115,7 +114,7 @@ func Source(r io.Reader) YAMLOption {
 // Raw sources are not subject to variable expansion. To provide a source with
 // variable expansion enabled, use the Source option.
 func RawSource(r io.Reader) YAMLOption {
-	all, err := ioutil.ReadAll(r)
+	all, err := io.ReadAll(r)
 	if err != nil {
 		return failed(err)
 	}
@@ -132,7 +131,7 @@ func File(name string) YAMLOption {
 	if err != nil {
 		return failed(err)
 	}
-	all, err := ioutil.ReadAll(f)
+	all, err := io.ReadAll(f)
 	if err != nil {
 		err = multierr.Append(err, f.Close())
 		return failed(err)

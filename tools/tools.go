@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Uber Technologies, Inc.
+// Copyright (c) 2026 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -19,11 +19,13 @@
 // THE SOFTWARE.
 
 //go:build tools
-// +build tools
 
-package config
+// Package tools pins the development tool versions used by this repository
+// in a separate module so that they don't affect the main module's
+// dependency graph or minimum Go version.
+package tools
 
 import (
 	// Tools we use during development.
-	_ "golang.org/x/lint/golint"
+	_ "honnef.co/go/tools/cmd/staticcheck"
 )
