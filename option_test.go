@@ -22,7 +22,6 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -95,7 +94,7 @@ func TestName(t *testing.T) {
 }
 
 func TestSourceErrors(t *testing.T) {
-	f, err := ioutil.TempFile("" /* dir */, "test-source-errors" /* prefix */)
+	f, err := os.CreateTemp("" /* dir */, "test-source-errors" /* prefix */)
 	require.NoError(t, err, "couldn't create temporary file")
 	// Make reads fail by deleting file.
 	require.NoError(t, f.Close(), "couldn't delete temporary file")

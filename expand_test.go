@@ -25,7 +25,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -102,7 +101,7 @@ func TestExpander(t *testing.T) {
 
 	// Parse whole string
 	tr := transform.NewReader(r, &expandTransformer{expand: expandFunc})
-	actual, err := ioutil.ReadAll(tr)
+	actual, err := io.ReadAll(tr)
 	require.NoError(t, err)
 	assert.Exactly(t, expected, string(actual))
 
@@ -120,7 +119,7 @@ func TestExpander(t *testing.T) {
 	// Empty string
 	r = bytes.NewReader([]byte{})
 	tr = transform.NewReader(r, &expandTransformer{expand: expandFunc})
-	actual, err = ioutil.ReadAll(tr)
+	actual, err = io.ReadAll(tr)
 	require.NoError(t, err)
 	assert.Exactly(t, "", string(actual))
 }
@@ -141,7 +140,7 @@ func TestExpanderOneByteAtATime(t *testing.T) {
 	}
 
 	tr := transform.NewReader(rr, &expandTransformer{expand: expandFunc})
-	actual, err := ioutil.ReadAll(tr)
+	actual, err := io.ReadAll(tr)
 	require.NoError(t, err)
 	assert.Exactly(t, expected, string(actual))
 }
@@ -160,7 +159,7 @@ func TestExpanderFailingTransform(t *testing.T) {
 	}
 
 	tr := transform.NewReader(r, &expandTransformer{expand: expandFunc})
-	_, err := ioutil.ReadAll(tr)
+	_, err := io.ReadAll(tr)
 	require.Error(t, err)
 }
 
@@ -193,7 +192,7 @@ func TestExpanderMisc(t *testing.T) {
 					bytes.NewReader([]byte(tst.orig)),
 					&expandTransformer{expand: expandFunc},
 				)
-				actual, err := ioutil.ReadAll(tr)
+				actual, err := io.ReadAll(tr)
 				require.NoError(t, err)
 				assert.Exactly(t, tst.expect, string(actual))
 			},
@@ -230,7 +229,7 @@ func TestExpanderLongSrc(t *testing.T) {
 					&bufReader{buf: []byte(tst.orig)},
 					&expandTransformer{expand: expandFunc},
 				)
-				actual, err := ioutil.ReadAll(tr)
+				actual, err := io.ReadAll(tr)
 				require.NoError(t, err)
 				assert.Exactly(t, tst.expect, string(actual))
 			},
@@ -288,7 +287,7 @@ func TestTransformLimit(t *testing.T) {
 					bytes.NewReader([]byte(tst.orig)),
 					&expandTransformer{expand: expandFunc},
 				)
-				_, err := ioutil.ReadAll(tr)
+				_, err := io.ReadAll(tr)
 				require.EqualError(t, err, tst.err.Error())
 			},
 		)

@@ -73,13 +73,14 @@ func replace(lookUp LookupFunc) func(in string) (string, error) {
 			return envVal, nil
 		}
 
-		if def == "" {
+		switch def {
+		case "":
 			return "", fmt.Errorf(`default is empty for %q (use "" for empty string)`, key)
-		} else if def == _emptyDefault {
+		case _emptyDefault:
 			return "", nil
+		default:
+			return def, nil
 		}
-
-		return def, nil
 	}
 }
 

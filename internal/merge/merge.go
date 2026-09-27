@@ -35,7 +35,6 @@ type (
 	// they're represented like this.
 	mapping  = map[interface{}]interface{}
 	sequence = []interface{}
-	scalar   = interface{}
 )
 
 // YAML deep-merges any number of YAML sources, with later sources taking

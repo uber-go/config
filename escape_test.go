@@ -2,7 +2,7 @@ package config
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"testing"
 	"testing/quick"
 
@@ -19,7 +19,7 @@ func TestEscapeVariablesQuick(t *testing.T) {
 	round := func(s string) bool {
 		escaped := escapeVariables([]byte(s))
 		r := transform.NewReader(bytes.NewReader(escaped), transformer)
-		unescaped, err := ioutil.ReadAll(r)
+		unescaped, err := io.ReadAll(r)
 		require.NoError(t, err, "failed to read expanded config")
 		return s == string(unescaped)
 	}

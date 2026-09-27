@@ -36,7 +36,7 @@ func (noYAML) MarshalYAML() (interface{}, error) {
 
 func TestStaticErrors(t *testing.T) {
 	t.Run("serialization panics", func(t *testing.T) {
-		assert.Panics(t, func() { NewYAML(Static(make(chan int))) })
+		assert.Panics(t, func() { _, _ = NewYAML(Static(make(chan int))) })
 	})
 
 	t.Run("serialization fails", func(t *testing.T) {
