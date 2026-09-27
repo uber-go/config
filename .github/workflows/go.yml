@@ -7,6 +7,9 @@ on:
   pull_request:
     branches: ['*']
 
+permissions:
+  contents: read
+
 jobs:
 
   build:
@@ -14,9 +17,6 @@ jobs:
     strategy:
       matrix:
         go: ["1.26.x", "1.27.x"]
-        include:
-        - go: 1.27.x
-          latest: true
 
     steps:
     - name: Setup Go
@@ -38,12 +38,30 @@ jobs:
     - name: Download Dependencies
       run: go mod download
 
-    - name: Lint
-      if: matrix.latest
-      run: make lint
-
     - name: Test
       run: make cover
 
     - name: Upload coverage to codecov.io
       uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Setup Go
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version: 1.27.x
+        cache: false  # managed by golangci-lint
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+      with:
+        version: latest
+
+    - name: Check go.mod is tidy
+      run: make tidy-lint

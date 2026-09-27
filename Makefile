@@ -1,11 +1,5 @@
 export GOBIN ?= $(shell pwd)/bin
 
-STATICCHECK = $(GOBIN)/staticcheck
-
-GO_FILES := $(shell \
-	find . '(' -path '*/.*' -o -path './vendor' ')' -prune \
-	-o -name '*.go' -print | cut -b3-)
-
 .PHONY: build
 build:
 	go build ./...
@@ -20,25 +14,17 @@ cover:
 	go tool cover -html=cover.out -o cover.html
 
 .PHONY: lint
-lint: gofmt govet staticcheck
+lint: golangci-lint tidy-lint
 
-.PHONY: govet
-govet:
-	@echo "Running govet"
-	@go vet ./...
+.PHONY: golangci-lint
+golangci-lint:
+	golangci-lint run
 
-.PHONY: gofmt
-gofmt:
-	@echo "Running gofmt"
-	$(eval FMT_LOG := $(shell mktemp -t gofmt.XXXXX))
-	@gofmt -e -s -l $(GO_FILES) > $(FMT_LOG) || true
-	@[ ! -s "$(FMT_LOG)" ] || (echo "gofmt failed:" | cat - $(FMT_LOG) && false)
+.PHONY: tidy
+tidy:
+	go mod tidy
 
-.PHONY: staticcheck
-staticcheck: $(STATICCHECK)
-	@echo "Running staticcheck"
-	@$(STATICCHECK) ./...
-
-$(STATICCHECK):
-	@echo "Installing staticcheck"
-	@cd tools && go install honnef.co/go/tools/cmd/staticcheck
+.PHONY: tidy-lint
+tidy-lint:
+	go mod tidy
+	git diff --exit-code -- go.mod go.sum

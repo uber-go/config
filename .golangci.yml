@@ -1,0 +1,45 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - nolintlint
+    - revive
+    - staticcheck
+    - unused
+  settings:
+    govet:
+      # These govet checks are disabled by default, but they're useful.
+      enable:
+        - nilness
+        - reflectvaluecompare
+        - sortslice
+        - unusedwrite
+  exclusions:
+    rules:
+      # Don't warn on unused parameters.
+      # Parameter names are useful; replacing them with '_' is undesirable.
+      - linters: [revive]
+        text: 'unused-parameter: parameter \S+ seems to be unused, consider removing or renaming it as _'
+
+      # It's okay if internal packages don't have package comments.
+      - linters: [revive]
+        path: '^internal/.+'
+        text: 'should have a package comment'
+
+      # External test packages dot-import the package under test.
+      - linters: [revive]
+        path: '_test\.go$'
+        text: 'should not use dot imports'
+
+issues:
+  # Print all issues reported by all linters.
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+formatters:
+  enable:
+    - gofmt

@@ -14,5 +14,5 @@ var (
 // shouldn't (e.g., secrets). To protect variable-like strings in sources that
 // shouldn't be expanded, we must escape them.
 func escapeVariables(bs []byte) []byte {
-	return bytes.Replace(bs, _dollar, _doubleDollar, -1)
+	return bytes.ReplaceAll(bs, _dollar, _doubleDollar)
 }
